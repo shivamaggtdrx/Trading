@@ -1,0 +1,17 @@
+{
+  "name": "TradeX",
+  "short_name": "TradeX",
+  "description": "Professional Trading Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

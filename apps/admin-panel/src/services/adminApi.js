@@ -1,0 +1,89 @@
+// ══════════════════════════════════════════════════════════════
+// TradeX Admin Panel — API Service Layer
+// Connects to Express backend at localhost:4000
+// ══════════════════════════════════════════════════════════════
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+
+function getToken() {
+  return localStorage.getItem('admin_token');
+}
+
+async function request(path, options = {}) {
+  const token = getToken();
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const data = await res.json();
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('admin_user');
+      localStorage.removeItem('admin_token');
+      window.location.href = '/login';
+    }
+    throw new Error(data.error || 'Request failed');
+  }
+  return data;
+}
+
+export const adminApi = {
+  // ── Dashboard ──
+  getDashboard: () => request('/admin/dashboard'),
+
+  // ── Users ──
+  getUsers: (page = 1, limit = 25, search = '') =>
+    request(`/admin/users?page=${page}&limit=${limit}${search ? `&search=${search}` : ''}`),
+  getUser: (id) => request(`/admin/users/${id}`),
+
+  // ── Wallets & Transactions ──
+  getWalletTransactions: () => request('/admin/wallet-transactions'),
+  adjustWallet: (data) => request('/admin/wallets/adjust', { method: 'POST', body: JSON.stringify(data) }),
+
+  // ── Deposits ──
+  getDeposits: (status = 'pending') => request(`/admin/deposits?status=${status}`),
+  approveDeposit: (id) => request(`/admin/deposits/${id}/approve`, { method: 'POST' }),
+  rejectDeposit: (id, reason) => request(`/admin/deposits/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+
+  // ── Withdrawals ──
+  getWithdrawals: (status = 'pending') => request(`/admin/withdrawals?status=${status}`),
+  approveWithdrawal: (id) => request(`/admin/withdrawals/${id}/approve`, { method: 'POST' }),
+  rejectWithdrawal: (id, reason) => request(`/admin/withdrawals/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+
+  // ── Orders & Trades ──
+  getOrders: (status = 'open') => request(`/admin/orders?status=${status}`),
+  getTrades: () => request('/admin/trades'),
+
+  // ── Force Actions ──
+  forceSquareOff: (userId, reason) => request(`/admin/force-square-off/${userId}`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  globalSquareOff: () => request('/admin/global-square-off', { method: 'POST' }),
+
+  // ── Audit Logs ──
+  getAuditLogs: () => request('/admin/audit-logs'),
+
+  // ── Settings ──
+  getSettings: () => request('/admin/settings'),
+  updateSetting: (key, value) => request(`/admin/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }),
+
+  // ── Instruments ──
+  getInstruments: () => request('/admin/instruments'),
+  updateInstrument: (id, data) => request(`/admin/instruments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // ── KYC ──
+  getKycDocuments: (status = 'pending') => request(`/admin/kyc?status=${status}`),
+  verifyKyc: (id) => request(`/admin/kyc/${id}/verify`, { method: 'POST' }),
+  rejectKyc: (id, reason) => request(`/admin/kyc/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+
+  // ── Support Tickets ──
+  getTickets: () => request('/admin/tickets'),
+  replyToTicket: (id, message, status) => request(`/admin/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify({ message, status }) }),
+
+  // ── Notifications / Broadcast ──
+  getNotifications: () => request('/admin/notifications'),
+  sendBroadcast: (data) => request('/admin/notifications', { method: 'POST', body: JSON.stringify(data) }),
+
+  // ── Surveillance / Alerts ──
+  getAlerts: () => request('/admin/alerts'),
+  resolveAlert: (id) => request(`/admin/alerts/${id}/resolve`, { method: 'POST' }),
+};

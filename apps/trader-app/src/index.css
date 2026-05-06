@@ -1,0 +1,594 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --color-primary: #3b82f6;
+  --color-primary-light: #60a5fa;
+  --color-primary-dark: #2563eb;
+  --color-success: #10b981;
+  --color-success-light: #34d399;
+  --color-success-bg: rgba(16, 185, 129, 0.08);
+  --color-success-glow: rgba(16, 185, 129, 0.25);
+  --color-danger: #ef4444;
+  --color-danger-light: #f87171;
+  --color-danger-bg: rgba(239, 68, 68, 0.08);
+  --color-danger-glow: rgba(239, 68, 68, 0.25);
+  --color-warning: #f59e0b;
+  --color-surface: #f8fafc;
+  --color-surface-2: #f1f5f9;
+  --color-surface-3: #e2e8f0;
+  --color-border: #e2e8f0;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+}
+
+/* Global Resets */
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #f3f5f8;
+  color: var(--color-text-primary);
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'tnum' on, 'lnum' on;
+}
+
+/* Safe area handling for notched devices */
+.safe-top { padding-top: env(safe-area-inset-top, 0px); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 0; height: 0; }
+
+/* Tabular numbers for financial data */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' on, 'lnum' on;
+}
+
+/* ========================================
+   CARD SHADOWS
+   ======================================== */
+.card-shadow {
+  box-shadow:
+    0 1px 2px 0 rgb(0 0 0 / 0.03),
+    0 1px 3px 0 rgb(0 0 0 / 0.04);
+}
+
+.card-shadow-md {
+  box-shadow:
+    0 2px 4px -1px rgb(0 0 0 / 0.04),
+    0 4px 6px -1px rgb(0 0 0 / 0.05);
+}
+
+.card-shadow-lg {
+  box-shadow:
+    0 4px 6px -2px rgb(0 0 0 / 0.03),
+    0 10px 15px -3px rgb(0 0 0 / 0.06);
+}
+
+.card-shadow-glow-green {
+  box-shadow:
+    0 2px 8px -2px rgba(16, 185, 129, 0.2),
+    0 0 0 1px rgba(16, 185, 129, 0.05);
+}
+
+.card-shadow-glow-red {
+  box-shadow:
+    0 2px 8px -2px rgba(239, 68, 68, 0.2),
+    0 0 0 1px rgba(239, 68, 68, 0.05);
+}
+
+/* Bottom nav safe area */
+.bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 6px);
+}
+
+/* Number input hide arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* ========================================
+   TOUCH & INTERACTION FEEDBACK
+   ======================================== */
+.touch-active:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+.touch-active-subtle:active {
+  transform: scale(0.99);
+  opacity: 0.85;
+  transition: all 0.1s ease;
+}
+
+/* Ripple effect for buttons */
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+.btn-ripple::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.3) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.btn-ripple:active::after {
+  opacity: 1;
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+/* Page transition */
+.page-enter {
+  animation: fadeInUp 0.2s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Shimmer / Skeleton loading */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e8ecf1 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+/* Skeleton placeholder shapes */
+.skeleton-text {
+  height: 12px;
+  border-radius: 4px;
+}
+.skeleton-text-lg {
+  height: 18px;
+  border-radius: 5px;
+}
+.skeleton-circle {
+  border-radius: 50%;
+}
+
+/* Pulse dot for live indicator */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.8); }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Price tick flash animation */
+@keyframes priceFlashGreen {
+  0% { background-color: transparent; }
+  20% { background-color: rgba(16, 185, 129, 0.12); }
+  100% { background-color: transparent; }
+}
+
+@keyframes priceFlashRed {
+  0% { background-color: transparent; }
+  20% { background-color: rgba(239, 68, 68, 0.12); }
+  100% { background-color: transparent; }
+}
+
+.price-tick-up {
+  animation: priceFlashGreen 0.8s ease-out;
+}
+
+.price-tick-down {
+  animation: priceFlashRed 0.8s ease-out;
+}
+
+/* Number counter animation */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-count {
+  animation: countUp 0.3s ease-out;
+}
+
+/* Slide up modal */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(100%); opacity: 0; }
+}
+
+/* Scale in */
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+/* Staggered list items */
+.stagger-item {
+  animation: fadeInUp 0.25s ease-out both;
+}
+
+/* ========================================
+   SLIDE TO CONFIRM
+   ======================================== */
+.slide-confirm-track {
+  position: relative;
+  height: 52px;
+  border-radius: 10px;
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+}
+
+.slide-confirm-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 10px;
+  transition: width 0.05s linear;
+  pointer-events: none;
+}
+
+.slide-confirm-thumb {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  z-index: 2;
+  transition: box-shadow 0.2s ease;
+}
+
+.slide-confirm-thumb:active {
+  cursor: grabbing;
+}
+
+.slide-confirm-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ========================================
+   SPARKLINE CHART MINI
+   ======================================== */
+.sparkline-container {
+  width: 60px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+/* ========================================
+   FAVORITE STAR
+   ======================================== */
+@keyframes starPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+.star-pop {
+  animation: starPop 0.25s ease-out;
+}
+
+/* ========================================
+   GLASSMORPHISM
+   ======================================== */
+.glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.glass-heavy {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ========================================
+   SCROLLBAR HIDE (for horizontal scrolling)
+   ======================================== */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ========================================
+   GRADIENT TEXT
+   ======================================== */
+.gradient-text {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ========================================
+   POSITION P&L BAR
+   ======================================== */
+.pnl-bar {
+  height: 3px;
+  border-radius: 2px;
+  transition: width 0.5s ease-out;
+}
+
+/* ========================================
+   DATA DENSITY HELPERS
+   ======================================== */
+.data-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.data-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.data-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========================================
+   BOTTOM ACTION BAR (sticky)
+   ======================================== */
+.sticky-action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 35;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+/* ========================================
+   PROFIT/LOSS STRONG HIGHLIGHT
+   ======================================== */
+.pnl-profit {
+  color: #10b981;
+  text-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+}
+
+.pnl-loss {
+  color: #ef4444;
+  text-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+}
+
+/* P&L glow — stronger glow for terminal feel */
+.pnl-glow-profit {
+  color: #10b981;
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.3), 0 0 20px rgba(16, 185, 129, 0.12);
+}
+
+.pnl-glow-loss {
+  color: #ef4444;
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.3), 0 0 20px rgba(239, 68, 68, 0.12);
+}
+
+/* Blinking update indicator */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.blink-update {
+  animation: blink 0.6s ease-in-out 2;
+}
+
+/* ========================================
+   PRICE PULSE MICRO-ANIMATION
+   ======================================== */
+@keyframes pricePulseGreen {
+  0% { box-shadow: none; }
+  30% { box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.3), 0 0 6px rgba(16, 185, 129, 0.15); }
+  100% { box-shadow: none; }
+}
+
+@keyframes pricePulseRed {
+  0% { box-shadow: none; }
+  30% { box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.3), 0 0 6px rgba(239, 68, 68, 0.15); }
+  100% { box-shadow: none; }
+}
+
+.price-pulse-green {
+  animation: pricePulseGreen 1s ease-out;
+}
+
+.price-pulse-red {
+  animation: pricePulseRed 1s ease-out;
+}
+
+/* ========================================
+   ORDER CONFIRMED SUCCESS BURST
+   ======================================== */
+@keyframes orderSuccess {
+  0% { transform: scale(0.8); opacity: 0; }
+  40% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes checkDraw {
+  0% { stroke-dashoffset: 24; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.order-success-burst {
+  animation: orderSuccess 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.check-draw {
+  stroke-dasharray: 24;
+  animation: checkDraw 0.4s ease-out 0.2s forwards;
+  stroke-dashoffset: 24;
+}
+
+/* ========================================
+   ACTIVE TRADE SIDE GLOW
+   ======================================== */
+@keyframes sideGlow {
+  0%, 100% { box-shadow: 0 4px 14px -2px var(--glow-color); }
+  50% { box-shadow: 0 4px 20px 0px var(--glow-color); }
+}
+
+.buy-active-glow {
+  --glow-color: rgba(16, 185, 129, 0.3);
+  animation: sideGlow 2s ease-in-out infinite;
+}
+
+.sell-active-glow {
+  --glow-color: rgba(239, 68, 68, 0.3);
+  animation: sideGlow 2s ease-in-out infinite;
+}
+
+/* ========================================
+   ORDER BOOK / BID-ASK STYLES
+   ======================================== */
+.orderbook-row {
+  display: flex;
+  align-items: center;
+  padding: 1px 0;
+  position: relative;
+  font-size: 9px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.orderbook-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  opacity: 0.08;
+  transition: width 0.3s ease;
+}
+
+.orderbook-bar-bid {
+  right: 0;
+  background: #10b981;
+}
+
+.orderbook-bar-ask {
+  left: 0;
+  background: #ef4444;
+}
+
+/* ========================================
+   TERMINAL BACKGROUND
+   ======================================== */
+.terminal-bg {
+  background-color: #f3f5f8;
+}
+
+/* ========================================
+   STICKY FILTER TABS (for orders, etc)
+   ======================================== */
+.sticky-tabs {
+  position: sticky;
+  top: 44px; /* below compact header */
+  z-index: 20;
+  padding: 8px 12px 4px;
+  margin: 0 -12px;
+  background: rgba(243, 245, 248, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ========================================
+   COMPACT WATCHLIST ROW
+   ======================================== */
+.watchlist-row {
+  display: flex;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.2);
+}
+
+.watchlist-row:last-child {
+  border-bottom: none;
+}
+
+/* ========================================
+   INSTRUMENT ROW HOVER — terminal style
+   ======================================== */
+.instrument-row {
+  transition: background-color 0.1s ease;
+}
+
+.instrument-row:hover {
+  background-color: rgba(241, 245, 249, 0.6);
+}
+
+.instrument-row:active {
+  background-color: rgba(226, 232, 240, 0.5);
+}

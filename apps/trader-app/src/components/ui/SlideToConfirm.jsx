@@ -1,0 +1,155 @@
+import { useState, useRef, useCallback } from 'react';
+import { ArrowRight, Check } from 'lucide-react';
+import { cn } from '../../utils/helpers';
+
+/**
+ * Slide-to-confirm interaction for order placement.
+ * User drags the thumb from left to right to confirm.
+ */
+export default function SlideToConfirm({ 
+  onConfirm, 
+  label = 'Slide to Confirm', 
+  variant = 'success', // 'success' | 'danger'
+  disabled = false,
+  className = '' 
+}) {
+  const trackRef = useRef(null);
+  const [dragX, setDragX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const startXRef = useRef(0);
+  const thumbWidth = 44;
+  const padding = 4;
+
+  const getMaxX = useCallback(() => {
+    if (!trackRef.current) return 200;
+    return trackRef.current.offsetWidth - thumbWidth - padding * 2;
+  }, []);
+
+  const getPercentage = useCallback(() => {
+    const maxX = getMaxX();
+    return maxX > 0 ? Math.min(dragX / maxX, 1) : 0;
+  }, [dragX, getMaxX]);
+
+  const handleStart = useCallback((clientX) => {
+    if (disabled || confirmed) return;
+    setIsDragging(true);
+    startXRef.current = clientX - dragX;
+  }, [disabled, confirmed, dragX]);
+
+  const handleMove = useCallback((clientX) => {
+    if (!isDragging || disabled || confirmed) return;
+    const maxX = getMaxX();
+    const newX = Math.max(0, Math.min(clientX - startXRef.current, maxX));
+    setDragX(newX);
+  }, [isDragging, disabled, confirmed, getMaxX]);
+
+  const handleEnd = useCallback(() => {
+    if (!isDragging || disabled) return;
+    setIsDragging(false);
+
+    const percentage = getPercentage();
+    if (percentage >= 0.85) {
+      setConfirmed(true);
+      setDragX(getMaxX());
+      // Small delay before triggering the callback
+      setTimeout(() => {
+        onConfirm?.();
+        // Reset after callback
+        setTimeout(() => {
+          setConfirmed(false);
+          setDragX(0);
+        }, 500);
+      }, 300);
+    } else {
+      // Spring back
+      setDragX(0);
+    }
+  }, [isDragging, disabled, getPercentage, getMaxX, onConfirm]);
+
+  // Touch handlers
+  const onTouchStart = (e) => handleStart(e.touches[0].clientX);
+  const onTouchMove = (e) => handleMove(e.touches[0].clientX);
+  const onTouchEnd = () => handleEnd();
+
+  // Mouse handlers
+  const onMouseDown = (e) => handleStart(e.clientX);
+  const onMouseMove = (e) => { if (isDragging) handleMove(e.clientX); };
+  const onMouseUp = () => handleEnd();
+  const onMouseLeave = () => { if (isDragging) handleEnd(); };
+
+  const percentage = getPercentage();
+  const isGreen = variant === 'success';
+
+  const bgColor = isGreen ? 'bg-emerald-50' : 'bg-red-50';
+  const fillColor = isGreen ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+  const thumbBg = isGreen
+    ? (confirmed ? 'bg-emerald-500' : 'bg-emerald-500')
+    : (confirmed ? 'bg-red-500' : 'bg-red-500');
+  const borderColor = isGreen ? 'border-emerald-200' : 'border-red-200';
+  const labelColor = isGreen ? 'text-emerald-600' : 'text-red-500';
+
+  return (
+    <div
+      ref={trackRef}
+      className={cn(
+        'slide-confirm-track border',
+        bgColor,
+        borderColor,
+        disabled && 'opacity-50 pointer-events-none',
+        className
+      )}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseLeave}
+    >
+      {/* Fill behind thumb */}
+      <div
+        className="slide-confirm-fill"
+        style={{
+          width: dragX + thumbWidth + padding,
+          backgroundColor: fillColor,
+        }}
+      />
+
+      {/* Label */}
+      <div
+        className={cn('slide-confirm-label', labelColor)}
+        style={{ opacity: 1 - percentage * 1.5 }}
+      >
+        {label}
+      </div>
+
+      {/* Confirmed label */}
+      {confirmed && (
+        <div className={cn('slide-confirm-label', labelColor, 'font-bold')}>
+          <Check size={18} className="mr-1.5" />
+          Confirmed!
+        </div>
+      )}
+
+      {/* Draggable Thumb */}
+      <div
+        className={cn(
+          'slide-confirm-thumb shadow-lg',
+          thumbBg,
+          isDragging && 'shadow-xl scale-105'
+        )}
+        style={{
+          transform: `translateX(${dragX}px)`,
+          transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onMouseDown={onMouseDown}
+      >
+        {confirmed ? (
+          <Check size={20} className="text-white" strokeWidth={3} />
+        ) : (
+          <ArrowRight size={20} className="text-white" strokeWidth={2.5} />
+        )}
+      </div>
+    </div>
+  );
+}

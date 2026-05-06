@@ -1,0 +1,76 @@
+const router = require('express').Router();
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { supabaseAdmin } = require('../config/supabase');
+
+/**
+ * POST /api/admin/auth/login
+ * Admin panel login
+ */
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Get admin user
+    const { data: admin, error } = await supabaseAdmin
+      .from('admin_users')
+      .select('*')
+      .eq('email', email.toLowerCase())
+      .eq('is_active', true)
+      .single();
+
+    if (error || !admin) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Verify password
+    const validPassword = await bcrypt.compare(password, admin.password_hash);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      { id: admin.id, email: admin.email, role: admin.role, department: admin.department },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+    );
+
+    // Update last login
+    await supabaseAdmin
+      .from('admin_users')
+      .update({ last_login_at: new Date().toISOString() })
+      .eq('id', admin.id);
+
+    // Audit log
+    await supabaseAdmin.from('audit_logs').insert({
+      admin_id: admin.id,
+      action: 'admin_login',
+      target_type: 'admin',
+      target_id: admin.id,
+      description: `Admin ${admin.name} logged in`,
+      ip_address: req.ip,
+    });
+
+    res.json({
+      user: {
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+        department: admin.department,
+        avatar: admin.avatar,
+      },
+      token,
+    });
+  } catch (err) {
+    console.error('Admin login error:', err);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+module.exports = router;

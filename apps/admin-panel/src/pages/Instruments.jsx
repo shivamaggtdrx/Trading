@@ -1,0 +1,168 @@
+import { useState, useEffect } from 'react';
+import { Plus, Edit2, Play, Pause, Sliders, ShieldAlert, Ban, Loader2 } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
+
+export default function Instruments() {
+  const [instruments, setInstruments] = useState([]);
+  const [showConfig, setShowConfig] = useState(false);
+  const [selectedInst, setSelectedInst] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchInstruments();
+  }, []);
+
+  const fetchInstruments = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getInstruments();
+      setInstruments(data.instruments || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleStatus = async (inst) => {
+    const newStatus = inst.is_active ? false : true;
+    try {
+      await adminApi.updateInstrument(inst.id, { is_active: newStatus });
+      setInstruments(instruments.map(i => 
+        i.id === inst.id ? { ...i, is_active: newStatus } : i
+      ));
+    } catch (err) {
+      alert('Failed to update status');
+    }
+  };
+
+  const openConfig = (inst) => {
+    setSelectedInst(inst);
+    setShowConfig(true);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-gray-900">Script Master (Instruments)</h1>
+        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Script
+        </button>
+      </div>
+
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left whitespace-nowrap">
+            <thead className="text-[11px] text-gray-500 uppercase bg-gray-100 border-b border-gray-200 tracking-wider">
+              <tr>
+                <th className="px-6 py-3 font-semibold">Symbol / Segment</th>
+                <th className="px-6 py-3 font-semibold text-right">CMP (INR)</th>
+                <th className="px-6 py-3 font-semibold text-center">Lot Size</th>
+                <th className="px-6 py-3 font-semibold text-right">Spread / Edge</th>
+                <th className="px-6 py-3 font-semibold">Trade Status</th>
+                <th className="px-6 py-3 text-right font-semibold">Control</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {loading ? (
+                <tr>
+                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">Loading...</td>
+                </tr>
+              ) : instruments.map((inst) => (
+                <tr key={inst.id} className="hover:bg-blue-50/50 group">
+                  <td className="px-6 py-3">
+                    <div className="font-bold text-gray-900">{inst.symbol}</div>
+                    <div className="text-[10px] text-gray-500 uppercase">{inst.instrument_type}</div>
+                  </td>
+                  <td className="px-6 py-3 text-right font-medium text-gray-900">
+                    ₹{(inst.last_price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-6 py-3 text-center font-medium text-gray-600 bg-gray-50/50">{inst.lot_size}</td>
+                  <td className="px-6 py-3 text-right text-gray-600 font-bold">{inst.base_spread}%</td>
+                  <td className="px-6 py-3">
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${
+                      inst.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {inst.is_active ? 'active' : 'paused'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3 text-right">
+                    <div className="flex justify-end gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => openConfig(inst)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors" title="Adjust Spread & Restrictions">
+                        <Sliders className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => alert('Action triggered. Backend integration pending.')} className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-900 rounded transition-colors" title="Edit Master Data">
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <div className="w-px h-6 bg-gray-200 mx-1"></div>
+                      {inst.is_active ? (
+                        <button onClick={() => toggleStatus(inst)} className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors" title="Emergency Pause Trading">
+                          <Pause className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <button onClick={() => toggleStatus(inst)} className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors" title="Resume Trading">
+                          <Play className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Advanced Control Modal */}
+      {showConfig && selectedInst && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Sliders className="h-6 w-6 text-blue-600" />
+              <h3 className="text-lg font-bold text-gray-900">Script Control: {selectedInst.id}</h3>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Target Spread Edge (%)</label>
+                <input type="text" className="w-full border border-gray-300 rounded p-2 text-sm focus:ring-blue-500 font-medium" defaultValue={selectedInst.base_spread} />
+                <p className="text-[10px] text-gray-500 mt-1">Broker edge added to the raw market feed.</p>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Lot Size Multiplier</label>
+                <input type="number" className="w-full border border-gray-300 rounded p-2 text-sm focus:ring-blue-500 font-medium bg-gray-50" defaultValue={selectedInst.lot_size} />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Trade Restrictions</label>
+                <select className="w-full border border-gray-300 rounded p-2 text-sm focus:ring-blue-500 font-medium">
+                  <option value="none">Allow Buy & Sell (Normal)</option>
+                  <option value="block_buy">Block Fresh Buys (Square-off Only)</option>
+                  <option value="block_sell">Block Fresh Shorting</option>
+                  <option value="block_all">Pause Entire Script</option>
+                </select>
+              </div>
+
+              <div className="bg-red-50 border border-red-200 rounded p-3 mt-4">
+                <div className="flex items-start gap-2">
+                  <Ban className="h-4 w-4 text-red-600 mt-0.5" />
+                  <p className="text-xs text-red-800 font-medium">
+                    Restricting buys forces clients to only square off existing positions. Used when broker exposure is too high.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowConfig(false)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-bold text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button onClick={() => setShowConfig(false)} className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-bold shadow-sm">
+                Apply Script Updates
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
