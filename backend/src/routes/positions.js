@@ -111,34 +111,15 @@ router.post('/:id/close', async (req, res) => {
       opened_at: position.opened_at,
     });
 
-    // Update wallet
-    const { data: wallet } = await supabaseAdmin
-      .from('wallets')
-      .select('*')
-      .eq('user_id', req.user.id)
-      .single();
-
-    await supabaseAdmin
-      .from('wallets')
-      .update({
-        balance: wallet.balance + netPnl,
-        used_margin: Math.max(0, wallet.used_margin - position.margin_used),
-        total_pnl: wallet.total_pnl + netPnl,
-        today_pnl: wallet.today_pnl + netPnl,
-        week_pnl: wallet.week_pnl + netPnl,
-      })
-      .eq('user_id', req.user.id);
-
-    // Wallet transaction
-    await supabaseAdmin.from('wallet_transactions').insert({
-      user_id: req.user.id,
-      type: 'trade_pnl',
-      amount: netPnl,
-      balance_after: wallet.balance + netPnl,
-      reference_id: position.id,
-      reference_type: 'trade',
-      description: `Closed ${position.side.toUpperCase()} ${position.quantity} ${position.symbol} | PnL: ${netPnl >= 0 ? '+' : ''}${netPnl.toFixed(2)}`,
+    // Atomic wallet settlement: PnL credit + margin release + ledger entry
+    const { error: settleErr } = await supabaseAdmin.rpc('settle_position_pnl', {
+      p_user_id: req.user.id,
+      p_net_pnl: netPnl,
+      p_margin_to_release: position.margin_used,
+      p_reference_id: position.id,
+      p_symbol: `${position.side.toUpperCase()} ${position.quantity} ${position.symbol}`,
     });
+    if (settleErr) console.error('Settlement RPC error:', settleErr);
 
     res.json({
       message: 'Position closed',

@@ -10,6 +10,7 @@ import {
   Minus,
   Plus,
   Check,
+  AlertTriangle,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -36,10 +37,13 @@ export default function Trade() {
     setOrderSide,
     quantity,
     setQuantity,
+    placeOrder,
+    orderLoading,
   } = useTradeStore();
   const navigate = useNavigate();
   const [limitPrice, setLimitPrice] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [orderError, setOrderError] = useState(null);
   const [activeTimeframe, setActiveTimeframe] = useState(3); // 1H default
 
   const instruments = useTradeStore(state => state.getAllInstruments());
@@ -49,12 +53,33 @@ export default function Trade() {
   const totalValue = quantity ? (Number(quantity) * instrument.price) : 0;
   const estimatedMargin = totalValue * 0.2; // 5x leverage
 
-  const handleConfirmOrder = () => {
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setQuantity('');
-    }, 2000);
+  const handleConfirmOrder = async () => {
+    setOrderError(null);
+    const orderData = {
+      symbol: instrument.symbol,
+      side: orderSide,
+      quantity: Number(quantity),
+      order_type: orderType,
+    };
+    if (orderType === 'limit' && limitPrice) {
+      orderData.price = Number(limitPrice);
+    }
+    if (orderType === 'stoploss' && limitPrice) {
+      orderData.stop_price = Number(limitPrice);
+    }
+
+    const result = await placeOrder(orderData);
+    if (result.success) {
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setQuantity('');
+        setLimitPrice('');
+      }, 2000);
+    } else {
+      setOrderError(result.error || 'Order failed');
+      setTimeout(() => setOrderError(null), 4000);
+    }
   };
 
   const adjustQuantity = (delta) => {
@@ -348,6 +373,14 @@ export default function Trade() {
                 {formatCurrency(estimatedMargin)}
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Order Error */}
+        {orderError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 flex items-center gap-2">
+            <AlertTriangle size={14} className="text-red-500 flex-shrink-0" />
+            <span className="text-[11px] font-semibold text-red-700">{orderError}</span>
           </div>
         )}
       </div>

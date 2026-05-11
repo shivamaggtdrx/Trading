@@ -16,24 +16,25 @@ const reportTabs = [
   { key: 'tax', label: 'Tax' },
 ];
 
-const mockLedger = [
-  { id: 1, date: '2024-03-28', description: 'BUY RELIANCE 50 @ ₹2,420.00', debit: 121000, credit: 0, balance: 4430.50 },
-  { id: 2, date: '2024-03-27', description: 'SELL EURUSD 10000 — Profit', debit: 0, credit: 44.00, balance: 125430.50 },
-  { id: 3, date: '2024-03-26', description: 'Funds Deposit (UPI)', debit: 0, credit: 100000, balance: 125386.50 },
-  { id: 4, date: '2024-03-25', description: 'BUY SBIN 100 @ ₹618.50', debit: 61850, credit: 0, balance: 25386.50 },
-  { id: 5, date: '2024-03-22', description: 'Withdrawal (Bank Transfer)', debit: 25000, credit: 0, balance: 87236.50 },
-  { id: 6, date: '2024-03-20', description: 'CLOSE HDFCBANK 30 — Profit', debit: 0, credit: 1167, balance: 112236.50 },
-];
-
 export default function Reports() {
   const navigate = useNavigate();
-  const { tradeHistory } = useTradeStore();
+  const { tradeHistory, walletTransactions } = useTradeStore();
   const [activeTab, setActiveTab] = useState('ledger');
   const [dateRange, setDateRange] = useState('month');
 
   const totalPnl = tradeHistory.reduce((sum, t) => sum + t.pnl, 0);
   const totalTrades = tradeHistory.length;
-  const winRate = ((tradeHistory.filter(t => t.pnl > 0).length / totalTrades) * 100).toFixed(0);
+  const winRate = totalTrades > 0 ? ((tradeHistory.filter(t => t.pnl > 0).length / totalTrades) * 100).toFixed(0) : '0';
+
+  // Build ledger from real wallet transactions
+  const ledger = walletTransactions.map(tx => ({
+    id: tx.id,
+    date: tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '',
+    description: tx.description || tx.type,
+    debit: tx.amount < 0 ? Math.abs(tx.amount) : 0,
+    credit: tx.amount > 0 ? tx.amount : 0,
+    balance: tx.balance_after ?? 0,
+  }));
 
   return (
     <div className="page-enter">
@@ -113,9 +114,9 @@ export default function Reports() {
                 <span className="w-16 text-right">Credit</span>
               </div>
               <div className="divide-y divide-border/15">
-                {mockLedger.map(entry => (
+                {ledger.length > 0 ? ledger.map(entry => (
                   <div key={entry.id} className="flex items-center px-3 py-2">
-                    <span className="w-16 text-[9px] text-text-muted font-medium">{entry.date.slice(5)}</span>
+                    <span className="w-16 text-[9px] text-text-muted font-medium">{entry.date}</span>
                     <span className="flex-1 text-[9px] font-medium text-text-primary truncate pr-2">{entry.description}</span>
                     <span className={cn('w-16 text-right text-[9px] tabular-nums font-bold', entry.debit > 0 ? 'text-red-500' : 'text-text-muted/30')}
                       style={{ fontFamily: "'JetBrains Mono', monospace" }}>
@@ -126,7 +127,11 @@ export default function Reports() {
                       {entry.credit > 0 ? formatCurrency(entry.credit) : '—'}
                     </span>
                   </div>
-                ))}
+                )) : (
+                  <div className="py-6 text-center">
+                    <p className="text-[10px] text-text-muted font-medium">No transactions yet</p>
+                  </div>
+                )}
               </div>
             </Card>
           </div>

@@ -153,10 +153,12 @@ router.post('/login', async (req, res) => {
  */
 router.post('/logout', authenticateUser, async (req, res) => {
   try {
-    await supabasePublic.auth.signOut();
+    // Sign out the specific user (not the server's shared session)
+    await supabaseAdmin.auth.admin.signOut(req.user.id);
     res.json({ message: 'Logged out successfully' });
   } catch (err) {
-    res.status(500).json({ error: 'Logout failed' });
+    // Still return success — client should clear local tokens regardless
+    res.json({ message: 'Logged out' });
   }
 });
 

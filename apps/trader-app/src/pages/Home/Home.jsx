@@ -18,14 +18,16 @@ const marketTabs = [
 
 export default function Home() {
   const {
-    wallet, positions, activeMarketTab, setActiveMarketTab,
+    positions, activeMarketTab, setActiveMarketTab,
     searchQuery, setSearchQuery, getFilteredInstruments,
     setSelectedInstrument, toggleFavorite,
     showWatchlistOnly, setShowWatchlistOnly,
   } = useTradeStore();
   const navigate = useNavigate();
+  const walletRaw = useTradeStore(s => s.wallet);
+  const wallet = walletRaw || { balance: 0, equity: 0, usedMargin: 0, todayPnl: 0, todayPnlPercent: 0, availableMargin: 0 };
 
-  const totalOpenPnl = positions.reduce((sum, p) => sum + p.pnl, 0);
+  const totalOpenPnl = positions.reduce((sum, p) => sum + (p.pnl || 0), 0);
   const instruments = getFilteredInstruments();
 
   const handleInstrumentClick = (instrument) => {

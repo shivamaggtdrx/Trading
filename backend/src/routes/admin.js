@@ -135,17 +135,17 @@ router.post('/deposits/:id/approve', requireRole('super_admin', 'admin', 'financ
     // Approve deposit
     await supabaseAdmin.from('deposit_requests').update({ status: 'approved', approved_by: req.admin.id, approved_at: new Date().toISOString(), credited_to_wallet: true }).eq('id', deposit.id);
 
-    // Credit wallet
-    const { data: wallet } = await supabaseAdmin.from('wallets').select('*').eq('user_id', deposit.user_id).single();
-    const newBalance = (wallet.balance || 0) + deposit.amount;
-    await supabaseAdmin.from('wallets').update({ balance: newBalance, total_deposited: (wallet.total_deposited || 0) + deposit.amount }).eq('user_id', deposit.user_id);
-
-    // Ledger entry
-    await supabaseAdmin.from('wallet_transactions').insert({
-      user_id: deposit.user_id, type: 'deposit', amount: deposit.amount,
-      balance_after: newBalance, reference_id: deposit.id, reference_type: 'deposit',
-      description: `Deposit approved via ${deposit.method}`, admin_id: req.admin.id,
+    // Atomic credit wallet + ledger entry (prevents race conditions)
+    const { data: result, error: rpcErr } = await supabaseAdmin.rpc('credit_wallet', {
+      p_user_id: deposit.user_id,
+      p_amount: deposit.amount,
+      p_reference_id: deposit.id,
+      p_reference_type: 'deposit',
+      p_description: `Deposit approved via ${deposit.method}`,
+      p_admin_id: req.admin.id,
     });
+    if (rpcErr) return res.status(500).json({ error: 'Wallet credit failed: ' + rpcErr.message });
+    const newBalance = result?.new_balance ?? 0;
 
     // Audit
     await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'approve_deposit', target_type: 'deposit', target_id: deposit.id, description: `Approved ₹${deposit.amount} deposit for user ${deposit.user_id}`, ip_address: req.ip });
@@ -187,20 +187,19 @@ router.post('/withdrawals/:id/approve', requireRole('super_admin', 'admin', 'fin
     const { data: wd } = await supabaseAdmin.from('withdrawal_requests').select('*').eq('id', req.params.id).in('status', ['pending', 'flagged']).single();
     if (!wd) return res.status(404).json({ error: 'Withdrawal not found' });
 
-    const { data: wallet } = await supabaseAdmin.from('wallets').select('*').eq('user_id', wd.user_id).single();
-    const withdrawable = wallet.balance - wallet.used_margin;
-    if (wd.amount > withdrawable) return res.status(400).json({ error: 'Insufficient balance for withdrawal' });
-
-    // Debit wallet
-    const newBalance = wallet.balance - wd.amount;
-    await supabaseAdmin.from('wallets').update({ balance: newBalance, total_withdrawn: (wallet.total_withdrawn || 0) + wd.amount }).eq('user_id', wd.user_id);
-    await supabaseAdmin.from('withdrawal_requests').update({ status: 'approved', approved_by: req.admin.id, approved_at: new Date().toISOString() }).eq('id', wd.id);
-
-    await supabaseAdmin.from('wallet_transactions').insert({
-      user_id: wd.user_id, type: 'withdrawal', amount: -wd.amount,
-      balance_after: newBalance, reference_id: wd.id, reference_type: 'withdrawal',
-      description: `Withdrawal approved via ${wd.method}`, admin_id: req.admin.id,
+    // Atomic debit wallet + ledger (prevents race conditions)
+    const { data: result, error: rpcErr } = await supabaseAdmin.rpc('debit_wallet', {
+      p_user_id: wd.user_id,
+      p_amount: wd.amount,
+      p_reference_id: wd.id,
+      p_reference_type: 'withdrawal',
+      p_description: `Withdrawal approved via ${wd.method}`,
+      p_admin_id: req.admin.id,
     });
+    if (rpcErr) return res.status(400).json({ error: rpcErr.message });
+    const newBalance = result?.new_balance ?? 0;
+
+    await supabaseAdmin.from('withdrawal_requests').update({ status: 'approved', approved_by: req.admin.id, approved_at: new Date().toISOString() }).eq('id', wd.id);
 
     await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'approve_withdrawal', target_type: 'withdrawal', target_id: wd.id, description: `Approved ₹${wd.amount} withdrawal`, ip_address: req.ip });
     res.json({ message: 'Withdrawal approved', new_balance: newBalance });

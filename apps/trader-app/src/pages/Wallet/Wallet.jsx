@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Wallet as WalletIcon, ArrowUpRight, ArrowDownRight,
   Plus, Minus, Clock, CheckCircle2, XCircle, IndianRupee, Shield,
+  AlertCircle, Loader2,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -10,33 +11,62 @@ import Modal from '../../components/ui/Modal';
 import { useTradeStore } from '../../store/useTradeStore';
 import { formatCurrency, cn } from '../../utils/helpers';
 
-const mockTransactions = [
-  { id: 'TX-001', type: 'deposit', amount: 100000, status: 'completed', date: '2024-03-28 10:30', method: 'UPI' },
-  { id: 'TX-002', type: 'withdrawal', amount: 25000, status: 'pending', date: '2024-03-27 14:20', method: 'Bank Transfer' },
-  { id: 'TX-003', type: 'deposit', amount: 50000, status: 'completed', date: '2024-03-25 09:15', method: 'NEFT' },
-  { id: 'TX-004', type: 'withdrawal', amount: 15000, status: 'completed', date: '2024-03-22 16:45', method: 'UPI' },
-  { id: 'TX-005', type: 'deposit', amount: 200000, status: 'completed', date: '2024-03-20 11:00', method: 'Wire Transfer' },
-  { id: 'TX-006', type: 'withdrawal', amount: 30000, status: 'rejected', date: '2024-03-18 13:30', method: 'IMPS' },
-];
-
 export default function WalletPage() {
   const navigate = useNavigate();
-  const { wallet } = useTradeStore();
+  const { wallet, walletTransactions, submitDeposit, submitWithdrawal, depositLoading, withdrawLoading } = useTradeStore();
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('deposit');
   const [amount, setAmount] = useState('');
+  const [utrNumber, setUtrNumber] = useState('');
+  const [submitResult, setSubmitResult] = useState(null);
 
   const openModal = (type) => {
     setModalType(type);
     setAmount('');
+    setUtrNumber('');
+    setSubmitResult(null);
     setShowModal(true);
+  };
+
+  const handleSubmit = async () => {
+    setSubmitResult(null);
+    if (modalType === 'deposit') {
+      const result = await submitDeposit(Number(amount), 'UPI', utrNumber || undefined);
+      if (result.success) {
+        setSubmitResult({ type: 'success', message: 'Deposit request submitted! It will be reviewed shortly.' });
+        setTimeout(() => { setShowModal(false); setSubmitResult(null); }, 2500);
+      } else {
+        setSubmitResult({ type: 'error', message: result.error || 'Deposit failed' });
+      }
+    } else {
+      const result = await submitWithdrawal({ amount: Number(amount), method: 'bank_transfer' });
+      if (result.success) {
+        setSubmitResult({ type: 'success', message: 'Withdrawal request submitted!' });
+        setTimeout(() => { setShowModal(false); setSubmitResult(null); }, 2500);
+      } else {
+        setSubmitResult({ type: 'error', message: result.error || 'Withdrawal failed' });
+      }
+    }
   };
 
   const statusConfig = {
     completed: { icon: CheckCircle2, label: 'Completed', color: 'text-emerald-600', bg: 'bg-emerald-500/8' },
+    approved: { icon: CheckCircle2, label: 'Completed', color: 'text-emerald-600', bg: 'bg-emerald-500/8' },
     pending: { icon: Clock, label: 'Pending', color: 'text-amber-600', bg: 'bg-amber-500/8' },
     rejected: { icon: XCircle, label: 'Rejected', color: 'text-red-500', bg: 'bg-red-500/8' },
   };
+
+  // Format wallet transaction for display
+  const formatTxType = (type) => {
+    const map = {
+      deposit: 'Deposit', withdrawal: 'Withdrawal', trade_pnl: 'Trade P&L',
+      commission: 'Commission', swap_fee: 'Swap Fee', bonus: 'Bonus',
+      adjustment: 'Adjustment', refund: 'Refund',
+    };
+    return map[type] || type;
+  };
+
+  const isCredit = (tx) => tx.amount > 0;
 
   return (
     <div className="page-enter">
@@ -66,7 +96,7 @@ export default function WalletPage() {
                 <span className="text-[10px] font-medium text-white/50 uppercase tracking-wider">Available Balance</span>
               </div>
               <p className="text-2xl font-extrabold tracking-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                {formatCurrency(wallet.balance)}
+                {formatCurrency(wallet?.balance || 0)}
               </p>
             </div>
             <div className="absolute -top-6 -right-6 w-24 h-24 bg-blue-400/5 rounded-full" />
@@ -78,19 +108,19 @@ export default function WalletPage() {
           <Card padding="p-2.5">
             <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Equity</p>
             <p className="text-[10px] font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              {formatCurrency(wallet.equity)}
+              {formatCurrency(wallet?.equity || 0)}
             </p>
           </Card>
           <Card padding="p-2.5">
             <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Used Margin</p>
             <p className="text-[10px] font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              {formatCurrency(wallet.usedMargin)}
+              {formatCurrency(wallet?.usedMargin || 0)}
             </p>
           </Card>
           <Card padding="p-2.5">
             <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Free Margin</p>
             <p className="text-[10px] font-extrabold text-emerald-500 tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              {formatCurrency(wallet.availableMargin)}
+              {formatCurrency(wallet?.availableMargin || 0)}
             </p>
           </Card>
         </div>
@@ -110,49 +140,59 @@ export default function WalletPage() {
           <h3 className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
             Recent Transactions
           </h3>
-          <Card padding="p-0">
-            <div className="divide-y divide-border/20">
-              {mockTransactions.map((tx) => {
-                const config = statusConfig[tx.status];
-                const StatusIcon = config.icon;
-                const isDeposit = tx.type === 'deposit';
-                return (
-                  <div key={tx.id} className="px-3 py-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className={cn(
-                          'w-8 h-8 rounded-lg flex items-center justify-center',
-                          isDeposit ? 'bg-emerald-500/10' : 'bg-red-500/10'
-                        )}>
-                          {isDeposit ? (
-                            <ArrowDownRight size={14} className="text-emerald-600" />
-                          ) : (
-                            <ArrowUpRight size={14} className="text-red-500" />
-                          )}
+          {walletTransactions.length > 0 ? (
+            <Card padding="p-0">
+              <div className="divide-y divide-border/20">
+                {walletTransactions.map((tx) => {
+                  const credit = isCredit(tx);
+                  const status = tx.status || (credit ? 'completed' : 'completed');
+                  const config = statusConfig[status] || statusConfig.completed;
+                  const StatusIcon = config.icon;
+                  return (
+                    <div key={tx.id} className="px-3 py-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className={cn(
+                            'w-8 h-8 rounded-lg flex items-center justify-center',
+                            credit ? 'bg-emerald-500/10' : 'bg-red-500/10'
+                          )}>
+                            {credit ? (
+                              <ArrowDownRight size={14} className="text-emerald-600" />
+                            ) : (
+                              <ArrowUpRight size={14} className="text-red-500" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold text-text-primary">{formatTxType(tx.type)}</p>
+                            <p className="text-[9px] text-text-muted mt-0.5 truncate max-w-[180px]">
+                              {tx.description || tx.type} · {new Date(tx.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-[11px] font-bold text-text-primary capitalize">{tx.type}</p>
-                          <p className="text-[9px] text-text-muted mt-0.5">{tx.method} · {tx.date}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className={cn(
-                          'text-[11px] font-extrabold tabular-nums',
-                          isDeposit ? 'text-emerald-600' : 'text-text-primary'
-                        )} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                          {isDeposit ? '+' : '-'}{formatCurrency(tx.amount)}
-                        </p>
-                        <div className={cn('flex items-center gap-0.5 justify-end mt-0.5', config.color)}>
-                          <StatusIcon size={8} />
-                          <span className="text-[8px] font-bold">{config.label}</span>
+                        <div className="text-right">
+                          <p className={cn(
+                            'text-[11px] font-extrabold tabular-nums',
+                            credit ? 'text-emerald-600' : 'text-text-primary'
+                          )} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                            {credit ? '+' : ''}{formatCurrency(tx.amount)}
+                          </p>
+                          <div className={cn('flex items-center gap-0.5 justify-end mt-0.5', config.color)}>
+                            <StatusIcon size={8} />
+                            <span className="text-[8px] font-bold">{config.label}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
+                  );
+                })}
+              </div>
+            </Card>
+          ) : (
+            <Card className="py-6 text-center">
+              <Clock size={18} className="mx-auto text-text-muted/40 mb-1.5" />
+              <p className="text-[10px] font-semibold text-text-muted">No transactions yet</p>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -162,7 +202,7 @@ export default function WalletPage() {
           <div className="bg-surface rounded-lg p-3">
             <div className="flex justify-between text-sm mb-2">
               <span className="text-text-muted">Available Balance</span>
-              <span className="font-bold text-text-primary">{formatCurrency(wallet.balance)}</span>
+              <span className="font-bold text-text-primary">{formatCurrency(wallet?.balance || 0)}</span>
             </div>
           </div>
           <div>
@@ -190,14 +230,43 @@ export default function WalletPage() {
             ))}
           </div>
           {modalType === 'deposit' && (
-            <div className="flex items-start gap-2 bg-blue-50 rounded-lg p-2.5 border border-blue-200/50">
-              <Shield size={14} className="text-blue-600 mt-0.5 flex-shrink-0" />
-              <p className="text-[10px] text-blue-700">Funds will be credited instantly via UPI or within 1 hour via NEFT/IMPS.</p>
+            <>
+              <div>
+                <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">UTR Number (optional)</label>
+                <input
+                  type="text"
+                  value={utrNumber}
+                  onChange={(e) => setUtrNumber(e.target.value)}
+                  placeholder="Enter UTR / Transaction Ref"
+                  className="w-full bg-white border border-border/50 rounded-xl px-4 py-2.5 text-sm font-medium text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+                />
+              </div>
+              <div className="flex items-start gap-2 bg-blue-50 rounded-lg p-2.5 border border-blue-200/50">
+                <Shield size={14} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                <p className="text-[10px] text-blue-700">Funds will be credited instantly via UPI or within 1 hour via NEFT/IMPS.</p>
+              </div>
+            </>
+          )}
+          {/* Result message */}
+          {submitResult && (
+            <div className={cn(
+              'flex items-center gap-2 rounded-lg p-2.5 border text-[11px] font-semibold',
+              submitResult.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'
+            )}>
+              {submitResult.type === 'success' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+              {submitResult.message}
             </div>
           )}
           <div className="flex gap-2">
             <Button variant="outline" fullWidth size="md" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button variant={modalType === 'deposit' ? 'success' : 'danger'} fullWidth size="md" disabled={!amount || Number(amount) <= 0}>
+            <Button
+              variant={modalType === 'deposit' ? 'success' : 'danger'}
+              fullWidth
+              size="md"
+              disabled={!amount || Number(amount) <= 0 || depositLoading || withdrawLoading}
+              onClick={handleSubmit}
+            >
+              {(depositLoading || withdrawLoading) && <Loader2 size={14} className="mr-1.5 animate-spin" />}
               {modalType === 'deposit' ? 'Deposit' : 'Withdraw'} {amount ? formatCurrency(Number(amount)) : ''}
             </Button>
           </div>

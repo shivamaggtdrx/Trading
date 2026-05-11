@@ -173,11 +173,12 @@ router.post('/', async (req, res) => {
 
       if (posErr) return res.status(500).json({ error: 'Order filled but position creation failed: ' + posErr.message });
 
-      // Update wallet — block margin
-      await supabaseAdmin
-        .from('wallets')
-        .update({ used_margin: wallet.used_margin + marginRequired })
-        .eq('user_id', userId);
+      // Atomic margin block (prevents race conditions)
+      const { error: marginErr } = await supabaseAdmin.rpc('block_margin', {
+        p_user_id: userId,
+        p_margin_amount: marginRequired,
+      });
+      if (marginErr) console.error('Margin block RPC error:', marginErr);
 
       // Log transaction
       await supabaseAdmin.from('wallet_transactions').insert({

@@ -19,9 +19,11 @@ import { useTradeStore } from '../../store/useTradeStore';
 import { formatCurrency, formatPercent, cn } from '../../utils/helpers';
 
 export default function Dashboard() {
-  const { wallet, stocks, positions, getAllFavorites, setSelectedInstrument } = useTradeStore();
+  const { getStocks, positions, getAllFavorites, setSelectedInstrument } = useTradeStore();
   const navigate = useNavigate();
-
+  const walletRaw = useTradeStore(s => s.wallet);
+  const wallet = walletRaw || { balance: 0, equity: 0, usedMargin: 0, todayPnl: 0, todayPnlPercent: 0, availableMargin: 0 };
+  const stocks = getStocks();
   const totalOpenPnl = positions.reduce((sum, p) => sum + p.pnl, 0);
   const topMovers = [...stocks].sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent)).slice(0, 5);
   const favorites = getAllFavorites();

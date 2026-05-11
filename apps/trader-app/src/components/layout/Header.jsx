@@ -17,7 +17,7 @@ export default function Header({ title, showNotification = true, showGreeting = 
           {showGreeting ? (
             <>
               <p className="text-[10px] text-text-muted font-medium tracking-wide uppercase">{getTimeOfDay()}</p>
-              <h1 className="text-base font-bold text-text-primary tracking-tight leading-tight">{user.name}</h1>
+              <h1 className="text-base font-bold text-text-primary tracking-tight leading-tight">{user?.name || user?.full_name || 'Trader'}</h1>
             </>
           ) : (
             <h1 className="text-base font-bold text-text-primary tracking-tight">{title}</h1>

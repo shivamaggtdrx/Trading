@@ -23,9 +23,14 @@ import { useTradeStore } from '../../store/useTradeStore';
 import { cn } from '../../utils/helpers';
 
 export default function Profile() {
-  const { user } = useTradeStore();
+  const { user, logout } = useTradeStore();
   const navigate = useNavigate();
   const [copiedField, setCopiedField] = useState(null);
+
+  const userName = user?.name || user?.full_name || 'User';
+  const userEmail = user?.email || '';
+  const clientId = user?.clientId || user?.client_id || '';
+  const referralCode = user?.referralCode || user?.referral_code || '';
 
   const handleCopy = (text, field) => {
     navigator.clipboard?.writeText(text);
@@ -68,11 +73,11 @@ export default function Profile() {
         <Card padding="p-4">
           <div className="flex items-center gap-3">
             <div className="w-14 h-14 bg-gradient-to-br from-slate-800 to-blue-900 rounded-xl flex items-center justify-center text-white text-lg font-extrabold shadow-lg shadow-slate-800/20">
-              {user.name.charAt(0)}
+              {userName.charAt(0)}
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-bold text-text-primary">{user.name}</h2>
-              <p className="text-[10px] text-text-muted mt-0.5 truncate">{user.email}</p>
+              <h2 className="text-sm font-bold text-text-primary">{userName}</h2>
+              <p className="text-[10px] text-text-muted mt-0.5 truncate">{userEmail}</p>
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant="success">
                   <Shield size={8} className="mr-1" />
@@ -89,10 +94,10 @@ export default function Profile() {
             <p className="text-[8px] text-text-muted font-bold uppercase tracking-wider mb-1">Client ID</p>
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold text-text-primary" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                {user.clientId}
+                {clientId}
               </p>
               <button
-                onClick={() => handleCopy(user.clientId, 'clientId')}
+                onClick={() => handleCopy(clientId, 'clientId')}
                 className="p-1 rounded-lg hover:bg-surface transition-colors touch-active-subtle"
               >
                 {copiedField === 'clientId' ? (
@@ -107,10 +112,10 @@ export default function Profile() {
             <p className="text-[8px] text-text-muted font-bold uppercase tracking-wider mb-1">Referral Code</p>
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold text-primary" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                {user.referralCode}
+                {referralCode}
               </p>
               <button
-                onClick={() => handleCopy(user.referralCode, 'referral')}
+                onClick={() => handleCopy(referralCode, 'referral')}
                 className="p-1 rounded-lg hover:bg-surface transition-colors touch-active-subtle"
               >
                 {copiedField === 'referral' ? (
@@ -160,7 +165,7 @@ export default function Profile() {
 
         {/* Logout */}
         <Card padding="p-0">
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-red-50/50 active:bg-red-50 transition-colors touch-active-subtle rounded-xl">
+          <button onClick={() => { logout(); navigate('/login'); }} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-red-50/50 active:bg-red-50 transition-colors touch-active-subtle rounded-xl">
             <div className="w-8 h-8 bg-red-500/8 rounded-xl flex items-center justify-center">
               <LogOut size={15} className="text-red-500" strokeWidth={1.8} />
             </div>

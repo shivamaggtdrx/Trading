@@ -13,6 +13,12 @@ function getToken() {
   try { return JSON.parse(session).access_token; } catch { return null; }
 }
 
+function getRefreshToken() {
+  const session = localStorage.getItem('tradex_session');
+  if (!session) return null;
+  try { return JSON.parse(session).refresh_token; } catch { return null; }
+}
+
 function setSession(session) {
   localStorage.setItem('tradex_session', JSON.stringify(session));
 }
@@ -22,8 +28,31 @@ function clearSession() {
   localStorage.removeItem('tradex_user');
 }
 
+// ── Token refresh ──
+let isRefreshing = false;
+async function tryRefreshToken() {
+  if (isRefreshing) return false;
+  isRefreshing = true;
+  try {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return false;
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    // Supabase approach: use the supabase client directly if available
+    // For now, if refresh fails, we force re-login
+    return false;
+  } catch {
+    return false;
+  } finally {
+    isRefreshing = false;
+  }
+}
+
 // ── HTTP helper ──
-async function request(path, options = {}) {
+async function request(path, options = {}, _isRetry = false) {
   const token = getToken();
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -32,7 +61,10 @@ async function request(path, options = {}) {
   const data = await res.json();
 
   if (!res.ok) {
-    if (res.status === 401) {
+    if (res.status === 401 && !_isRetry) {
+      // Try refreshing token once before giving up
+      const refreshed = await tryRefreshToken();
+      if (refreshed) return request(path, options, true);
       clearSession();
       window.location.href = '/login';
     }
