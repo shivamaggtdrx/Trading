@@ -11,11 +11,11 @@ services:
       - key: NODE_ENV
         value: production
       - key: SUPABASE_URL
-        sync: false # Set this in Render Dashboard
+        value: "YOUR_SUPABASE_URL_HERE"
       - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false # Set this in Render Dashboard
+        value: "YOUR_SERVICE_ROLE_KEY_HERE"
       - key: SUPABASE_ANON_KEY
-        sync: false # Set this in Render Dashboard
+        value: "YOUR_ANON_KEY_HERE"
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
