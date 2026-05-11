@@ -1,0 +1,67 @@
+services:
+  # ── Backend Web Service ──
+  - type: web
+    name: tradex-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false # Set this in Render Dashboard
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false # Set this in Render Dashboard
+      - key: SUPABASE_ANON_KEY
+        sync: false # Set this in Render Dashboard
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://tradex-app.onrender.com
+      - key: ADMIN_URL
+        value: https://tradex-admin.onrender.com
+
+  # ── Trader App (Static Site) ──
+  - type: web
+    name: tradex-app
+    runtime: static
+    rootDir: apps/trader-app
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://tradex-backend.onrender.com/api
+      - key: VITE_WS_URL
+        value: wss://tradex-backend.onrender.com/ws/prices
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # ── Admin Panel (Static Site) ──
+  - type: web
+    name: tradex-admin
+    runtime: static
+    rootDir: apps/admin-panel
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://tradex-backend.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # ── Landing Page Website (Static Site) ──
+  - type: web
+    name: tradex-landing
+    runtime: static
+    rootDir: apps/landing
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
