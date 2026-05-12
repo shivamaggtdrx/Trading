@@ -32,7 +32,7 @@ export default function AdminLogin() {
     setLoading(true);
     await new Promise((r) => setTimeout(r, 800));
 
-    const result = login(email, password, department);
+    const result = await login(email, password, department);
     if (!result.success) {
       setError(result.error);
     }
