@@ -94,19 +94,19 @@ export default function Charts() {
       <header className="sticky top-0 z-30 glass-heavy safe-top border-b border-border/30">
         <div className="max-w-lg mx-auto flex items-center gap-2 px-3 py-2">
           <button onClick={() => setShowPicker(!showPicker)} className="flex items-center gap-1 p-1 rounded-md hover:bg-surface transition-colors touch-active-subtle">
-            <h1 className="text-sm font-extrabold text-text-primary">{instrument.symbol}</h1>
+            <h1 className="text-base font-extrabold text-text-primary">{instrument.symbol}</h1>
             <ChevronDown size={14} className="text-text-muted" />
           </button>
-          <span className={cn('flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-md', instrument.change >= 0 ? 'text-emerald-600 bg-emerald-500/8' : 'text-red-500 bg-red-500/8')}>
+          <span className={cn('flex items-center gap-0.5 text-sm font-bold px-1.5 py-0.5 rounded-md', instrument.change >= 0 ? 'text-emerald-600 bg-emerald-500/8' : 'text-red-500 bg-red-500/8')}>
             {instrument.change >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
             {formatPercent(instrument.changePercent)}
           </span>
-          <p className="text-[9px] text-text-muted truncate flex-1">{instrument.name}</p>
+          <p className="text-sm text-text-muted truncate flex-1">{instrument.name}</p>
           <div className={cn('text-right px-1.5 py-0.5 rounded-md transition-all', pricePulse === 'green' && 'price-pulse-green', pricePulse === 'red' && 'price-pulse-red')}>
-            <p className="text-sm font-extrabold text-text-primary tabular-nums leading-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <p className="text-base font-extrabold text-text-primary tabular-nums leading-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               {currSymbol}{fmtPrice(instrument.price)}
             </p>
-            <p className={cn('text-[9px] font-bold', instrument.change >= 0 ? 'text-emerald-500' : 'text-red-500')}>
+            <p className={cn('text-sm font-bold', instrument.change >= 0 ? 'text-emerald-500' : 'text-red-500')}>
               {instrument.change >= 0 ? '+' : ''}{instrument.change >= 100 ? instrument.change.toFixed(2) : instrument.change.toFixed(4)}
             </p>
           </div>
@@ -117,10 +117,10 @@ export default function Charts() {
               <button key={inst.symbol} onClick={() => { setSelectedInstrument(inst); setShowPicker(false); }}
                 className={cn('w-full flex items-center justify-between px-4 py-2 text-left hover:bg-surface/50 transition-colors', inst.symbol === instrument.symbol && 'bg-primary/5')}>
                 <div>
-                  <span className="text-[11px] font-bold text-text-primary">{inst.symbol}</span>
-                  <span className="text-[9px] text-text-muted ml-2">{inst.name}</span>
+                  <span className="text-base font-bold text-text-primary">{inst.symbol}</span>
+                  <span className="text-sm text-text-muted ml-2">{inst.name}</span>
                 </div>
-                <span className={cn('text-[10px] font-extrabold tabular-nums', inst.change >= 0 ? 'text-emerald-500' : 'text-red-500')}>
+                <span className={cn('text-base font-extrabold tabular-nums', inst.change >= 0 ? 'text-emerald-500' : 'text-red-500')}>
                   {formatPercent(inst.changePercent)}
                 </span>
               </button>
@@ -158,7 +158,7 @@ export default function Charts() {
             </svg>
             <div className="relative z-10 flex flex-col items-center justify-center h-full">
               <BarChart2 size={24} className="text-text-muted/10 mb-1" />
-              <p className="text-[9px] text-text-muted/25 font-medium">TradingView Chart</p>
+              <p className="text-sm text-text-muted/25 font-medium">TradingView Chart</p>
             </div>
             {/* OHLC overlay */}
             <div className="absolute top-2 left-2 flex gap-2">
@@ -168,12 +168,12 @@ export default function Charts() {
                 { l: 'L', v: instrument.low, c: 'text-red-500' },
                 { l: 'C', v: instrument.price },
               ].map(i => (
-                <div key={i.l} className="text-[7px]">
+                <div key={i.l} className="text-[10px]">
                   <span className="text-text-muted/60 font-medium">{i.l} </span>
                   <span className={cn('font-bold tabular-nums', i.c || 'text-text-secondary')}>{i.v >= 100 ? i.v.toFixed(2) : i.v.toFixed(4)}</span>
                 </div>
               ))}
-              <div className="text-[7px]">
+              <div className="text-[10px]">
                 <span className="text-text-muted/60 font-medium">V </span>
                 <span className="font-bold text-text-secondary">{instrument.volume}</span>
               </div>
@@ -182,7 +182,7 @@ export default function Charts() {
             <div className="absolute bottom-1.5 left-1.5 right-1.5 flex gap-0.5">
               {['1M','5M','15M','1H','4H','1D','1W'].map((tf, i) => (
                 <button key={tf} onClick={() => setActiveTimeframe(i)}
-                  className={cn('flex-1 py-1 text-[7px] font-bold rounded-sm transition-all', i === activeTimeframe ? 'bg-primary text-white' : 'bg-white/60 text-text-muted hover:text-text-secondary')}>
+                  className={cn('flex-1 py-1 text-[10px] font-bold rounded-sm transition-all', i === activeTimeframe ? 'bg-primary text-white' : 'bg-white/60 text-text-muted hover:text-text-secondary')}>
                   {tf}
                 </button>
               ))}
@@ -190,8 +190,8 @@ export default function Charts() {
           </div>
 
           {/* Order Book sidebar */}
-          <div className="w-[100px] border-l border-border/20 flex flex-col text-[8px] bg-surface/30">
-            <div className="px-1.5 py-1 border-b border-border/20 text-[7px] font-bold text-text-muted uppercase tracking-wider text-center">
+          <div className="w-[100px] border-l border-border/20 flex flex-col text-[11px] bg-surface/30">
+            <div className="px-1.5 py-1 border-b border-border/20 text-[10px] font-bold text-text-muted uppercase tracking-wider text-center">
               Order Book
             </div>
             {/* Asks (reversed) */}
@@ -206,10 +206,10 @@ export default function Charts() {
             </div>
             {/* Spread / current price */}
             <div className={cn('px-1.5 py-1 text-center border-y border-border/20', pricePulse === 'green' && 'price-pulse-green', pricePulse === 'red' && 'price-pulse-red')}>
-              <p className={cn('text-[10px] font-extrabold tabular-nums', instrument.change >= 0 ? 'text-emerald-600' : 'text-red-500')} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              <p className={cn('text-base font-extrabold tabular-nums', instrument.change >= 0 ? 'text-emerald-600' : 'text-red-500')} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {currSymbol}{fmtPrice(instrument.price)}
               </p>
-              <p className="text-[6px] text-text-muted font-medium mt-0.5">
+              <p className="text-[10px] text-text-muted font-medium mt-0.5">
                 Spread: {isForex ? '0.3 pips' : `₹${(instrument.price * 0.002).toFixed(2)}`}
               </p>
             </div>
@@ -238,8 +238,8 @@ export default function Charts() {
             { label: 'Vol', value: instrument.volume, color: 'text-text-primary' },
           ].map((item) => (
             <div key={item.label} className="bg-white rounded-md p-1.5 border border-border/20">
-              <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">{item.label}</p>
-              <p className={cn('text-[10px] font-extrabold tabular-nums mt-0.5', item.color)} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">{item.label}</p>
+              <p className={cn('text-base font-extrabold tabular-nums mt-0.5', item.color)} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {typeof item.value === 'number' ? (item.value >= 100 ? item.value.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : item.value.toFixed(4)) : item.value}
               </p>
             </div>
@@ -249,16 +249,16 @@ export default function Charts() {
         {/* Buy/Sell with live price */}
         <div className="grid grid-cols-2 gap-1.5">
           <button onClick={() => setOrderSide('buy')}
-            className={cn('relative py-3 rounded-lg text-sm font-extrabold tracking-wide transition-all duration-200 btn-ripple',
+            className={cn('relative py-3 rounded-lg text-base font-extrabold tracking-wide transition-all duration-200 btn-ripple',
               orderSide === 'buy' ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white buy-active-glow' : 'bg-emerald-500/6 text-emerald-600 border border-emerald-200/50')}>
             <span className="relative z-10">▲ BUY</span>
-            {orderSide === 'buy' && <span className="block text-[9px] font-bold opacity-80 mt-0.5 relative z-10">{currSymbol}{fmtPrice(orderBook.asks[0].price)}</span>}
+            {orderSide === 'buy' && <span className="block text-sm font-bold opacity-80 mt-0.5 relative z-10">{currSymbol}{fmtPrice(orderBook.asks[0].price)}</span>}
           </button>
           <button onClick={() => setOrderSide('sell')}
-            className={cn('relative py-3 rounded-lg text-sm font-extrabold tracking-wide transition-all duration-200 btn-ripple',
+            className={cn('relative py-3 rounded-lg text-base font-extrabold tracking-wide transition-all duration-200 btn-ripple',
               orderSide === 'sell' ? 'bg-gradient-to-r from-red-500 to-red-600 text-white sell-active-glow' : 'bg-red-500/6 text-red-500 border border-red-200/50')}>
             <span className="relative z-10">▼ SELL</span>
-            {orderSide === 'sell' && <span className="block text-[9px] font-bold opacity-80 mt-0.5 relative z-10">{currSymbol}{fmtPrice(orderBook.bids[0].price)}</span>}
+            {orderSide === 'sell' && <span className="block text-sm font-bold opacity-80 mt-0.5 relative z-10">{currSymbol}{fmtPrice(orderBook.bids[0].price)}</span>}
           </button>
         </div>
 
@@ -266,18 +266,18 @@ export default function Charts() {
 
         {/* Quantity */}
         <div className="space-y-1">
-          <label className="block text-[9px] font-bold text-text-muted uppercase tracking-wider">Quantity</label>
+          <label className="block text-sm font-bold text-text-muted uppercase tracking-wider">Quantity</label>
           <div className="flex items-center gap-1">
             <button onClick={() => adjustQuantity(-1)} className="w-9 h-9 rounded-lg bg-white border border-border/40 flex items-center justify-center touch-active-subtle"><Minus size={14} className="text-text-secondary" /></button>
             <input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0"
-              className="flex-1 bg-white border border-border/40 rounded-lg px-3 py-2 text-center text-sm font-extrabold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all tabular-nums"
+              className="flex-1 bg-white border border-border/40 rounded-lg px-3 py-2 text-center text-base font-extrabold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all tabular-nums"
               style={{ fontFamily: "'JetBrains Mono', monospace" }} />
             <button onClick={() => adjustQuantity(1)} className="w-9 h-9 rounded-lg bg-white border border-border/40 flex items-center justify-center touch-active-subtle"><Plus size={14} className="text-text-secondary" /></button>
           </div>
           <div className="flex gap-0.5 mt-0.5">
             {[1, 5, 10, 25, 50, 100].map(q => (
               <button key={q} onClick={() => setQuantity(String(q))}
-                className={cn('flex-1 py-1 text-[9px] font-bold rounded-md transition-all', Number(quantity) === q ? 'bg-primary text-white' : 'bg-surface text-text-muted hover:bg-surface-2')}>
+                className={cn('flex-1 py-1 text-sm font-bold rounded-md transition-all', Number(quantity) === q ? 'bg-primary text-white' : 'bg-surface text-text-muted hover:bg-surface-2')}>
                 {q}
               </button>
             ))}
@@ -292,11 +292,11 @@ export default function Charts() {
           <div className="bg-white rounded-lg p-2.5 border border-border/20 space-y-1">
             <div className="flex items-center gap-1 mb-0.5">
               <Info size={10} className="text-text-muted" />
-              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Summary</span>
+              <span className="text-sm font-bold text-text-muted uppercase tracking-wider">Summary</span>
             </div>
-            <div className="data-row py-0.5"><span className="data-label text-[10px]">Qty × Price</span><span className="text-[11px] font-bold text-text-primary tabular-nums">{quantity} × {currSymbol}{fmtPrice(instrument.price)}</span></div>
-            <div className="data-row py-0.5"><span className="data-label text-[10px]">Total</span><span className="text-[11px] font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(totalValue)}</span></div>
-            <div className="data-row py-0.5 border-t border-border/20 pt-1"><span className="data-label text-[10px]">Margin (5x)</span><span className="text-[11px] font-bold text-primary tabular-nums">{formatCurrency(estimatedMargin)}</span></div>
+            <div className="data-row py-0.5"><span className="data-label text-base">Qty × Price</span><span className="text-base font-bold text-text-primary tabular-nums">{quantity} × {currSymbol}{fmtPrice(instrument.price)}</span></div>
+            <div className="data-row py-0.5"><span className="data-label text-base">Total</span><span className="text-base font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(totalValue)}</span></div>
+            <div className="data-row py-0.5 border-t border-border/20 pt-1"><span className="data-label text-base">Margin (5x)</span><span className="text-base font-bold text-primary tabular-nums">{formatCurrency(estimatedMargin)}</span></div>
           </div>
         )}
       </div>
@@ -309,13 +309,13 @@ export default function Charts() {
               <Check size={14} className="text-white check-draw" strokeWidth={3} />
             </div>
             <div>
-              <span className="text-xs font-bold text-emerald-600">Order Placed!</span>
-              <p className="text-[9px] text-emerald-500 font-medium">{orderSide.toUpperCase()} {quantity} {instrument.symbol} @ {currSymbol}{fmtPrice(instrument.price)}</p>
+              <span className="text-sm font-bold text-emerald-600">Order Placed!</span>
+              <p className="text-sm text-emerald-500 font-medium">{orderSide.toUpperCase()} {quantity} {instrument.symbol} @ {currSymbol}{fmtPrice(instrument.price)}</p>
             </div>
           </div>
         ) : quantity && Number(quantity) > 0 ? (
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[10px] px-0.5">
+            <div className="flex items-center justify-between text-base px-0.5">
               <span className="text-text-muted font-semibold flex items-center gap-1">
                 <Zap size={10} className={orderSide === 'buy' ? 'text-emerald-500' : 'text-red-500'} />
                 {orderSide.toUpperCase()} {quantity} {instrument.symbol}
@@ -325,7 +325,7 @@ export default function Charts() {
             <SlideToConfirm onConfirm={handleConfirmOrder} label={`Slide to ${orderSide === 'buy' ? 'Buy' : 'Sell'} ${instrument.symbol}`} variant={orderSide === 'buy' ? 'success' : 'danger'} />
           </div>
         ) : (
-          <Button fullWidth size="lg" variant={orderSide === 'buy' ? 'success' : 'danger'} disabled className="text-xs font-extrabold tracking-wide">
+          <Button fullWidth size="lg" variant={orderSide === 'buy' ? 'success' : 'danger'} disabled className="text-sm font-extrabold tracking-wide">
             Enter Quantity to {orderSide === 'buy' ? 'Buy' : 'Sell'}
           </Button>
         )}

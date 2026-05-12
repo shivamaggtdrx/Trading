@@ -49,7 +49,7 @@ export default function Orders() {
             className={cn('bg-white rounded-md p-2 border text-left transition-all', activeOrderTab === 'open' ? 'border-amber-300 ring-1 ring-amber-200/50' : 'border-border/20')}>
             <div className="flex items-center gap-1 mb-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Open</p>
+              <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Open</p>
             </div>
             <p className={cn('text-lg font-extrabold tabular-nums', openCount > 0 ? 'text-amber-600' : 'text-text-primary')} style={{ fontFamily: "'JetBrains Mono', monospace" }}>{openCount}</p>
           </button>
@@ -57,7 +57,7 @@ export default function Orders() {
             className={cn('bg-white rounded-md p-2 border text-left transition-all', activeOrderTab === 'filled' ? 'border-emerald-300 ring-1 ring-emerald-200/50' : 'border-border/20')}>
             <div className="flex items-center gap-1 mb-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Filled</p>
+              <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Filled</p>
             </div>
             <p className="text-lg font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{filledCount}</p>
           </button>
@@ -65,7 +65,7 @@ export default function Orders() {
             className={cn('bg-white rounded-md p-2 border text-left transition-all', activeOrderTab === 'cancelled' ? 'border-slate-400 ring-1 ring-slate-200/50' : 'border-border/20')}>
             <div className="flex items-center gap-1 mb-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-text-muted" />
-              <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Cancelled</p>
+              <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Cancelled</p>
             </div>
             <p className="text-lg font-extrabold text-text-muted tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{cancelledCount}</p>
           </button>
@@ -96,22 +96,22 @@ export default function Orders() {
                       {/* Row 1 */}
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-1.5">
-                          <div className={cn('w-6 h-6 rounded-sm flex items-center justify-center text-[8px] font-extrabold',
+                          <div className={cn('w-6 h-6 rounded-sm flex items-center justify-center text-[11px] font-extrabold',
                             order.side === 'BUY' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500')}>
                             {order.side === 'BUY' ? '▲' : '▼'}
                           </div>
                           <div>
                             <div className="flex items-center gap-1">
-                              <p className="text-[11px] font-extrabold text-text-primary">{order.symbol}</p>
-                              <span className={cn('text-[6px] font-bold px-1 py-px rounded-sm', order.side === 'BUY' ? 'bg-emerald-500/8 text-emerald-600' : 'bg-red-500/8 text-red-500')}>{order.side}</span>
-                              <span className="text-[6px] font-semibold px-1 py-px rounded-sm bg-surface text-text-muted">{order.type}</span>
+                              <p className="text-base font-extrabold text-text-primary">{order.symbol}</p>
+                              <span className={cn('text-[10px] font-bold px-1 py-px rounded-sm', order.side === 'BUY' ? 'bg-emerald-500/8 text-emerald-600' : 'bg-red-500/8 text-red-500')}>{order.side}</span>
+                              <span className="text-[10px] font-semibold px-1 py-px rounded-sm bg-surface text-text-muted">{order.type}</span>
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <div className={cn('flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm', config.bg)}>
                             <StatusIcon size={9} className={config.color} />
-                            <span className={cn('text-[7px] font-bold', config.color)}>{config.label}</span>
+                            <span className={cn('text-[10px] font-bold', config.color)}>{config.label}</span>
                           </div>
                           {isOpen && (
                             <button onClick={() => setCancellingId(order.id)} className="p-0.5 rounded-sm hover:bg-red-50 transition-colors touch-active-subtle">
@@ -125,24 +125,24 @@ export default function Orders() {
                       <div className="flex items-center justify-between ml-7.5 pl-0.5">
                         <div className="flex items-center gap-3">
                           <div>
-                            <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Qty</p>
-                            <p className="text-[10px] font-bold text-text-primary tabular-nums">{order.quantity}</p>
+                            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Qty</p>
+                            <p className="text-base font-bold text-text-primary tabular-nums">{order.quantity}</p>
                           </div>
                           <div>
-                            <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Price</p>
-                            <p className="text-[10px] font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{fmtPrice(order.price)}</p>
+                            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Price</p>
+                            <p className="text-base font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{fmtPrice(order.price)}</p>
                           </div>
                           <div>
-                            <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Value</p>
-                            <p className="text-[9px] font-bold text-text-secondary tabular-nums">{formatCurrency(order.price * order.quantity)}</p>
+                            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Value</p>
+                            <p className="text-sm font-bold text-text-secondary tabular-nums">{formatCurrency(order.price * order.quantity)}</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-[8px] text-text-muted font-medium flex items-center gap-0.5 justify-end">
+                          <p className="text-[11px] text-text-muted font-medium flex items-center gap-0.5 justify-end">
                             <Calendar size={7} />
                             {fmtTime(order.filledAt || order.cancelledAt || order.createdAt)}
                           </p>
-                          <p className="text-[6px] text-text-muted/40 mt-0.5 font-medium" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{order.id}</p>
+                          <p className="text-[10px] text-text-muted/40 mt-0.5 font-medium" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{order.id}</p>
                         </div>
                       </div>
 
@@ -150,7 +150,7 @@ export default function Orders() {
                       {isOpen && (
                         <div className="mt-1.5 flex items-center gap-1.5 bg-amber-50/60 rounded-sm px-2 py-1">
                           <Zap size={9} className="text-amber-500" />
-                          <span className="text-[8px] font-semibold text-amber-600">Awaiting execution at {fmtPrice(order.price)}</span>
+                          <span className="text-[11px] font-semibold text-amber-600">Awaiting execution at {fmtPrice(order.price)}</span>
                         </div>
                       )}
                     </div>
@@ -161,10 +161,10 @@ export default function Orders() {
           ) : (
             <div className="py-10 text-center bg-white rounded-lg border border-border/20">
               <ClipboardList size={18} className="mx-auto text-text-muted/30 mb-1.5" />
-              <p className="text-[10px] font-semibold text-text-secondary">
+              <p className="text-base font-semibold text-text-secondary">
                 No {activeOrderTab === 'open' ? 'open' : activeOrderTab === 'filled' ? 'filled' : 'cancelled'} orders
               </p>
-              <p className="text-[8px] text-text-muted mt-0.5">
+              <p className="text-[11px] text-text-muted mt-0.5">
                 {activeOrderTab === 'open' ? 'Place orders from Charts' : 'History appears here'}
               </p>
             </div>
@@ -180,9 +180,9 @@ export default function Orders() {
           return (
             <div className="space-y-4">
               <div className="bg-surface rounded-lg p-3 space-y-2">
-                <div className="flex justify-between text-sm"><span className="text-text-muted">Symbol</span><span className="font-bold text-text-primary">{order.symbol}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-text-muted">Side</span><span className={cn('font-semibold', order.side === 'BUY' ? 'text-emerald-500' : 'text-red-500')}>{order.side}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-text-muted">Qty × Price</span><span className="font-bold text-text-primary">{order.quantity} × {fmtPrice(order.price)}</span></div>
+                <div className="flex justify-between text-base"><span className="text-text-muted">Symbol</span><span className="font-bold text-text-primary">{order.symbol}</span></div>
+                <div className="flex justify-between text-base"><span className="text-text-muted">Side</span><span className={cn('font-semibold', order.side === 'BUY' ? 'text-emerald-500' : 'text-red-500')}>{order.side}</span></div>
+                <div className="flex justify-between text-base"><span className="text-text-muted">Qty × Price</span><span className="font-bold text-text-primary">{order.quantity} × {fmtPrice(order.price)}</span></div>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" fullWidth size="md" onClick={() => setCancellingId(null)}>Keep</Button>

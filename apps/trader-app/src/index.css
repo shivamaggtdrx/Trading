@@ -383,13 +383,13 @@ input[type="number"] {
 }
 
 .data-label {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--color-text-muted);
   font-weight: 500;
 }
 
 .data-value {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
@@ -519,7 +519,7 @@ input[type="number"] {
   align-items: center;
   padding: 1px 0;
   position: relative;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   font-family: 'JetBrains Mono', monospace;

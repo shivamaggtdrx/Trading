@@ -63,7 +63,7 @@ export default function Positions() {
           )}>
             <div className="grid grid-cols-4 gap-3">
               <div className="col-span-2">
-                <p className="text-[9px] text-text-muted font-bold uppercase tracking-wider mb-1">Unrealized P&L</p>
+                <p className="text-sm text-text-muted font-bold uppercase tracking-wider mb-1">Unrealized P&L</p>
                 <p className={cn(
                   'text-xl font-extrabold tabular-nums',
                   totalPnl >= 0 ? 'pnl-glow-profit' : 'pnl-glow-loss'
@@ -72,15 +72,15 @@ export default function Positions() {
                 </p>
               </div>
               <div>
-                <p className="text-[9px] text-text-muted font-bold uppercase tracking-wider mb-1">Margin</p>
-                <p className="text-xs font-bold text-text-primary tabular-nums">{formatCurrency(totalMargin)}</p>
+                <p className="text-sm text-text-muted font-bold uppercase tracking-wider mb-1">Margin</p>
+                <p className="text-sm font-bold text-text-primary tabular-nums">{formatCurrency(totalMargin)}</p>
               </div>
               <div>
-                <p className="text-[9px] text-text-muted font-bold uppercase tracking-wider mb-1">W / L</p>
+                <p className="text-sm text-text-muted font-bold uppercase tracking-wider mb-1">W / L</p>
                 <div className="flex items-center gap-1">
-                  <span className="text-xs font-bold text-emerald-500">{profitCount}</span>
-                  <span className="text-[10px] text-text-muted">/</span>
-                  <span className="text-xs font-bold text-red-500">{lossCount}</span>
+                  <span className="text-sm font-bold text-emerald-500">{profitCount}</span>
+                  <span className="text-base text-text-muted">/</span>
+                  <span className="text-sm font-bold text-red-500">{lossCount}</span>
                 </div>
               </div>
             </div>
@@ -126,22 +126,22 @@ export default function Positions() {
                     <div className="flex items-start justify-between mb-2.5">
                       <div className="flex items-center gap-2">
                         <div className={cn(
-                          'w-9 h-9 rounded-lg flex items-center justify-center text-[10px] font-extrabold',
+                          'w-9 h-9 rounded-lg flex items-center justify-center text-base font-extrabold',
                           pos.type === 'BUY' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500'
                         )}>
                           {pos.type === 'BUY' ? '▲' : '▼'}
                         </div>
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-bold text-text-primary">{pos.symbol}</p>
+                            <p className="text-base font-bold text-text-primary">{pos.symbol}</p>
                             <span className={cn(
-                              'text-[8px] font-bold px-1.5 py-0.5 rounded-md',
+                              'text-[11px] font-bold px-1.5 py-0.5 rounded-md',
                               pos.type === 'BUY' ? 'bg-emerald-500/8 text-emerald-600' : 'bg-red-500/8 text-red-500'
                             )}>
                               {pos.type}
                             </span>
                           </div>
-                          <p className="text-[10px] text-text-muted mt-0.5">
+                          <p className="text-base text-text-muted mt-0.5">
                             Qty: <span className="font-semibold text-text-secondary">{pos.quantity}</span>
                           </p>
                         </div>
@@ -158,7 +158,7 @@ export default function Positions() {
                           {isProfit ? '+' : ''}{formatCurrency(pos.pnl)}
                         </p>
                         <div className={cn(
-                          'inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md mt-0.5',
+                          'inline-flex items-center gap-0.5 text-base font-bold px-1.5 py-0.5 rounded-md mt-0.5',
                           isProfit ? 'bg-emerald-500/8 text-emerald-600' : 'bg-red-500/8 text-red-500'
                         )}>
                           {isProfit ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
@@ -171,8 +171,8 @@ export default function Positions() {
                     <div className="bg-surface/80 rounded-lg p-2.5 mb-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1">
-                          <p className="text-[8px] text-text-muted font-bold uppercase tracking-wider mb-0.5">Entry</p>
-                          <p className="text-xs font-bold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                          <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider mb-0.5">Entry</p>
+                          <p className="text-sm font-bold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                             {pos.entryPrice >= 100 ? '₹' : '$'}
                             {pos.entryPrice >= 100
                               ? pos.entryPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })
@@ -182,16 +182,16 @@ export default function Positions() {
                         <div className="flex flex-col items-center gap-0.5">
                           <ArrowRight size={12} className={isProfit ? 'text-emerald-500' : 'text-red-500'} />
                           <span className={cn(
-                            'text-[8px] font-bold',
+                            'text-[11px] font-bold',
                             isProfit ? 'text-emerald-500' : 'text-red-500'
                           )}>
                             {isProfit ? '+' : ''}{((pos.currentPrice - pos.entryPrice) / pos.entryPrice * 100).toFixed(2)}%
                           </span>
                         </div>
                         <div className="flex-1 text-right">
-                          <p className="text-[8px] text-text-muted font-bold uppercase tracking-wider mb-0.5">Current</p>
+                          <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider mb-0.5">Current</p>
                           <p className={cn(
-                            'text-xs font-bold tabular-nums',
+                            'text-sm font-bold tabular-nums',
                             isProfit ? 'text-emerald-600' : 'text-red-500',
                             isAnimating && 'blink-update'
                           )} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
@@ -216,7 +216,7 @@ export default function Positions() {
 
                     {/* Margin info + close */}
                     <div className="flex items-center justify-between">
-                      <div className="text-[10px] text-text-muted">
+                      <div className="text-base text-text-muted">
                         Margin: <span className="font-semibold text-text-secondary">{formatCurrency(pos.margin)}</span>
                       </div>
                       <Button
@@ -239,8 +239,8 @@ export default function Positions() {
             <div className="w-12 h-12 bg-surface rounded-xl flex items-center justify-center mx-auto mb-2">
               <AlertCircle size={22} className="text-text-muted/50" />
             </div>
-            <p className="text-xs font-semibold text-text-secondary">No Open Positions</p>
-            <p className="text-[10px] text-text-muted mt-0.5">Your active trades will appear here</p>
+            <p className="text-sm font-semibold text-text-secondary">No Open Positions</p>
+            <p className="text-base text-text-muted mt-0.5">Your active trades will appear here</p>
           </Card>
         )}
       </div>
@@ -258,11 +258,11 @@ export default function Positions() {
           return (
             <div className="space-y-4">
               <div className="bg-surface rounded-lg p-4 space-y-2.5">
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-base">
                   <span className="text-text-muted">Symbol</span>
                   <span className="font-bold text-text-primary">{pos.symbol}</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-base">
                   <span className="text-text-muted">Type</span>
                   <span className={cn(
                     'font-semibold',
@@ -271,13 +271,13 @@ export default function Positions() {
                     {pos.type}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-base">
                   <span className="text-text-muted">Quantity</span>
                   <span className="font-semibold text-text-primary">{pos.quantity}</span>
                 </div>
                 <div className="border-t border-border/50 pt-2.5">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-text-muted">Realized P&L</span>
+                    <span className="text-base text-text-muted">Realized P&L</span>
                     <span className={cn(
                       'font-extrabold text-lg tabular-nums',
                       isProfit ? 'pnl-profit' : 'pnl-loss'

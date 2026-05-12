@@ -16,7 +16,7 @@ export default function Header({ title, showNotification = true, showGreeting = 
         <div>
           {showGreeting ? (
             <>
-              <p className="text-[10px] text-text-muted font-medium tracking-wide uppercase">{getTimeOfDay()}</p>
+              <p className="text-base text-text-muted font-medium tracking-wide uppercase">{getTimeOfDay()}</p>
               <h1 className="text-base font-bold text-text-primary tracking-tight leading-tight">{user?.name || user?.full_name || 'Trader'}</h1>
             </>
           ) : (
@@ -28,7 +28,7 @@ export default function Header({ title, showNotification = true, showGreeting = 
           <button onClick={() => navigate('/notifications')} className="relative p-2 rounded-xl bg-white/60 hover:bg-white transition-colors touch-active-subtle border border-border/30">
             <Bell size={18} className="text-text-secondary" strokeWidth={1.8} />
             {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-danger text-white text-[8px] font-bold rounded-full flex items-center justify-center shadow-sm">
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-danger text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-sm">
                 {unreadCount}
               </span>
             )}

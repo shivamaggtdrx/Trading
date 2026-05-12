@@ -53,7 +53,7 @@ export default function BottomNav() {
               )}
               <span
                 className={cn(
-                  'text-[9px] mt-0.5 font-semibold tracking-wide transition-colors duration-200',
+                  'text-sm mt-0.5 font-semibold tracking-wide transition-colors duration-200',
                   isActive ? 'text-primary' : 'text-text-muted',
                   isChartsBtn && 'text-primary'
                 )}

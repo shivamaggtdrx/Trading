@@ -52,18 +52,18 @@ export default function Home() {
                 <Wallet size={12} />
               </div>
               <div>
-                <p className="text-[8px] font-medium text-white/40 uppercase tracking-wider">Equity</p>
+                <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Equity</p>
                 <p className="text-base font-extrabold tracking-tight leading-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                   {formatCurrency(wallet.equity)}
                 </p>
               </div>
             </div>
             <div className="text-right">
-              <div className={cn('flex items-center gap-0.5 text-[9px] font-bold justify-end', wallet.todayPnl >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+              <div className={cn('flex items-center gap-0.5 text-sm font-bold justify-end', wallet.todayPnl >= 0 ? 'text-emerald-400' : 'text-red-400')}>
                 {wallet.todayPnl >= 0 ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
                 {wallet.todayPnl >= 0 ? '+' : ''}{formatCurrency(wallet.todayPnl)}
               </div>
-              <p className={cn('text-[8px] font-bold', wallet.todayPnl >= 0 ? 'text-emerald-400/60' : 'text-red-400/60')}>
+              <p className={cn('text-[11px] font-bold', wallet.todayPnl >= 0 ? 'text-emerald-400/60' : 'text-red-400/60')}>
                 {formatPercent(wallet.todayPnlPercent)} today
               </p>
             </div>
@@ -73,16 +73,16 @@ export default function Home() {
         {/* Stats — inline row, no card wrapper */}
         <div className="grid grid-cols-3 gap-1">
           <div className="bg-white rounded-md px-2.5 py-1.5 border border-border/20">
-            <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Balance</p>
-            <p className="text-[10px] font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(wallet.balance)}</p>
+            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Balance</p>
+            <p className="text-base font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(wallet.balance)}</p>
           </div>
           <div className="bg-white rounded-md px-2.5 py-1.5 border border-border/20">
-            <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Margin</p>
-            <p className="text-[10px] font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(wallet.usedMargin)}</p>
+            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Margin</p>
+            <p className="text-base font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(wallet.usedMargin)}</p>
           </div>
           <div className="bg-white rounded-md px-2.5 py-1.5 border border-border/20">
-            <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Open P&L</p>
-            <p className={cn('text-[10px] font-extrabold tabular-nums mt-0.5', totalOpenPnl >= 0 ? 'pnl-glow-profit' : 'pnl-glow-loss')} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Open P&L</p>
+            <p className={cn('text-base font-extrabold tabular-nums mt-0.5', totalOpenPnl >= 0 ? 'pnl-glow-profit' : 'pnl-glow-loss')} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               {totalOpenPnl >= 0 ? '+' : ''}{formatCurrency(totalOpenPnl)}
             </p>
           </div>
@@ -92,7 +92,7 @@ export default function Home() {
         <div className="relative">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
           <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search instruments..."
-            className="w-full bg-white border border-border/30 rounded-md pl-7 pr-3 py-1.5 text-[11px] text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary/30 transition-all" />
+            className="w-full bg-white border border-border/30 rounded-md pl-7 pr-3 py-1.5 text-base text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary/30 transition-all" />
         </div>
 
         {/* Tabs + Watchlist */}
@@ -109,14 +109,14 @@ export default function Home() {
         {/* Live indicator */}
         <div className="flex items-center gap-1.5 px-0.5">
           <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse-dot" />
-          <span className="text-[8px] text-text-muted font-semibold">{instruments.length} instruments · Live</span>
-          {showWatchlistOnly && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 px-1 py-0.5 rounded-sm ml-1">★ Watchlist</span>}
+          <span className="text-[11px] text-text-muted font-semibold">{instruments.length} instruments · Live</span>
+          {showWatchlistOnly && <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-1 py-0.5 rounded-sm ml-1">★ Watchlist</span>}
         </div>
 
         {/* Compact Instrument List — terminal-style rows */}
         <div className="bg-white rounded-lg border border-border/20 overflow-hidden">
           {/* Table header */}
-          <div className="flex items-center px-2 py-1 bg-surface/50 border-b border-border/15 text-[7px] font-bold text-text-muted uppercase tracking-wider">
+          <div className="flex items-center px-2 py-1 bg-surface/50 border-b border-border/15 text-[10px] font-bold text-text-muted uppercase tracking-wider">
             <span className="w-5" />
             <span className="flex-1">Symbol</span>
             <span className="w-10 text-center">Chart</span>
@@ -135,21 +135,21 @@ export default function Home() {
               {/* Row content */}
               <button onClick={() => handleInstrumentClick(inst)} className="flex-1 flex items-center py-1.5 pr-2 touch-active-subtle">
                 <div className="flex-1 min-w-0 pl-1">
-                  <p className="text-[10px] font-extrabold text-text-primary leading-tight">{inst.symbol}</p>
-                  <p className="text-[7px] text-text-muted truncate">{inst.name}</p>
+                  <p className="text-base font-extrabold text-text-primary leading-tight">{inst.symbol}</p>
+                  <p className="text-[10px] text-text-muted truncate">{inst.name}</p>
                 </div>
                 <div className="w-10 flex justify-center">
                   <Sparkline data={inst.sparkline} positive={inst.change >= 0} width={36} height={16} />
                 </div>
                 <div className="w-[62px] text-right">
-                  <p className="text-[10px] font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  <p className="text-base font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                     {inst.price >= 100 ? '₹' + inst.price.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '$' + inst.price.toFixed(4)}
                   </p>
-                  <p className="text-[7px] text-text-muted font-medium">{inst.volume}</p>
+                  <p className="text-[10px] text-text-muted font-medium">{inst.volume}</p>
                 </div>
                 <div className={cn('w-[50px] flex items-center gap-0.5 justify-end', inst.change >= 0 ? 'text-emerald-600' : 'text-red-500')}>
                   {inst.change >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
-                  <span className="text-[9px] font-extrabold tabular-nums">{formatPercent(inst.changePercent)}</span>
+                  <span className="text-sm font-extrabold tabular-nums">{formatPercent(inst.changePercent)}</span>
                 </div>
               </button>
             </div>
@@ -158,9 +158,9 @@ export default function Home() {
           {instruments.length === 0 && (
             <div className="py-8 text-center">
               {showWatchlistOnly ? (
-                <><Star size={20} className="mx-auto text-text-muted/20 mb-1.5" /><p className="text-[10px] font-semibold text-text-muted">No favorites yet</p></>
+                <><Star size={20} className="mx-auto text-text-muted/20 mb-1.5" /><p className="text-base font-semibold text-text-muted">No favorites yet</p></>
               ) : (
-                <><Search size={20} className="mx-auto text-text-muted/20 mb-1.5" /><p className="text-[10px] font-semibold text-text-muted">No instruments found</p></>
+                <><Search size={20} className="mx-auto text-text-muted/20 mb-1.5" /><p className="text-base font-semibold text-text-muted">No instruments found</p></>
               )}
             </div>
           )}
@@ -170,8 +170,8 @@ export default function Home() {
         {positions.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-1 px-0.5">
-              <h2 className="text-[9px] font-bold text-text-secondary uppercase tracking-wider">Open Positions ({positions.length})</h2>
-              <button onClick={() => navigate('/positions')} className="flex items-center gap-0.5 text-[9px] font-semibold text-primary">
+              <h2 className="text-sm font-bold text-text-secondary uppercase tracking-wider">Open Positions ({positions.length})</h2>
+              <button onClick={() => navigate('/positions')} className="flex items-center gap-0.5 text-sm font-semibold text-primary">
                 View All <ChevronRight size={10} />
               </button>
             </div>
@@ -179,20 +179,20 @@ export default function Home() {
               {positions.slice(0, 3).map((pos, i) => (
                 <div key={pos.id} className={cn('flex items-center justify-between px-2.5 py-1.5', i > 0 && 'border-t border-border/10')}>
                   <div className="flex items-center gap-1.5">
-                    <div className={cn('w-5 h-5 rounded-sm flex items-center justify-center text-[8px] font-extrabold',
+                    <div className={cn('w-5 h-5 rounded-sm flex items-center justify-center text-[11px] font-extrabold',
                       pos.type === 'BUY' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500')}>
                       {pos.type === 'BUY' ? '▲' : '▼'}
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-text-primary">{pos.symbol}</p>
-                      <p className="text-[8px] text-text-muted">Qty: {pos.quantity}</p>
+                      <p className="text-base font-bold text-text-primary">{pos.symbol}</p>
+                      <p className="text-[11px] text-text-muted">Qty: {pos.quantity}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={cn('text-[10px] font-extrabold tabular-nums', pos.pnl >= 0 ? 'pnl-glow-profit' : 'pnl-glow-loss')} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    <p className={cn('text-base font-extrabold tabular-nums', pos.pnl >= 0 ? 'pnl-glow-profit' : 'pnl-glow-loss')} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                       {pos.pnl >= 0 ? '+' : ''}{formatCurrency(pos.pnl)}
                     </p>
-                    <p className={cn('text-[8px] font-bold', pos.pnl >= 0 ? 'text-emerald-500/60' : 'text-red-500/60')}>
+                    <p className={cn('text-[11px] font-bold', pos.pnl >= 0 ? 'text-emerald-500/60' : 'text-red-500/60')}>
                       {formatPercent(pos.pnlPercent)}
                     </p>
                   </div>
@@ -205,8 +205,8 @@ export default function Home() {
         {/* Market status */}
         <div className="flex items-center gap-1.5 px-0.5 py-0.5">
           <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse-dot" />
-          <span className="text-[8px] font-medium text-text-muted">Market Open</span>
-          <span className="text-[8px] text-text-muted/40 ml-auto">NSE · BSE</span>
+          <span className="text-[11px] font-medium text-text-muted">Market Open</span>
+          <span className="text-[11px] text-text-muted/40 ml-auto">NSE · BSE</span>
         </div>
       </div>
     </div>

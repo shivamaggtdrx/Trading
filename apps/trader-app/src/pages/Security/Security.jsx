@@ -31,7 +31,7 @@ export default function Security() {
           <button onClick={() => navigate(-1)} className="p-1 rounded-lg hover:bg-surface transition-colors touch-active-subtle">
             <ArrowLeft size={18} className="text-text-primary" />
           </button>
-          <h1 className="text-sm font-bold text-text-primary">Security</h1>
+          <h1 className="text-base font-bold text-text-primary">Security</h1>
         </div>
       </header>
 
@@ -44,10 +44,10 @@ export default function Security() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <Shield size={16} />
-                  <span className="text-[10px] font-bold text-white/70 uppercase tracking-wider">Security Score</span>
+                  <span className="text-base font-bold text-white/70 uppercase tracking-wider">Security Score</span>
                 </div>
                 <p className="text-2xl font-extrabold">Good</p>
-                <p className="text-[10px] text-white/60 mt-0.5">Enable 2FA to improve your security score</p>
+                <p className="text-base text-white/60 mt-0.5">Enable 2FA to improve your security score</p>
               </div>
               <div className="w-14 h-14 rounded-full border-3 border-white/30 flex items-center justify-center">
                 <span className="text-lg font-extrabold">75</span>
@@ -58,7 +58,7 @@ export default function Security() {
 
         {/* Password */}
         <div>
-          <h3 className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">Authentication</h3>
+          <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">Authentication</h3>
           <Card padding="p-0">
             <div className="divide-y divide-border/20">
               {/* Change Password */}
@@ -70,8 +70,8 @@ export default function Security() {
                   <Lock size={14} className="text-blue-600" />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-[11px] font-semibold text-text-primary">Change Password</p>
-                  <p className="text-[9px] text-text-muted mt-0.5">Last changed 30 days ago</p>
+                  <p className="text-base font-semibold text-text-primary">Change Password</p>
+                  <p className="text-sm text-text-muted mt-0.5">Last changed 30 days ago</p>
                 </div>
                 <Badge variant="warning">Update</Badge>
               </button>
@@ -82,8 +82,8 @@ export default function Security() {
                   <Key size={14} className="text-violet-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-[11px] font-semibold text-text-primary">Two-Factor Authentication</p>
-                  <p className="text-[9px] text-text-muted mt-0.5">Adds an extra layer of security</p>
+                  <p className="text-base font-semibold text-text-primary">Two-Factor Authentication</p>
+                  <p className="text-sm text-text-muted mt-0.5">Adds an extra layer of security</p>
                 </div>
                 <button onClick={() => setTwoFA(!twoFA)} className="touch-active-subtle">
                   {twoFA ? (
@@ -100,8 +100,8 @@ export default function Security() {
                   <Fingerprint size={14} className="text-emerald-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-[11px] font-semibold text-text-primary">Biometric Login</p>
-                  <p className="text-[9px] text-text-muted mt-0.5">Use fingerprint or Face ID</p>
+                  <p className="text-base font-semibold text-text-primary">Biometric Login</p>
+                  <p className="text-sm text-text-muted mt-0.5">Use fingerprint or Face ID</p>
                 </div>
                 <button onClick={() => setBiometric(!biometric)} className="touch-active-subtle">
                   {biometric ? (
@@ -117,7 +117,7 @@ export default function Security() {
 
         {/* Active Sessions */}
         <div>
-          <h3 className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">Active Sessions</h3>
+          <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">Active Sessions</h3>
           <Card padding="p-0">
             <div className="divide-y divide-border/20">
               {mockSessions.map(session => (
@@ -132,12 +132,12 @@ export default function Security() {
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <p className="text-[11px] font-bold text-text-primary">{session.device}</p>
+                        <p className="text-base font-bold text-text-primary">{session.device}</p>
                         {session.current && (
-                          <span className="text-[7px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">THIS DEVICE</span>
+                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">THIS DEVICE</span>
                         )}
                       </div>
-                      <p className="text-[9px] text-text-muted mt-0.5">
+                      <p className="text-sm text-text-muted mt-0.5">
                         {session.browser} · {session.location} · {session.lastActive}
                       </p>
                     </div>
@@ -157,8 +157,8 @@ export default function Security() {
         <div className="flex items-start gap-2 bg-amber-50 border border-amber-200/50 rounded-lg p-2.5">
           <AlertTriangle size={14} className="text-amber-600 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="text-[10px] font-bold text-amber-700">Security Tips</p>
-            <ul className="text-[9px] text-amber-600 mt-1 space-y-0.5">
+            <p className="text-base font-bold text-amber-700">Security Tips</p>
+            <ul className="text-sm text-amber-600 mt-1 space-y-0.5">
               <li>• Never share your password or OTP with anyone</li>
               <li>• Enable 2FA for enhanced account protection</li>
               <li>• Regularly review your active sessions</li>
@@ -171,24 +171,24 @@ export default function Security() {
       <Modal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} title="Change Password">
         <div className="space-y-3">
           <div>
-            <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">Current Password</label>
+            <label className="block text-base font-bold text-text-muted uppercase tracking-wider mb-1">Current Password</label>
             <div className="relative">
               <input type={showPassword ? "text" : "password"} placeholder="Enter current password"
-                className="w-full bg-white border border-border/50 rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all pr-10" />
+                className="w-full bg-white border border-border/50 rounded-xl px-3 py-2.5 text-base text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all pr-10" />
               <button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2">
                 {showPassword ? <EyeOff size={16} className="text-text-muted" /> : <Eye size={16} className="text-text-muted" />}
               </button>
             </div>
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">New Password</label>
+            <label className="block text-base font-bold text-text-muted uppercase tracking-wider mb-1">New Password</label>
             <input type="password" placeholder="Enter new password"
-              className="w-full bg-white border border-border/50 rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all" />
+              className="w-full bg-white border border-border/50 rounded-xl px-3 py-2.5 text-base text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all" />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">Confirm New Password</label>
+            <label className="block text-base font-bold text-text-muted uppercase tracking-wider mb-1">Confirm New Password</label>
             <input type="password" placeholder="Re-enter new password"
-              className="w-full bg-white border border-border/50 rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all" />
+              className="w-full bg-white border border-border/50 rounded-xl px-3 py-2.5 text-base text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all" />
           </div>
           <div className="flex gap-2 pt-1">
             <Button variant="outline" fullWidth size="md" onClick={() => setShowPasswordModal(false)}>Cancel</Button>

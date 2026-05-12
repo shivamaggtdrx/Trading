@@ -190,7 +190,7 @@ export default function DepositApprovals() {
             </div>
             <div className="flex gap-3">
               <button onClick={() => setShowApproveModal(false)} className="flex-1 py-2 rounded-lg border border-gray-300 text-sm font-bold text-gray-700 hover:bg-gray-50">Cancel</button>
-              <button onClick={() => setShowApproveModal(false)} className="flex-1 py-2 rounded-lg bg-green-600 text-sm font-bold text-white hover:bg-green-700 shadow-sm">Credit Wallet</button>
+              <button onClick={handleApprove} className="flex-1 py-2 rounded-lg bg-green-600 text-sm font-bold text-white hover:bg-green-700 shadow-sm">Credit Wallet</button>
             </div>
           </div>
         </div>
@@ -202,18 +202,18 @@ export default function DepositApprovals() {
             <h3 className="text-lg font-bold text-gray-900 mb-2">Reject Deposit</h3>
             <div className="mb-4">
               <label className="block text-xs font-bold text-gray-700 mb-1">Rejection Reason</label>
-              <select className="w-full border border-gray-300 rounded p-2 text-sm font-medium mb-2">
-                <option>UTR not found / Invalid</option>
-                <option>Third-party deposit not allowed</option>
-                <option>Amount mismatch</option>
-                <option>Fraudulent receipt</option>
-                <option>Other</option>
+              <select value={rejectReason} onChange={e => setRejectReason(e.target.value)} className="w-full border border-gray-300 rounded p-2 text-sm font-medium mb-2">
+                <option value="UTR not found / Invalid">UTR not found / Invalid</option>
+                <option value="Third-party deposit not allowed">Third-party deposit not allowed</option>
+                <option value="Amount mismatch">Amount mismatch</option>
+                <option value="Fraudulent receipt">Fraudulent receipt</option>
+                <option value="Other">Other</option>
               </select>
               <textarea rows={2} placeholder="Additional notes..." className="w-full border border-gray-300 rounded p-2 text-sm" />
             </div>
             <div className="flex gap-3">
               <button onClick={() => setShowRejectModal(false)} className="flex-1 py-2 rounded-lg border border-gray-300 text-sm font-bold text-gray-700 hover:bg-gray-50">Cancel</button>
-              <button onClick={() => setShowRejectModal(false)} className="flex-1 py-2 rounded-lg bg-red-600 text-sm font-bold text-white hover:bg-red-700">Reject Request</button>
+              <button onClick={handleReject} className="flex-1 py-2 rounded-lg bg-red-600 text-sm font-bold text-white hover:bg-red-700">Reject Request</button>
             </div>
           </div>
         </div>

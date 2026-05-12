@@ -1,25 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ShieldAlert, TrendingUp, Ban, AlertTriangle, Settings, Save, Users, IndianRupee, Lock, Unlock } from 'lucide-react';
-
-const clientCeilings = [
-  { id: 1, client: 'TDX-84110', name: 'Flagged Trader', dailyCap: 50000, weeklyCap: 200000, todayPnl: 48200, weekPnl: 178000, status: 'approaching', autoSquareOff: true, tier: 'Profitable' },
-  { id: 2, client: 'TDX-10921', name: 'Alex Smith', dailyCap: 100000, weeklyCap: 500000, todayPnl: 45200, weekPnl: 120000, status: 'normal', autoSquareOff: true, tier: 'Whale' },
-  { id: 3, client: 'TDX-82491', name: 'Rajesh Kumar', dailyCap: 25000, weeklyCap: 100000, todayPnl: -12400, weekPnl: -34000, status: 'losing', autoSquareOff: false, tier: 'Regular' },
-  { id: 4, client: 'TDX-10966', name: 'Sarah Jones', dailyCap: 75000, weeklyCap: 300000, todayPnl: 72800, weekPnl: 289000, status: 'breached', autoSquareOff: true, tier: 'Profitable' },
-  { id: 5, client: 'TDX-10944', name: 'J. Doe', dailyCap: 15000, weeklyCap: 50000, todayPnl: -8700, weekPnl: -22000, status: 'losing', autoSquareOff: false, tier: 'Retail' },
-];
-
-const triggerLog = [
-  { id: 1, time: '14:22:05', client: 'TDX-10966', action: 'Auto Square-Off', reason: 'Daily profit ₹72,800 breached cap of ₹75,000 (97%)', result: 'All 8 positions closed' },
-  { id: 2, time: '13:45:12', client: 'TDX-84110', action: 'Warning Alert', reason: 'Daily profit at 96% of ceiling (₹48,200 / ₹50,000)', result: 'Admin notified' },
-  { id: 3, time: '11:30:00', client: 'TDX-10921', action: 'Order Blocked', reason: 'New BUY order would push P&L past daily cap', result: 'Order rejected' },
-];
+import { adminApi } from '../services/adminApi';
 
 export default function ProfitCeiling() {
   const [globalConfig, setGlobalConfig] = useState({ enabled: true, defaultDailyCap: 50000, defaultWeeklyCap: 200000, warningThreshold: 80, autoSquareOffThreshold: 95, blockNewOrdersAtCap: true, showRealReason: false, clientMessage: 'Trading temporarily paused due to market risk conditions.' });
   const [editingGlobal, setEditingGlobal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
   const [showOverrideModal, setShowOverrideModal] = useState(false);
+  
+  const [clientCeilings, setClientCeilings] = useState([]);
+  const [triggerLog, setTriggerLog] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCeilingData = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getProfitCeiling();
+      setClientCeilings(data.clientCeilings || []);
+      setTriggerLog(data.triggerLog || []);
+      if (data.globalConfig) setGlobalConfig(data.globalConfig);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCeilingData();
+  }, []);
 
   const breachedCount = clientCeilings.filter(c => c.status === 'breached').length;
   const approachingCount = clientCeilings.filter(c => c.status === 'approaching').length;
@@ -97,7 +106,9 @@ export default function ProfitCeiling() {
               <tr><th className="px-4 py-3 font-semibold">Client</th><th className="px-4 py-3 font-semibold text-center">Tier</th><th className="px-4 py-3 font-semibold text-right">Daily Cap</th><th className="px-4 py-3 font-semibold text-center">Today vs Cap</th><th className="px-4 py-3 font-semibold text-right">Weekly Cap</th><th className="px-4 py-3 font-semibold text-center">Week vs Cap</th><th className="px-4 py-3 font-semibold text-center">Status</th><th className="px-4 py-3 font-semibold text-center">Auto S/O</th><th className="px-4 py-3 text-right font-semibold">Actions</th></tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {clientCeilings.map(row => {
+              {loading ? (
+                <tr><td colSpan="9" className="py-8 text-center text-gray-500">Loading profit ceilings...</td></tr>
+              ) : clientCeilings.map(row => {
                 const dp = row.todayPnl > 0 ? Math.min(100, (row.todayPnl / row.dailyCap) * 100) : 0;
                 const wp = row.weekPnl > 0 ? Math.min(100, (row.weekPnl / row.weeklyCap) * 100) : 0;
                 return (

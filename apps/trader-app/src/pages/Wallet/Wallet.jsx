@@ -76,7 +76,7 @@ export default function WalletPage() {
           <button onClick={() => navigate(-1)} className="p-1 rounded-lg hover:bg-surface transition-colors touch-active-subtle">
             <ArrowLeft size={18} className="text-text-primary" />
           </button>
-          <h1 className="text-sm font-bold text-text-primary">Funds & Withdrawals</h1>
+          <h1 className="text-base font-bold text-text-primary">Funds & Withdrawals</h1>
         </div>
       </header>
 
@@ -93,7 +93,7 @@ export default function WalletPage() {
                 <div className="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center">
                   <WalletIcon size={14} />
                 </div>
-                <span className="text-[10px] font-medium text-white/50 uppercase tracking-wider">Available Balance</span>
+                <span className="text-base font-medium text-white/50 uppercase tracking-wider">Available Balance</span>
               </div>
               <p className="text-2xl font-extrabold tracking-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {formatCurrency(wallet?.balance || 0)}
@@ -106,20 +106,20 @@ export default function WalletPage() {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-1.5">
           <Card padding="p-2.5">
-            <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Equity</p>
-            <p className="text-[10px] font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Equity</p>
+            <p className="text-base font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               {formatCurrency(wallet?.equity || 0)}
             </p>
           </Card>
           <Card padding="p-2.5">
-            <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Used Margin</p>
-            <p className="text-[10px] font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Used Margin</p>
+            <p className="text-base font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               {formatCurrency(wallet?.usedMargin || 0)}
             </p>
           </Card>
           <Card padding="p-2.5">
-            <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Free Margin</p>
-            <p className="text-[10px] font-extrabold text-emerald-500 tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Free Margin</p>
+            <p className="text-base font-extrabold text-emerald-500 tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               {formatCurrency(wallet?.availableMargin || 0)}
             </p>
           </Card>
@@ -137,7 +137,7 @@ export default function WalletPage() {
 
         {/* Transaction History */}
         <div>
-          <h3 className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
+          <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
             Recent Transactions
           </h3>
           {walletTransactions.length > 0 ? (
@@ -163,22 +163,22 @@ export default function WalletPage() {
                             )}
                           </div>
                           <div>
-                            <p className="text-[11px] font-bold text-text-primary">{formatTxType(tx.type)}</p>
-                            <p className="text-[9px] text-text-muted mt-0.5 truncate max-w-[180px]">
+                            <p className="text-base font-bold text-text-primary">{formatTxType(tx.type)}</p>
+                            <p className="text-sm text-text-muted mt-0.5 truncate max-w-[180px]">
                               {tx.description || tx.type} · {new Date(tx.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
                           <p className={cn(
-                            'text-[11px] font-extrabold tabular-nums',
+                            'text-base font-extrabold tabular-nums',
                             credit ? 'text-emerald-600' : 'text-text-primary'
                           )} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                             {credit ? '+' : ''}{formatCurrency(tx.amount)}
                           </p>
                           <div className={cn('flex items-center gap-0.5 justify-end mt-0.5', config.color)}>
                             <StatusIcon size={8} />
-                            <span className="text-[8px] font-bold">{config.label}</span>
+                            <span className="text-[11px] font-bold">{config.label}</span>
                           </div>
                         </div>
                       </div>
@@ -190,7 +190,7 @@ export default function WalletPage() {
           ) : (
             <Card className="py-6 text-center">
               <Clock size={18} className="mx-auto text-text-muted/40 mb-1.5" />
-              <p className="text-[10px] font-semibold text-text-muted">No transactions yet</p>
+              <p className="text-base font-semibold text-text-muted">No transactions yet</p>
             </Card>
           )}
         </div>
@@ -200,13 +200,13 @@ export default function WalletPage() {
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={modalType === 'deposit' ? 'Add Funds' : 'Withdraw Funds'}>
         <div className="space-y-4">
           <div className="bg-surface rounded-lg p-3">
-            <div className="flex justify-between text-sm mb-2">
+            <div className="flex justify-between text-base mb-2">
               <span className="text-text-muted">Available Balance</span>
               <span className="font-bold text-text-primary">{formatCurrency(wallet?.balance || 0)}</span>
             </div>
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">Amount (₹)</label>
+            <label className="block text-base font-bold text-text-muted uppercase tracking-wider mb-1">Amount (₹)</label>
             <div className="relative">
               <IndianRupee size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
               <input
@@ -214,7 +214,7 @@ export default function WalletPage() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="Enter amount"
-                className="w-full bg-white border border-border/50 rounded-xl pl-8 pr-4 py-2.5 text-sm font-bold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+                className="w-full bg-white border border-border/50 rounded-xl pl-8 pr-4 py-2.5 text-base font-bold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
                 style={{ fontFamily: "'JetBrains Mono', monospace" }}
               />
             </div>
@@ -223,7 +223,7 @@ export default function WalletPage() {
           <div className="flex gap-1">
             {[5000, 10000, 25000, 50000, 100000].map(q => (
               <button key={q} onClick={() => setAmount(String(q))}
-                className={cn('flex-1 py-1.5 text-[9px] font-bold rounded-lg transition-all',
+                className={cn('flex-1 py-1.5 text-sm font-bold rounded-lg transition-all',
                   Number(amount) === q ? 'bg-primary text-white' : 'bg-surface text-text-muted hover:bg-surface-2')}>
                 {q >= 100000 ? '₹1L' : `₹${q/1000}K`}
               </button>
@@ -232,25 +232,25 @@ export default function WalletPage() {
           {modalType === 'deposit' && (
             <>
               <div>
-                <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">UTR Number (optional)</label>
+                <label className="block text-base font-bold text-text-muted uppercase tracking-wider mb-1">UTR Number (optional)</label>
                 <input
                   type="text"
                   value={utrNumber}
                   onChange={(e) => setUtrNumber(e.target.value)}
                   placeholder="Enter UTR / Transaction Ref"
-                  className="w-full bg-white border border-border/50 rounded-xl px-4 py-2.5 text-sm font-medium text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+                  className="w-full bg-white border border-border/50 rounded-xl px-4 py-2.5 text-base font-medium text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
                 />
               </div>
               <div className="flex items-start gap-2 bg-blue-50 rounded-lg p-2.5 border border-blue-200/50">
                 <Shield size={14} className="text-blue-600 mt-0.5 flex-shrink-0" />
-                <p className="text-[10px] text-blue-700">Funds will be credited instantly via UPI or within 1 hour via NEFT/IMPS.</p>
+                <p className="text-base text-blue-700">Funds will be credited instantly via UPI or within 1 hour via NEFT/IMPS.</p>
               </div>
             </>
           )}
           {/* Result message */}
           {submitResult && (
             <div className={cn(
-              'flex items-center gap-2 rounded-lg p-2.5 border text-[11px] font-semibold',
+              'flex items-center gap-2 rounded-lg p-2.5 border text-base font-semibold',
               submitResult.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'
             )}>
               {submitResult.type === 'success' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}

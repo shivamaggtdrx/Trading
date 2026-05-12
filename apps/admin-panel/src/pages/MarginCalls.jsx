@@ -1,15 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AlertTriangle, Phone, Mail, Ban, TrendingDown, Clock, Search, ShieldAlert, CheckCircle } from 'lucide-react';
-
-const marginCalls = [
-  { id: 'MC-1042', client: 'TDX-10944', name: 'J. Doe', exposure: 210000, margin: 45210, usage: 94, status: 'critical', notified: '2 mins ago', level: 3 },
-  { id: 'MC-1043', client: 'TDX-84110', name: 'Flagged Trader', exposure: 1850000, margin: 420000, usage: 88, status: 'warning', notified: '15 mins ago', level: 2 },
-  { id: 'MC-1044', client: 'TDX-82491', name: 'Rajesh Kumar', exposure: 485000, margin: 125430, usage: 82, status: 'warning', notified: '1 hour ago', level: 1 },
-  { id: 'MC-1045', client: 'TDX-10921', name: 'Alex Smith', exposure: 3200000, margin: 1250050, usage: 78, status: 'monitoring', notified: 'None', level: 0 },
-];
+import { adminApi } from '../services/adminApi';
 
 export default function MarginCalls() {
   const [activeTab, setActiveTab] = useState('all');
+  const [marginCalls, setMarginCalls] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchMarginCalls = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getMarginCalls();
+      setMarginCalls(data.marginCalls || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMarginCalls();
+  }, []);
 
   const filtered = activeTab === 'all' ? marginCalls : marginCalls.filter(m => m.status === activeTab);
   
@@ -95,7 +107,9 @@ export default function MarginCalls() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {filtered.map(mc => (
+              {loading ? (
+                <tr><td colSpan="7" className="py-8 text-center text-gray-500">Loading margin calls...</td></tr>
+              ) : filtered.length > 0 ? filtered.map(mc => (
                 <tr key={mc.id} className={`hover:bg-gray-50 ${mc.status === 'critical' ? 'bg-red-50/20' : ''}`}>
                   <td className="px-4 py-3">
                     <div className="font-bold text-gray-900">{mc.name}</div>
@@ -136,7 +150,9 @@ export default function MarginCalls() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )) : (
+                <tr><td colSpan="7" className="py-8 text-center text-gray-500">No margin calls found</td></tr>
+              )}
             </tbody>
           </table>
         </div>

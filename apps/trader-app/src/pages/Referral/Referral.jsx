@@ -49,7 +49,7 @@ export default function Referral() {
           <button onClick={() => navigate(-1)} className="p-1 rounded-lg hover:bg-surface transition-colors touch-active-subtle">
             <ArrowLeft size={18} className="text-text-primary" />
           </button>
-          <h1 className="text-sm font-bold text-text-primary">Refer & Earn</h1>
+          <h1 className="text-base font-bold text-text-primary">Refer & Earn</h1>
         </div>
       </header>
 
@@ -62,7 +62,7 @@ export default function Referral() {
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-2">
                 <Gift size={18} />
-                <span className="text-[10px] font-bold text-white/70 uppercase tracking-wider">Your Referral Code</span>
+                <span className="text-base font-bold text-white/70 uppercase tracking-wider">Your Referral Code</span>
               </div>
               <div className="flex items-center gap-2 mb-3">
                 <p className="text-xl font-extrabold tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
@@ -75,7 +75,7 @@ export default function Referral() {
                   {copiedField === 'code' ? <Check size={14} /> : <Copy size={14} />}
                 </button>
               </div>
-              <p className="text-[10px] text-white/60">
+              <p className="text-base text-white/60">
                 Earn up to <span className="font-bold text-white">25% commission</span> on every trade your referrals make
               </p>
             </div>
@@ -85,32 +85,32 @@ export default function Referral() {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-1.5">
           <Card padding="p-2.5">
-            <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Total Earned</p>
-            <p className="text-xs font-extrabold text-emerald-600 tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Total Earned</p>
+            <p className="text-sm font-extrabold text-emerald-600 tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               {formatCurrency(totalEarned)}
             </p>
           </Card>
           <Card padding="p-2.5">
-            <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Referrals</p>
-            <p className="text-xs font-extrabold text-text-primary tabular-nums mt-0.5">{activeReferrals} active</p>
+            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Referrals</p>
+            <p className="text-sm font-extrabold text-text-primary tabular-nums mt-0.5">{activeReferrals} active</p>
           </Card>
           <Card padding="p-2.5">
-            <p className="text-[7px] text-text-muted font-bold uppercase tracking-wider">Tier</p>
-            <p className="text-xs font-extrabold text-primary mt-0.5">{currentTier.name}</p>
+            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Tier</p>
+            <p className="text-sm font-extrabold text-primary mt-0.5">{currentTier.name}</p>
           </Card>
         </div>
 
         {/* Share Link */}
         <Card padding="p-3">
-          <p className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1.5">Share Your Link</p>
+          <p className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5">Share Your Link</p>
           <div className="flex items-center gap-2">
-            <div className="flex-1 bg-surface rounded-lg px-3 py-2 text-[10px] text-text-secondary font-medium truncate" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <div className="flex-1 bg-surface rounded-lg px-3 py-2 text-base text-text-secondary font-medium truncate" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               {referralLink}
             </div>
             <button
               onClick={() => handleCopy(referralLink, 'link')}
               className={cn(
-                'px-3 py-2 rounded-lg text-[10px] font-bold transition-all',
+                'px-3 py-2 rounded-lg text-base font-bold transition-all',
                 copiedField === 'link' ? 'bg-emerald-500 text-white' : 'bg-primary text-white'
               )}
             >
@@ -121,7 +121,7 @@ export default function Referral() {
 
         {/* Commission Tiers */}
         <div>
-          <h3 className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">Commission Tiers</h3>
+          <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">Commission Tiers</h3>
           <div className="grid grid-cols-4 gap-1.5">
             {tiers.map((tier) => (
               <Card key={tier.name} padding="p-2" className={cn(
@@ -131,9 +131,9 @@ export default function Referral() {
                 <div className={cn('w-6 h-6 mx-auto rounded-full bg-gradient-to-br flex items-center justify-center mb-1', tier.color)}>
                   <Star size={10} className="text-white" />
                 </div>
-                <p className="text-[9px] font-bold text-text-primary">{tier.name}</p>
-                <p className="text-[8px] text-primary font-bold mt-0.5">{tier.commission}</p>
-                <p className="text-[7px] text-text-muted">{tier.min}+ refs</p>
+                <p className="text-sm font-bold text-text-primary">{tier.name}</p>
+                <p className="text-[11px] text-primary font-bold mt-0.5">{tier.commission}</p>
+                <p className="text-[10px] text-text-muted">{tier.min}+ refs</p>
               </Card>
             ))}
           </div>
@@ -141,7 +141,7 @@ export default function Referral() {
 
         {/* Referred Users */}
         <div>
-          <h3 className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
+          <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
             Your Referrals ({mockReferrals.length})
           </h3>
           <Card padding="p-0">
@@ -149,16 +149,16 @@ export default function Referral() {
               {mockReferrals.map((ref) => (
                 <div key={ref.id} className="px-3 py-2.5 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 bg-gradient-to-br from-slate-200 to-slate-300 rounded-lg flex items-center justify-center text-[10px] font-bold text-slate-600">
+                    <div className="w-8 h-8 bg-gradient-to-br from-slate-200 to-slate-300 rounded-lg flex items-center justify-center text-base font-bold text-slate-600">
                       {ref.name.charAt(0)}
                     </div>
                     <div>
-                      <p className="text-[11px] font-bold text-text-primary">{ref.name}</p>
-                      <p className="text-[9px] text-text-muted">Joined {ref.joined} · {ref.trades} trades</p>
+                      <p className="text-base font-bold text-text-primary">{ref.name}</p>
+                      <p className="text-sm text-text-muted">Joined {ref.joined} · {ref.trades} trades</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-extrabold text-emerald-600 tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    <p className="text-base font-extrabold text-emerald-600 tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                       +{formatCurrency(ref.earned)}
                     </p>
                     <Badge variant={ref.status === 'active' ? 'success' : 'warning'}>

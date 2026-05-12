@@ -29,18 +29,18 @@ export default function History() {
         <Card padding="p-3">
           <div className="grid grid-cols-4 gap-2">
             <div>
-              <p className="text-[8px] text-text-muted font-bold uppercase tracking-wider mb-0.5">Total P&L</p>
+              <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider mb-0.5">Total P&L</p>
               <p className={cn(
-                'text-sm font-extrabold tabular-nums',
+                'text-base font-extrabold tabular-nums',
                 totalPnl >= 0 ? 'pnl-profit' : 'pnl-loss'
               )} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)}
               </p>
             </div>
             <div>
-              <p className="text-[8px] text-text-muted font-bold uppercase tracking-wider mb-0.5">Win Rate</p>
+              <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider mb-0.5">Win Rate</p>
               <div className="flex items-center gap-1">
-                <p className="text-sm font-extrabold text-text-primary">{winRate}%</p>
+                <p className="text-base font-extrabold text-text-primary">{winRate}%</p>
                 <div className="w-6 h-1.5 bg-border/30 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 rounded-full"
@@ -50,13 +50,13 @@ export default function History() {
               </div>
             </div>
             <div>
-              <p className="text-[8px] text-text-muted font-bold uppercase tracking-wider mb-0.5">Trades</p>
-              <p className="text-sm font-extrabold text-text-primary">{history.length}</p>
+              <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider mb-0.5">Trades</p>
+              <p className="text-base font-extrabold text-text-primary">{history.length}</p>
             </div>
             <div>
-              <p className="text-[8px] text-text-muted font-bold uppercase tracking-wider mb-0.5">Avg P&L</p>
+              <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider mb-0.5">Avg P&L</p>
               <p className={cn(
-                'text-sm font-extrabold tabular-nums',
+                'text-base font-extrabold tabular-nums',
                 avgPnl >= 0 ? 'text-emerald-500' : 'text-red-500'
               )} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {formatCurrency(avgPnl)}
@@ -74,7 +74,7 @@ export default function History() {
               value={historyFilter.symbol}
               onChange={(e) => setHistoryFilter({ symbol: e.target.value })}
               placeholder="Filter by symbol..."
-              className="w-full bg-white border border-border/50 rounded-xl pl-8 pr-4 py-2 text-xs text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+              className="w-full bg-white border border-border/50 rounded-xl pl-8 pr-4 py-2 text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
             />
           </div>
           <Tabs
@@ -100,35 +100,35 @@ export default function History() {
                     <div className="flex items-start justify-between mb-1.5">
                       <div className="flex items-center gap-2">
                         <div className={cn(
-                          'w-8 h-8 rounded-lg flex items-center justify-center text-[9px] font-extrabold',
+                          'w-8 h-8 rounded-lg flex items-center justify-center text-sm font-extrabold',
                           trade.type === 'BUY' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500'
                         )}>
                           {trade.type === 'BUY' ? '▲' : '▼'}
                         </div>
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <p className="text-xs font-bold text-text-primary">{trade.symbol}</p>
+                            <p className="text-sm font-bold text-text-primary">{trade.symbol}</p>
                             <span className={cn(
-                              'text-[8px] font-bold px-1 py-0.5 rounded',
+                              'text-[11px] font-bold px-1 py-0.5 rounded',
                               trade.type === 'BUY' ? 'bg-emerald-500/8 text-emerald-600' : 'bg-red-500/8 text-red-500'
                             )}>
                               {trade.type}
                             </span>
                           </div>
-                          <p className="text-[9px] text-text-muted mt-0.5">
+                          <p className="text-sm text-text-muted mt-0.5">
                             Qty: <span className="font-semibold">{trade.quantity}</span>
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className={cn(
-                          'text-xs font-extrabold tabular-nums',
+                          'text-sm font-extrabold tabular-nums',
                           isProfit ? 'pnl-profit' : 'pnl-loss'
                         )} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                           {isProfit ? '+' : ''}{formatCurrency(trade.pnl)}
                         </p>
                         <span className={cn(
-                          'inline-block text-[8px] font-bold px-1.5 py-0.5 rounded-md mt-0.5',
+                          'inline-block text-[11px] font-bold px-1.5 py-0.5 rounded-md mt-0.5',
                           isProfit ? 'bg-emerald-500/8 text-emerald-600' : 'bg-red-500/8 text-red-500'
                         )}>
                           {isProfit ? '✓ Profit' : '✗ Loss'}
@@ -137,7 +137,7 @@ export default function History() {
                     </div>
 
                     {/* Entry → Exit prices */}
-                    <div className="flex items-center gap-2 text-[9px] text-text-muted ml-10">
+                    <div className="flex items-center gap-2 text-sm text-text-muted ml-10">
                       <span className="font-medium">
                         {trade.entryPrice >= 100
                           ? '₹' + trade.entryPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })
@@ -164,8 +164,8 @@ export default function History() {
             <div className="w-12 h-12 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-2">
               <FileText size={22} className="text-text-muted/50" />
             </div>
-            <p className="text-xs font-semibold text-text-secondary">No Trade History</p>
-            <p className="text-[10px] text-text-muted mt-0.5">Your completed trades will appear here</p>
+            <p className="text-sm font-semibold text-text-secondary">No Trade History</p>
+            <p className="text-base text-text-muted mt-0.5">Your completed trades will appear here</p>
           </Card>
         )}
       </div>

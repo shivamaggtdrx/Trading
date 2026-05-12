@@ -108,23 +108,23 @@ export default function Trade() {
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <h1 className="text-sm font-bold text-text-primary">{instrument.symbol}</h1>
+              <h1 className="text-base font-bold text-text-primary">{instrument.symbol}</h1>
               <span className={cn(
-                'flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded',
+                'flex items-center gap-0.5 text-sm font-bold px-1.5 py-0.5 rounded',
                 instrument.change >= 0 ? 'text-emerald-600 bg-emerald-500/8' : 'text-red-500 bg-red-500/8'
               )}>
                 {instrument.change >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
                 {formatPercent(instrument.changePercent)}
               </span>
             </div>
-            <p className="text-[9px] text-text-muted truncate">{instrument.name}</p>
+            <p className="text-sm text-text-muted truncate">{instrument.name}</p>
           </div>
           <div className="text-right">
             <p className="text-base font-extrabold text-text-primary tabular-nums leading-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               {currSymbol}{formatInstrumentPrice(instrument.price)}
             </p>
             <p className={cn(
-              'text-[9px] font-semibold',
+              'text-sm font-semibold',
               instrument.change >= 0 ? 'text-emerald-500' : 'text-red-500'
             )}>
               {instrument.change >= 0 ? '+' : ''}{instrument.change >= 100 ? instrument.change.toFixed(2) : instrument.change.toFixed(4)}
@@ -183,7 +183,7 @@ export default function Trade() {
           {/* Chart overlay content */}
           <div className="relative z-10 flex flex-col items-center">
             <BarChart2 size={32} className="text-text-muted/20 mb-1" />
-            <p className="text-[11px] text-text-muted/40 font-medium">TradingView Chart</p>
+            <p className="text-base text-text-muted/40 font-medium">TradingView Chart</p>
           </div>
 
           {/* OHLC bar */}
@@ -194,7 +194,7 @@ export default function Trade() {
               { label: 'L', value: instrument.low, color: 'text-red-500' },
               { label: 'C', value: instrument.price },
             ].map(item => (
-              <div key={item.label} className="text-[9px]">
+              <div key={item.label} className="text-sm">
                 <span className="text-text-muted font-medium">{item.label}: </span>
                 <span className={cn('font-bold tabular-nums', item.color || 'text-text-secondary')}>
                   {item.value >= 100 ? item.value.toFixed(2) : item.value.toFixed(4)}
@@ -204,7 +204,7 @@ export default function Trade() {
           </div>
 
           {/* Volume indicator */}
-          <div className="absolute top-3 right-3 text-[9px]">
+          <div className="absolute top-3 right-3 text-sm">
             <span className="text-text-muted font-medium">Vol: </span>
             <span className="font-bold text-text-secondary">{instrument.volume}</span>
           </div>
@@ -216,7 +216,7 @@ export default function Trade() {
                 key={tf}
                 onClick={() => setActiveTimeframe(i)}
                 className={cn(
-                  'flex-1 py-1.5 text-[9px] font-bold rounded-lg transition-all',
+                  'flex-1 py-1.5 text-sm font-bold rounded-lg transition-all',
                   i === activeTimeframe
                     ? 'bg-primary text-white shadow-sm'
                     : 'bg-white/70 text-text-muted hover:bg-white hover:text-text-secondary'
@@ -240,8 +240,8 @@ export default function Trade() {
             { label: 'Vol', value: instrument.volume, color: 'text-text-primary' },
           ].map((item) => (
             <div key={item.label} className="bg-white rounded-lg p-2 border border-border/30">
-              <p className="text-[8px] text-text-muted font-bold uppercase tracking-wider">{item.label}</p>
-              <p className={cn('text-[11px] font-extrabold tabular-nums mt-0.5', item.color)} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider">{item.label}</p>
+              <p className={cn('text-base font-extrabold tabular-nums mt-0.5', item.color)} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {typeof item.value === 'number'
                   ? (item.value >= 100 ? item.value.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : item.value.toFixed(4))
                   : item.value}
@@ -255,7 +255,7 @@ export default function Trade() {
           <button
             onClick={() => setOrderSide('buy')}
             className={cn(
-              'py-3.5 rounded-xl text-sm font-extrabold tracking-wide transition-all duration-200 btn-ripple',
+              'py-3.5 rounded-xl text-base font-extrabold tracking-wide transition-all duration-200 btn-ripple',
               orderSide === 'buy'
                 ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25'
                 : 'bg-emerald-500/6 text-emerald-600 border border-emerald-200/50'
@@ -266,7 +266,7 @@ export default function Trade() {
           <button
             onClick={() => setOrderSide('sell')}
             className={cn(
-              'py-3.5 rounded-xl text-sm font-extrabold tracking-wide transition-all duration-200 btn-ripple',
+              'py-3.5 rounded-xl text-base font-extrabold tracking-wide transition-all duration-200 btn-ripple',
               orderSide === 'sell'
                 ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-500/25'
                 : 'bg-red-500/6 text-red-500 border border-red-200/50'
@@ -281,7 +281,7 @@ export default function Trade() {
 
         {/* Quantity with +/- */}
         <div className="space-y-1">
-          <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-wider">Quantity</label>
+          <label className="block text-base font-semibold text-text-muted uppercase tracking-wider">Quantity</label>
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => adjustQuantity(-1)}
@@ -294,7 +294,7 @@ export default function Trade() {
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               placeholder="0"
-              className="flex-1 bg-white border border-border/50 rounded-xl px-3 py-2.5 text-center text-sm font-bold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all tabular-nums"
+              className="flex-1 bg-white border border-border/50 rounded-xl px-3 py-2.5 text-center text-base font-bold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all tabular-nums"
               style={{ fontFamily: "'JetBrains Mono', monospace" }}
             />
             <button
@@ -311,7 +311,7 @@ export default function Trade() {
                 key={q}
                 onClick={() => setQuantity(String(q))}
                 className={cn(
-                  'flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all',
+                  'flex-1 py-1 text-base font-semibold rounded-lg transition-all',
                   Number(quantity) === q
                     ? 'bg-primary text-white'
                     : 'bg-surface text-text-muted hover:bg-surface-2'
@@ -353,23 +353,23 @@ export default function Trade() {
           <div className="bg-white rounded-xl p-3 border border-border/30 space-y-1.5">
             <div className="flex items-center gap-1 mb-1">
               <Info size={11} className="text-text-muted" />
-              <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Summary</span>
+              <span className="text-base font-bold text-text-muted uppercase tracking-wider">Summary</span>
             </div>
             <div className="data-row py-1">
               <span className="data-label">Quantity × Price</span>
-              <span className="text-xs font-bold text-text-primary tabular-nums">
+              <span className="text-sm font-bold text-text-primary tabular-nums">
                 {quantity} × {currSymbol}{formatInstrumentPrice(instrument.price)}
               </span>
             </div>
             <div className="data-row py-1">
               <span className="data-label">Total Value</span>
-              <span className="text-xs font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              <span className="text-sm font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {formatCurrency(totalValue)}
               </span>
             </div>
             <div className="data-row py-1 border-t border-border/30 pt-1.5">
               <span className="data-label">Margin Required (5x)</span>
-              <span className="text-xs font-bold text-primary tabular-nums">
+              <span className="text-sm font-bold text-primary tabular-nums">
                 {formatCurrency(estimatedMargin)}
               </span>
             </div>
@@ -380,7 +380,7 @@ export default function Trade() {
         {orderError && (
           <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 flex items-center gap-2">
             <AlertTriangle size={14} className="text-red-500 flex-shrink-0" />
-            <span className="text-[11px] font-semibold text-red-700">{orderError}</span>
+            <span className="text-base font-semibold text-red-700">{orderError}</span>
           </div>
         )}
       </div>
@@ -392,11 +392,11 @@ export default function Trade() {
             <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
               <Check size={14} className="text-white" strokeWidth={3} />
             </div>
-            <span className="text-sm font-bold text-emerald-600">Order Placed Successfully!</span>
+            <span className="text-base font-bold text-emerald-600">Order Placed Successfully!</span>
           </div>
         ) : quantity && Number(quantity) > 0 ? (
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-[11px] px-1">
+            <div className="flex items-center justify-between text-base px-1">
               <span className="text-text-muted font-medium">
                 {orderSide.toUpperCase()} {quantity} {instrument.symbol}
               </span>
@@ -416,7 +416,7 @@ export default function Trade() {
             size="xl"
             variant={orderSide === 'buy' ? 'success' : 'danger'}
             disabled
-            className="text-sm font-extrabold tracking-wide"
+            className="text-base font-extrabold tracking-wide"
           >
             Enter Quantity to {orderSide === 'buy' ? 'Buy' : 'Sell'}
           </Button>

@@ -86,4 +86,28 @@ export const adminApi = {
   // ── Surveillance / Alerts ──
   getAlerts: () => request('/admin/alerts'),
   resolveAlert: (id) => request(`/admin/alerts/${id}/resolve`, { method: 'POST' }),
+
+  // ── Risk Management ──
+  getRiskManagement: () => request('/admin/risk-management'),
+
+  // ── Feedback ──
+  getFeedback: () => request('/admin/feedback'),
+
+  // ── Analytics ──
+  getTraderAnalytics: () => request('/admin/analytics/trader-behavior'),
+
+  // ── Profit Ceiling ──
+  getProfitCeiling: () => request('/admin/profit-ceiling'),
+
+  // ── PnL Statement ──
+  getPnLStatement: () => request('/admin/pnl-statement'),
+
+  // ── Margin Calls ──
+  getMarginCalls: () => request('/admin/margin-calls'),
+
+  // ── Open Positions ──
+  getOpenPositions: () => request('/admin/open-positions'),
+
+  // ── Client Ledger ──
+  getClientLedger: (clientId) => request(`/admin/ledger/${clientId}`),
 };

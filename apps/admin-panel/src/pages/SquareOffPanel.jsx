@@ -1,14 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, AlertTriangle, XCircle, CheckSquare, Square } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 export default function SquareOffPanel() {
   const [selected, setSelected] = useState([]);
+  const [openPositions, setOpenPositions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const openPositions = [
-    { id: 'POS-1', client: 'John Doe (TDX-101)', instrument: 'NIFTY 23NOV 19500 CE', qty: 250, type: 'BUY', mtom: -45000, margin: 85 },
-    { id: 'POS-2', client: 'Alice Smith (TDX-102)', instrument: 'BANKNIFTY 23NOV 43000 PE', qty: -100, type: 'SELL', mtom: 12000, margin: 40 },
-    { id: 'POS-3', client: 'Bob Jones (TDX-103)', instrument: 'RELIANCE 2450 CE', qty: 1500, type: 'BUY', mtom: -85000, margin: 95 },
-  ];
+  const fetchPositions = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getOpenPositions();
+      setOpenPositions(data.positions || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPositions();
+  }, []);
 
   const toggleSelect = (id) => {
     setSelected(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
@@ -81,7 +94,9 @@ export default function SquareOffPanel() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {openPositions.map((item) => (
+              {loading ? (
+                <tr><td colSpan="7" className="py-8 text-center text-gray-500">Loading open positions...</td></tr>
+              ) : openPositions.length > 0 ? openPositions.map((item) => (
                 <tr key={item.id} className={`transition-colors ${selected.includes(item.id) ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
                   <td className="py-3 px-4 text-center">
                     <button onClick={() => toggleSelect(item.id)} className={`hover:text-blue-600 ${selected.includes(item.id) ? 'text-blue-600' : 'text-gray-400'}`}>
@@ -110,7 +125,9 @@ export default function SquareOffPanel() {
                      </button>
                   </td>
                 </tr>
-              ))}
+              )) : (
+                <tr><td colSpan="7" className="py-8 text-center text-gray-500">No open positions found</td></tr>
+              )}
             </tbody>
           </table>
         </div>

@@ -36,9 +36,9 @@ export default function Notifications() {
               <ArrowLeft size={18} className="text-text-primary" />
             </button>
             <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold text-text-primary">Notifications</h1>
+              <h1 className="text-base font-bold text-text-primary">Notifications</h1>
               {unreadCount > 0 && (
-                <span className="bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center">
+                <span className="bg-red-500 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center">
                   {unreadCount}
                 </span>
               )}
@@ -55,7 +55,7 @@ export default function Notifications() {
         {unreadCount > 0 && (
           <div className="flex items-center gap-2 px-0.5">
             <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse-dot" />
-            <span className="text-[9px] font-bold text-red-500">{unreadCount} unread</span>
+            <span className="text-sm font-bold text-red-500">{unreadCount} unread</span>
           </div>
         )}
 
@@ -80,13 +80,13 @@ export default function Notifications() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={cn(
-                        'text-[11px] leading-relaxed',
+                        'text-base leading-relaxed',
                         !notification.read ? 'font-bold text-text-primary' : 'font-medium text-text-secondary'
                       )}>
                         {notification.message}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[9px] text-text-muted">{notification.time}</span>
+                        <span className="text-sm text-text-muted">{notification.time}</span>
                         {!notification.read && (
                           <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
                         )}
@@ -102,15 +102,15 @@ export default function Notifications() {
             <div className="w-12 h-12 bg-surface rounded-xl flex items-center justify-center mx-auto mb-2">
               <Bell size={22} className="text-text-muted/50" />
             </div>
-            <p className="text-xs font-semibold text-text-secondary">No Notifications</p>
-            <p className="text-[10px] text-text-muted mt-0.5">You're all caught up!</p>
+            <p className="text-sm font-semibold text-text-secondary">No Notifications</p>
+            <p className="text-base text-text-muted mt-0.5">You're all caught up!</p>
           </Card>
         )}
 
         {/* Info */}
         <div className="flex items-start gap-2 bg-surface rounded-lg p-2.5">
           <Info size={12} className="text-text-muted mt-0.5 flex-shrink-0" />
-          <p className="text-[9px] text-text-muted">
+          <p className="text-sm text-text-muted">
             Trade confirmations, price alerts, and platform announcements will appear here. Configure alert preferences in Settings.
           </p>
         </div>

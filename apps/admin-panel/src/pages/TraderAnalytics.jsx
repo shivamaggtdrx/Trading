@@ -1,31 +1,31 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, TrendingDown, Zap, Activity, AlertOctagon, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { adminApi } from '../services/adminApi';
 
 export default function TraderAnalytics() {
-  const behaviorData = [
-    { id: 1, client: 'TDX-101', type: 'High-Frequency', trades: 450, winRate: '45%', pnl: -12000, marginUtil: '85%' },
-    { id: 2, client: 'TDX-102', type: 'Scalper', trades: 120, winRate: '60%', pnl: 5400, marginUtil: '40%' },
-    { id: 3, client: 'TDX-103', type: 'Frequent Loser', trades: 85, winRate: '15%', pnl: -85000, marginUtil: '95%' },
-    { id: 4, client: 'TDX-104', type: 'Over-leveraged', trades: 12, winRate: '50%', pnl: -5000, marginUtil: '99%' },
-  ];
+  const [behaviorData, setBehaviorData] = useState([]);
+  const [pieData, setPieData] = useState([]);
+  const [barData, setBarData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const pieData = [
-    { name: 'Consistent Winners', value: 15, color: '#10b981' },
-    { name: 'Frequent Losers', value: 35, color: '#ef4444' },
-    { name: 'Scalpers', value: 25, color: '#3b82f6' },
-    { name: 'Dormant', value: 25, color: '#9ca3af' },
-  ];
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getTraderAnalytics();
+      setBehaviorData(data.behaviorData || []);
+      setPieData(data.pieData || []);
+      setBarData(data.barData || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const barData = [
-    { time: '09:15', trades: 1200 },
-    { time: '10:00', trades: 800 },
-    { time: '11:00', trades: 400 },
-    { time: '12:00', trades: 350 },
-    { time: '13:00', trades: 500 },
-    { time: '14:00', trades: 900 },
-    { time: '15:00', trades: 2100 },
-  ];
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -138,7 +138,9 @@ export default function TraderAnalytics() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {behaviorData.map((item) => (
+              {loading ? (
+                 <tr><td colSpan="7" className="py-8 text-center text-gray-500">Loading trader analytics...</td></tr>
+              ) : behaviorData.length > 0 ? behaviorData.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-4 font-medium text-gray-900">{item.client}</td>
                   <td className="py-3 px-4">
@@ -164,7 +166,9 @@ export default function TraderAnalytics() {
                      <button onClick={() => alert(`Client: ${item.client}\nBehavior: ${item.type}\nTrades (30d): ${item.trades}\nWin Rate: ${item.winRate}\nPnL: ₹${item.pnl}\nMargin: ${item.marginUtil}`)} className="text-blue-600 hover:underline font-medium text-xs">View Details</button>
                   </td>
                 </tr>
-              ))}
+              )) : (
+                 <tr><td colSpan="7" className="py-8 text-center text-gray-500">No trader data available.</td></tr>
+              )}
             </tbody>
           </table>
         </div>

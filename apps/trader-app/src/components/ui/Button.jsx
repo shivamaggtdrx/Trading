@@ -11,10 +11,10 @@ const variants = {
 };
 
 const sizes = {
-  xs: 'px-2.5 py-1 text-[11px]',
-  sm: 'px-3 py-1.5 text-xs',
-  md: 'px-4 py-2.5 text-sm',
-  lg: 'px-5 py-3 text-sm',
+  xs: 'px-2.5 py-1 text-base',
+  sm: 'px-3 py-1.5 text-sm',
+  md: 'px-4 py-2.5 text-base',
+  lg: 'px-5 py-3 text-base',
   xl: 'px-6 py-3.5 text-base',
 };
 

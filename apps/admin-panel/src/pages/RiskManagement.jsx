@@ -1,32 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ShieldAlert, TrendingUp, TrendingDown, AlertTriangle, Users, BarChart3, Eye, Ban, RefreshCw, ChevronDown } from 'lucide-react';
-
-const exposureData = [
-  { client: 'TDX-82491', name: 'Rajesh Kumar', exposure: 485000, margin: 125430, usage: 87, positions: 5, unrealizedPnl: -12400, riskLevel: 'critical' },
-  { client: 'TDX-10921', name: 'Alex Smith', exposure: 3200000, margin: 1250050, usage: 64, positions: 12, unrealizedPnl: 45200, riskLevel: 'medium' },
-  { client: 'TDX-10966', name: 'Sarah Jones', exposure: 8500000, margin: 8940025, usage: 42, positions: 8, unrealizedPnl: 128900, riskLevel: 'low' },
-  { client: 'TDX-10944', name: 'J. Doe', exposure: 210000, margin: 45210, usage: 92, positions: 3, unrealizedPnl: -8700, riskLevel: 'critical' },
-  { client: 'TDX-84110', name: 'Flagged Trader', exposure: 1850000, margin: 420000, usage: 78, positions: 15, unrealizedPnl: 340200, riskLevel: 'high' },
-];
-
-const segmentExposure = [
-  { segment: 'NSE Equity', long: 12400000, short: 8900000, net: 3500000, clients: 89, color: 'blue' },
-  { segment: 'F&O', long: 45000000, short: 42000000, net: 3000000, clients: 56, color: 'purple' },
-  { segment: 'MCX / Metals', long: 8200000, short: 6100000, net: 2100000, clients: 34, color: 'amber' },
-  { segment: 'Forex', long: 5600000, short: 5200000, net: 400000, clients: 28, color: 'cyan' },
-];
-
-const riskAlerts = [
-  { id: 1, type: 'Margin Breach', client: 'TDX-10944', message: 'Margin usage at 92% — auto-liquidation at 95%', time: '2 mins ago', severity: 'critical' },
-  { id: 2, type: 'Concentration Risk', client: 'TDX-84110', message: '78% of portfolio in single instrument (NIFTY50)', time: '15 mins ago', severity: 'high' },
-  { id: 3, type: 'Large Position', client: 'TDX-82491', message: 'Position size exceeds 80% of account equity', time: '1 hour ago', severity: 'high' },
-  { id: 4, type: 'Unusual Volume', client: 'TDX-10921', message: '5x normal trading volume detected in last 30 mins', time: '2 hours ago', severity: 'medium' },
-];
+import { adminApi } from '../services/adminApi';
 
 export default function RiskManagement() {
   const [selectedRiskFilter, setSelectedRiskFilter] = useState('all');
   const [showForceClose, setShowForceClose] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
+  
+  const [exposureData, setExposureData] = useState([]);
+  const [segmentExposure, setSegmentExposure] = useState([]);
+  const [riskAlerts, setRiskAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRiskData = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getRiskManagement();
+      setExposureData(data.exposureData || []);
+      setSegmentExposure(data.segmentExposure || []);
+      setRiskAlerts(data.riskAlerts || []);
+    } catch (err) {
+      console.error('Failed to fetch risk data', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRiskData();
+  }, []);
 
   const filteredExposure = selectedRiskFilter === 'all' 
     ? exposureData 
@@ -149,12 +151,16 @@ export default function RiskManagement() {
               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
               Live Risk Alerts
             </h2>
-            <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-xs text-blue-600 font-bold hover:text-blue-800 flex items-center gap-1">
-              <RefreshCw className="h-3 w-3" /> Refresh
+            <button onClick={fetchRiskData} className="text-xs text-blue-600 font-bold hover:text-blue-800 flex items-center gap-1">
+              <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} /> Refresh
             </button>
           </div>
           <div className="divide-y divide-gray-100">
-            {riskAlerts.map(alert => (
+            {loading ? (
+               <div className="p-8 text-center text-gray-500">Loading alerts...</div>
+            ) : riskAlerts.length === 0 ? (
+               <div className="p-8 text-center text-gray-500">No active risk alerts.</div>
+            ) : riskAlerts.map(alert => (
               <div key={alert.id} className="p-4 hover:bg-gray-50 flex items-start gap-3">
                 <div className={`mt-0.5 p-1.5 rounded ${
                   alert.severity === 'critical' ? 'bg-red-100 text-red-600' :

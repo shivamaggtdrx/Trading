@@ -46,7 +46,7 @@ export default function Markets() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search instruments..."
-            className="w-full bg-white border border-border/50 rounded-xl pl-9 pr-4 py-2.5 text-xs text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+            className="w-full bg-white border border-border/50 rounded-xl pl-9 pr-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
           />
         </div>
 
@@ -71,11 +71,11 @@ export default function Markets() {
         {/* Market Stats */}
         <div className="flex items-center gap-2 px-0.5">
           <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse-dot" />
-          <span className="text-[10px] text-text-muted font-semibold">
+          <span className="text-base text-text-muted font-semibold">
             {instruments.length} instruments · Live
           </span>
           {showWatchlistOnly && (
-            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded ml-1">
+            <span className="text-base font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded ml-1">
               ★ Watchlist
             </span>
           )}
@@ -85,11 +85,11 @@ export default function Markets() {
         <Card padding="p-0">
           {/* Table Header */}
           <div className="flex items-center justify-between px-3 py-2 bg-surface/80 rounded-t-2xl border-b border-border/20">
-            <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Symbol</span>
+            <span className="text-sm font-bold text-text-muted uppercase tracking-wider">Symbol</span>
             <div className="flex items-center gap-4">
-              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider w-[48px] text-center">Chart</span>
-              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Price</span>
-              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider w-[60px] text-right">Change</span>
+              <span className="text-sm font-bold text-text-muted uppercase tracking-wider w-[48px] text-center">Chart</span>
+              <span className="text-sm font-bold text-text-muted uppercase tracking-wider">Price</span>
+              <span className="text-sm font-bold text-text-muted uppercase tracking-wider w-[60px] text-right">Change</span>
             </div>
           </div>
 
@@ -126,8 +126,8 @@ export default function Markets() {
                   className="flex-1 flex items-center justify-between pl-2 pr-3 py-2.5 touch-active-subtle"
                 >
                   <div className="text-left min-w-0">
-                    <p className="text-xs font-bold text-text-primary leading-tight">{instrument.symbol}</p>
-                    <p className="text-[9px] text-text-muted mt-0.5 truncate max-w-[100px]">{instrument.name}</p>
+                    <p className="text-sm font-bold text-text-primary leading-tight">{instrument.symbol}</p>
+                    <p className="text-sm text-text-muted mt-0.5 truncate max-w-[100px]">{instrument.name}</p>
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -141,12 +141,12 @@ export default function Markets() {
 
                     {/* Price + Volume */}
                     <div className="text-right min-w-[60px]">
-                      <p className="text-xs font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      <p className="text-sm font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                         {instrument.price >= 100
                           ? '₹' + instrument.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })
                           : '$' + instrument.price.toFixed(4)}
                       </p>
-                      <p className="text-[9px] text-text-muted mt-0.5 font-medium">
+                      <p className="text-sm text-text-muted mt-0.5 font-medium">
                         Vol: {instrument.volume}
                       </p>
                     </div>
@@ -162,7 +162,7 @@ export default function Markets() {
                         <TrendingDown size={10} className="text-red-500" />
                       )}
                       <span className={cn(
-                        'text-[10px] font-bold tabular-nums',
+                        'text-base font-bold tabular-nums',
                         instrument.change >= 0 ? 'text-emerald-500' : 'text-red-500'
                       )}>
                         {formatPercent(instrument.changePercent)}
@@ -179,14 +179,14 @@ export default function Markets() {
               {showWatchlistOnly ? (
                 <>
                   <Star size={28} className="mx-auto text-text-muted/40 mb-2" />
-                  <p className="text-xs font-medium text-text-muted">No favorites yet</p>
-                  <p className="text-[10px] text-text-muted/60 mt-0.5">Tap ★ to add instruments</p>
+                  <p className="text-sm font-medium text-text-muted">No favorites yet</p>
+                  <p className="text-base text-text-muted/60 mt-0.5">Tap ★ to add instruments</p>
                 </>
               ) : (
                 <>
                   <Search size={28} className="mx-auto text-text-muted/40 mb-2" />
-                  <p className="text-xs font-medium text-text-muted">No instruments found</p>
-                  <p className="text-[10px] text-text-muted/60 mt-0.5">Try a different search term</p>
+                  <p className="text-sm font-medium text-text-muted">No instruments found</p>
+                  <p className="text-base text-text-muted/60 mt-0.5">Try a different search term</p>
                 </>
               )}
             </div>

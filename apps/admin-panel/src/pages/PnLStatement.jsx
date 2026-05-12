@@ -1,19 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, Download, DollarSign, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 export default function PnLStatement() {
   const [period, setPeriod] = useState('Today');
   const [segmentFilter, setSegmentFilter] = useState('All Segments');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  
+  const [pnlData, setPnlData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const pnlData = [
-    { id: '1', client: 'John Doe (TDX-101)', segment: 'NSE', date: '2023-10-25', gross: 15000, charges: 500, net: 14500, status: 'Settled' },
-    { id: '2', client: 'Alice Smith (TDX-102)', segment: 'MCX', date: '2023-10-25', gross: -5000, charges: 200, net: -5200, status: 'Settled' },
-    { id: '3', client: 'Bob Jones (TDX-103)', segment: 'F&O', date: '2023-10-25', gross: 25000, charges: 1200, net: 23800, status: 'Pending' },
-    { id: '4', client: 'Sara Khan (TDX-104)', segment: 'NSE', date: '2023-10-25', gross: -8500, charges: 350, net: -8850, status: 'Settled' },
-    { id: '5', client: 'Raj Patel (TDX-105)', segment: 'F&O', date: '2023-10-25', gross: 42000, charges: 1800, net: 40200, status: 'Pending' },
-  ];
+  const fetchPnL = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getPnLStatement();
+      setPnlData(data.pnlData || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPnL();
+  }, []);
 
   const filteredData = pnlData.filter(item => {
     const matchesSearch = searchQuery === '' || item.client.toLowerCase().includes(searchQuery.toLowerCase());
@@ -140,7 +152,9 @@ export default function PnLStatement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredData.map((item) => (
+              {loading ? (
+                <tr><td colSpan="7" className="py-8 text-center text-gray-500">Loading P&L data...</td></tr>
+              ) : filteredData.length > 0 ? filteredData.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-4">{item.date}</td>
                   <td className="py-3 px-4 font-medium text-gray-900">{item.client}</td>
@@ -160,8 +174,7 @@ export default function PnLStatement() {
                     </span>
                   </td>
                 </tr>
-              ))}
-              {filteredData.length === 0 && (
+              )) : (
                 <tr><td colSpan={7} className="py-8 text-center text-gray-400">No records match your filters.</td></tr>
               )}
             </tbody>

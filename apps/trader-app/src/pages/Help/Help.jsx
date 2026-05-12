@@ -56,7 +56,7 @@ export default function Help() {
           <button onClick={() => navigate(-1)} className="p-1 rounded-lg hover:bg-surface transition-colors touch-active-subtle">
             <ArrowLeft size={18} className="text-text-primary" />
           </button>
-          <h1 className="text-sm font-bold text-text-primary">Help & Support</h1>
+          <h1 className="text-base font-bold text-text-primary">Help & Support</h1>
         </div>
       </header>
 
@@ -69,7 +69,7 @@ export default function Help() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search help articles..."
-            className="w-full bg-white border border-border/50 rounded-xl pl-9 pr-4 py-2.5 text-xs text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+            className="w-full bg-white border border-border/50 rounded-xl pl-9 pr-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
           />
         </div>
 
@@ -79,28 +79,28 @@ export default function Help() {
             <div className="w-8 h-8 mx-auto bg-blue-500/10 rounded-lg flex items-center justify-center mb-1.5">
               <MessageCircle size={14} className="text-blue-600" />
             </div>
-            <p className="text-[10px] font-bold text-text-primary">Live Chat</p>
-            <p className="text-[8px] text-text-muted mt-0.5">24/7 Support</p>
+            <p className="text-base font-bold text-text-primary">Live Chat</p>
+            <p className="text-[11px] text-text-muted mt-0.5">24/7 Support</p>
           </Card>
           <Card padding="p-3" className="text-center">
             <div className="w-8 h-8 mx-auto bg-emerald-500/10 rounded-lg flex items-center justify-center mb-1.5">
               <Phone size={14} className="text-emerald-600" />
             </div>
-            <p className="text-[10px] font-bold text-text-primary">Call Us</p>
-            <p className="text-[8px] text-text-muted mt-0.5">1800-XXX-XXXX</p>
+            <p className="text-base font-bold text-text-primary">Call Us</p>
+            <p className="text-[11px] text-text-muted mt-0.5">1800-XXX-XXXX</p>
           </Card>
           <Card padding="p-3" className="text-center">
             <div className="w-8 h-8 mx-auto bg-violet-500/10 rounded-lg flex items-center justify-center mb-1.5">
               <Mail size={14} className="text-violet-600" />
             </div>
-            <p className="text-[10px] font-bold text-text-primary">Email</p>
-            <p className="text-[8px] text-text-muted mt-0.5">support@tradex.com</p>
+            <p className="text-base font-bold text-text-primary">Email</p>
+            <p className="text-[11px] text-text-muted mt-0.5">support@tradex.com</p>
           </Card>
         </div>
 
         {/* Quick Links */}
         <div>
-          <h3 className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">Quick Links</h3>
+          <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">Quick Links</h3>
           <Card padding="p-0">
             <div className="divide-y divide-border/20">
               {[
@@ -113,8 +113,8 @@ export default function Help() {
                     <item.icon size={14} />
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="text-[11px] font-semibold text-text-primary">{item.label}</p>
-                    <p className="text-[9px] text-text-muted mt-0.5">{item.subtitle}</p>
+                    <p className="text-base font-semibold text-text-primary">{item.label}</p>
+                    <p className="text-sm text-text-muted mt-0.5">{item.subtitle}</p>
                   </div>
                   <ChevronRight size={14} className="text-text-muted/50" />
                 </button>
@@ -125,7 +125,7 @@ export default function Help() {
 
         {/* FAQs */}
         <div>
-          <h3 className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
+          <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
             Frequently Asked Questions ({filteredFaqs.length})
           </h3>
           <Card padding="p-0">
@@ -139,7 +139,7 @@ export default function Help() {
                     <div className="w-5 h-5 bg-surface rounded flex items-center justify-center flex-shrink-0 mt-0.5">
                       <HelpCircle size={11} className="text-primary" />
                     </div>
-                    <p className="flex-1 text-[11px] font-semibold text-text-primary leading-relaxed">{faq.q}</p>
+                    <p className="flex-1 text-base font-semibold text-text-primary leading-relaxed">{faq.q}</p>
                     <ChevronDown
                       size={14}
                       className={cn('text-text-muted/60 flex-shrink-0 mt-0.5 transition-transform', expandedFaq === i && 'rotate-180')}
@@ -147,7 +147,7 @@ export default function Help() {
                   </button>
                   {expandedFaq === i && (
                     <div className="px-3 pb-3 pl-10">
-                      <p className="text-[10px] text-text-secondary leading-relaxed whitespace-pre-line">{faq.a}</p>
+                      <p className="text-base text-text-secondary leading-relaxed whitespace-pre-line">{faq.a}</p>
                     </div>
                   )}
                 </div>

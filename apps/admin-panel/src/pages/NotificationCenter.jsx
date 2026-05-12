@@ -1,23 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, Search, AlertCircle, ArrowDownCircle, ShieldAlert, Settings, CheckCircle2 } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 export default function NotificationCenter() {
-  const [notifications, setNotifications] = useState([
-    { id: 1, type: 'critical', title: 'Margin Call Triggered', message: 'User TDX-101 has exceeded 90% margin limit.', time: '5 mins ago', read: false },
-    { id: 2, type: 'warning', title: 'Large Withdrawal Request', message: 'TDX-204 requested a withdrawal of ₹5,00,000.', time: '12 mins ago', read: false },
-    { id: 3, type: 'info', title: 'EOD Settlement Completed', message: 'Daily settlement process completed successfully.', time: '1 hour ago', read: true },
-    { id: 4, type: 'critical', title: 'Risk Alert: NIFTY Exposure', message: 'Overall platform exposure on NIFTY has crossed 85%.', time: '2 hours ago', read: true },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
 
-  const markAsRead = (id) => setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
-  const markAllRead = () => setNotifications(notifications.map(n => ({ ...n, read: true })));
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getNotifications();
+      setNotifications(data.notifications || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const markAsRead = async (id) => {
+    try {
+      await adminApi.resolveAlert(id);
+      setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const markAllRead = () => {
+    notifications.filter(n => !n.read).forEach(n => markAsRead(n.id));
+  };
+  
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const filteredNotifications = notifications.filter(n => {
     if (activeFilter === 'unread') return !n.read;
     if (activeFilter === 'critical') return n.type === 'critical';
-    if (activeFilter === 'withdrawals') return n.title.toLowerCase().includes('withdrawal');
+    if (activeFilter === 'withdrawals') return n.title && n.title.toLowerCase().includes('withdrawal');
     return true;
   });
 
@@ -88,7 +112,7 @@ export default function NotificationCenter() {
                        <div className="flex-1">
                           <div className="flex justify-between items-start">
                              <h4 className={`text-sm font-medium ${!notif.read ? 'text-gray-900 font-bold' : 'text-gray-800'}`}>{notif.title}</h4>
-                             <span className="text-xs text-gray-500 whitespace-nowrap">{notif.time}</span>
+                             <span className="text-xs text-gray-500 whitespace-nowrap">{new Date(notif.time).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
                           </div>
                           <p className="text-sm text-gray-600 mt-1">{notif.message}</p>
                           <div className="mt-2 flex gap-3">

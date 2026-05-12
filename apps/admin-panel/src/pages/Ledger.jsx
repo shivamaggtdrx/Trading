@@ -1,30 +1,33 @@
 import React, { useState } from 'react';
 import { Search, Download, FileText, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 export default function Ledger() {
   const [clientSearch, setClientSearch] = useState('TDX-101');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [ledgerEntries, setLedgerEntries] = useState([]);
+  const [profileInfo, setProfileInfo] = useState(null);
 
-  const allLedgerEntries = [
-    { id: 'TXN-001', date: '2023-10-25 14:30', desc: 'Bank Deposit', type: 'Credit', amount: 50000, balance: 150000 },
-    { id: 'TXN-002', date: '2023-10-25 10:15', desc: 'Trade Loss (NIFTY)', type: 'Debit', amount: 15000, balance: 100000 },
-    { id: 'TXN-003', date: '2023-10-24 16:00', desc: 'Brokerage Charges', type: 'Debit', amount: 450, balance: 115000 },
-    { id: 'TXN-004', date: '2023-10-24 09:30', desc: 'Margin Penalty', type: 'Debit', amount: 1000, balance: 115450 },
-    { id: 'TXN-005', date: '2023-10-23 15:30', desc: 'Trade Profit (BANKNIFTY)', type: 'Credit', amount: 32000, balance: 116450 },
-    { id: 'TXN-006', date: '2023-10-23 09:15', desc: 'Withdrawal', type: 'Debit', amount: 20000, balance: 84450 },
-  ];
-
-  const [ledgerEntries, setLedgerEntries] = useState(allLedgerEntries);
-
-  const handleLoadLedger = () => {
+  const handleLoadLedger = async () => {
     if (!clientSearch.trim()) {
       alert('Please enter a Client ID to load ledger.');
       return;
     }
-    // Simulate loading — in production this hits the API
-    setLedgerEntries(allLedgerEntries);
-    alert(`Ledger loaded for ${clientSearch}`);
+    
+    try {
+      setLoading(true);
+      const data = await adminApi.getClientLedger(clientSearch);
+      setLedgerEntries(data.entries || []);
+      setProfileInfo(data.profile);
+    } catch (err) {
+      alert(err.message || 'Failed to load ledger. Ensure the Client ID is correct.');
+      setLedgerEntries([]);
+      setProfileInfo(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleExportStatement = () => {
@@ -81,10 +84,10 @@ export default function Ledger() {
            <div className="flex items-center justify-between">
              <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl">
-                   JD
+                   {profileInfo ? profileInfo.full_name.charAt(0) : 'JD'}
                 </div>
                 <div>
-                   <h3 className="text-lg font-bold text-gray-900">John Doe <span className="text-sm font-normal text-gray-500">({clientSearch})</span></h3>
+                   <h3 className="text-lg font-bold text-gray-900">{profileInfo ? profileInfo.full_name : 'No Client Loaded'} <span className="text-sm font-normal text-gray-500">({clientSearch})</span></h3>
                    <p className="text-sm text-gray-500">Current Balance: <span className="font-bold text-gray-900">₹{ledgerEntries[0]?.balance.toLocaleString('en-IN') || '0'}</span></p>
                 </div>
              </div>
@@ -114,7 +117,9 @@ export default function Ledger() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {ledgerEntries.map((item) => (
+              {loading ? (
+                <tr><td colSpan="6" className="py-8 text-center text-gray-500">Loading ledger...</td></tr>
+              ) : ledgerEntries.length > 0 ? ledgerEntries.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-4 font-medium text-gray-900">{item.id}</td>
                   <td className="py-3 px-4 text-gray-500">{item.date}</td>
@@ -131,7 +136,9 @@ export default function Ledger() {
                   </td>
                   <td className="py-3 px-4 text-right font-bold text-gray-900">₹{item.balance.toLocaleString('en-IN')}</td>
                 </tr>
-              ))}
+              )) : (
+                <tr><td colSpan="6" className="py-8 text-center text-gray-500">No ledger entries. Enter a Client ID and load.</td></tr>
+              )}
             </tbody>
           </table>
         </div>

@@ -1,16 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Star, MessageSquare, ThumbsUp, ThumbsDown, Filter, X } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 export default function ClientFeedback() {
   const [ratingFilter, setRatingFilter] = useState('All Ratings');
   const [showFollowUp, setShowFollowUp] = useState(null);
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const feedbacks = [
-    { id: 1, client: 'TDX-101', agent: 'Support Jane', rating: 5, category: 'Withdrawal', comment: 'Fast resolution of my withdrawal issue. Thanks!', date: '2023-10-25 14:30' },
-    { id: 2, client: 'TDX-105', agent: 'Support Mike', rating: 2, category: 'App Bug', comment: 'App keeps crashing on options chain page.', date: '2023-10-25 11:15' },
-    { id: 3, client: 'TDX-112', agent: 'Support Sarah', rating: 4, category: 'KYC', comment: 'Good support but took 2 days for verification.', date: '2023-10-24 16:45' },
-    { id: 4, client: 'TDX-089', agent: 'Support Jane', rating: 1, category: 'Trade Execution', comment: 'Slippage was too high on my market order.', date: '2023-10-24 09:20' },
-  ];
+  const fetchFeedback = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getFeedback();
+      setFeedbacks(data.feedback || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFeedback();
+  }, []);
 
   const filteredFeedbacks = feedbacks.filter(f => {
     if (ratingFilter === '5 Stars') return f.rating === 5;
@@ -20,7 +32,7 @@ export default function ClientFeedback() {
     return true;
   });
 
-  const avgRating = (feedbacks.reduce((s, f) => s + f.rating, 0) / feedbacks.length).toFixed(1);
+  const avgRating = feedbacks.length > 0 ? (feedbacks.reduce((s, f) => s + f.rating, 0) / feedbacks.length).toFixed(1) : "0.0";
 
   const renderStars = (rating) => (
     <div className="flex gap-1">
@@ -91,7 +103,9 @@ export default function ClientFeedback() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredFeedbacks.map((item) => (
+              {loading ? (
+                <tr><td colSpan="7" className="py-8 text-center text-gray-500">Loading feedback...</td></tr>
+              ) : filteredFeedbacks.length > 0 ? filteredFeedbacks.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-4 text-gray-500 whitespace-nowrap">{item.date}</td>
                   <td className="py-3 px-4 font-medium text-gray-900">{item.client}</td>
@@ -105,7 +119,9 @@ export default function ClientFeedback() {
                     <button onClick={() => setShowFollowUp(item)} className="text-blue-600 hover:underline font-medium text-xs">Follow Up</button>
                   </td>
                 </tr>
-              ))}
+              )) : (
+                <tr><td colSpan="7" className="py-8 text-center text-gray-500">No feedback found.</td></tr>
+              )}
             </tbody>
           </table>
         </div>

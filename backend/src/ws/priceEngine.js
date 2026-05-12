@@ -37,6 +37,29 @@ function initWebSocket(server) {
 }
 
 /**
+ * Check if current time is within Indian Market Hours (9:15 AM to 3:30 PM IST, Mon-Fri)
+ */
+function isMarketOpen() {
+  // Get current time in IST
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const istDate = new Date(utc + (3600000 * 5.5)); // IST is +5:30
+
+  const day = istDate.getDay();
+  // Saturday = 6, Sunday = 0
+  if (day === 0 || day === 6) return false;
+
+  const hours = istDate.getHours();
+  const minutes = istDate.getMinutes();
+
+  const currentMinutes = (hours * 60) + minutes;
+  const marketOpen = (9 * 60) + 15; // 9:15 AM
+  const marketClose = (15 * 60) + 30; // 3:30 PM
+
+  return currentMinutes >= marketOpen && currentMinutes <= marketClose;
+}
+
+/**
  * Price simulation engine
  * In production: replace this with a real market data feed
  * For dabba: we mirror real prices but can add markup/offset per admin config
@@ -44,6 +67,14 @@ function initWebSocket(server) {
 async function startPriceSimulation() {
   priceInterval = setInterval(async () => {
     try {
+      if (!isMarketOpen()) {
+        // Broadcast market closed state occasionally to keep connection alive
+        const message = JSON.stringify({ type: 'market_status', data: { status: 'CLOSED' } });
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) client.send(message);
+        });
+        return; // Skip price fluctuations while closed
+      }
       // Fetch all active instruments
       const { data: instruments } = await supabaseAdmin
         .from('instruments')

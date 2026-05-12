@@ -76,8 +76,8 @@ export default function Profile() {
               {userName.charAt(0)}
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-bold text-text-primary">{userName}</h2>
-              <p className="text-[10px] text-text-muted mt-0.5 truncate">{userEmail}</p>
+              <h2 className="text-base font-bold text-text-primary">{userName}</h2>
+              <p className="text-base text-text-muted mt-0.5 truncate">{userEmail}</p>
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant="success">
                   <Shield size={8} className="mr-1" />
@@ -91,9 +91,9 @@ export default function Profile() {
         {/* Client ID & Referral */}
         <div className="grid grid-cols-2 gap-2">
           <Card padding="p-3">
-            <p className="text-[8px] text-text-muted font-bold uppercase tracking-wider mb-1">Client ID</p>
+            <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider mb-1">Client ID</p>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-text-primary" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              <p className="text-sm font-bold text-text-primary" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {clientId}
               </p>
               <button
@@ -109,9 +109,9 @@ export default function Profile() {
             </div>
           </Card>
           <Card padding="p-3">
-            <p className="text-[8px] text-text-muted font-bold uppercase tracking-wider mb-1">Referral Code</p>
+            <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider mb-1">Referral Code</p>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-primary" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              <p className="text-sm font-bold text-primary" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {referralCode}
               </p>
               <button
@@ -131,7 +131,7 @@ export default function Profile() {
         {/* Menu Sections */}
         {menuSections.map((section) => (
           <div key={section.title}>
-            <h3 className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
+            <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
               {section.title}
             </h3>
             <Card padding="p-0">
@@ -151,8 +151,8 @@ export default function Profile() {
                         <Icon size={15} strokeWidth={1.8} />
                       </div>
                       <div className="flex-1 text-left min-w-0">
-                        <p className="text-xs font-semibold text-text-primary">{item.label}</p>
-                        <p className="text-[9px] text-text-muted mt-0.5 truncate">{item.subtitle}</p>
+                        <p className="text-sm font-semibold text-text-primary">{item.label}</p>
+                        <p className="text-sm text-text-muted mt-0.5 truncate">{item.subtitle}</p>
                       </div>
                       <ChevronRight size={14} className="text-text-muted/50 flex-shrink-0" />
                     </button>
@@ -169,12 +169,12 @@ export default function Profile() {
             <div className="w-8 h-8 bg-red-500/8 rounded-xl flex items-center justify-center">
               <LogOut size={15} className="text-red-500" strokeWidth={1.8} />
             </div>
-            <span className="text-xs font-semibold text-red-500">Sign Out</span>
+            <span className="text-sm font-semibold text-red-500">Sign Out</span>
           </button>
         </Card>
 
         {/* App Version */}
-        <p className="text-center text-[9px] text-text-muted/60 py-1">
+        <p className="text-center text-sm text-text-muted/60 py-1">
           TradeX v1.0.0 · Built for traders
         </p>
       </div>

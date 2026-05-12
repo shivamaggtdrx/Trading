@@ -53,10 +53,10 @@ export default function Dashboard() {
                   <div className="w-7 h-7 bg-white/10 backdrop-blur-sm rounded-lg flex items-center justify-center">
                     <Wallet size={14} />
                   </div>
-                  <span className="text-[11px] font-medium text-white/60 uppercase tracking-wider">Portfolio Value</span>
+                  <span className="text-base font-medium text-white/60 uppercase tracking-wider">Portfolio Value</span>
                 </div>
                 <div className={cn(
-                  'flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold',
+                  'flex items-center gap-1 px-2 py-0.5 rounded-md text-base font-bold',
                   wallet.todayPnl >= 0 ? 'bg-emerald-400/15 text-emerald-300' : 'bg-red-400/15 text-red-300'
                 )}>
                   {wallet.todayPnl >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
@@ -70,7 +70,7 @@ export default function Dashboard() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-1 text-xs text-white/50">
+              <div className="flex items-center gap-1 text-sm text-white/50">
                 {wallet.todayPnl >= 0 ? (
                   <ArrowUpRight size={12} className="text-emerald-400" />
                 ) : (
@@ -92,17 +92,17 @@ export default function Dashboard() {
         {/* Stats Row — 3 cols for density */}
         <div className="grid grid-cols-3 gap-2">
           <Card padding="p-2.5">
-            <p className="text-[9px] text-text-muted font-semibold uppercase tracking-wider mb-0.5">Balance</p>
-            <p className="text-xs font-bold text-text-primary tabular-nums">{formatCurrency(wallet.balance)}</p>
+            <p className="text-sm text-text-muted font-semibold uppercase tracking-wider mb-0.5">Balance</p>
+            <p className="text-sm font-bold text-text-primary tabular-nums">{formatCurrency(wallet.balance)}</p>
           </Card>
           <Card padding="p-2.5">
-            <p className="text-[9px] text-text-muted font-semibold uppercase tracking-wider mb-0.5">Margin Used</p>
-            <p className="text-xs font-bold text-text-primary tabular-nums">{formatCurrency(wallet.usedMargin)}</p>
+            <p className="text-sm text-text-muted font-semibold uppercase tracking-wider mb-0.5">Margin Used</p>
+            <p className="text-sm font-bold text-text-primary tabular-nums">{formatCurrency(wallet.usedMargin)}</p>
           </Card>
           <Card padding="p-2.5">
-            <p className="text-[9px] text-text-muted font-semibold uppercase tracking-wider mb-0.5">Open P&L</p>
+            <p className="text-sm text-text-muted font-semibold uppercase tracking-wider mb-0.5">Open P&L</p>
             <p className={cn(
-              'text-xs font-bold tabular-nums',
+              'text-sm font-bold tabular-nums',
               totalOpenPnl >= 0 ? 'pnl-profit' : 'pnl-loss'
             )}>
               {totalOpenPnl >= 0 ? '+' : ''}{formatCurrency(totalOpenPnl)}
@@ -112,7 +112,7 @@ export default function Dashboard() {
 
         {/* Quick Actions */}
         <div>
-          <h2 className="text-[11px] font-bold text-text-secondary mb-2 px-0.5 uppercase tracking-wider">Quick Actions</h2>
+          <h2 className="text-base font-bold text-text-secondary mb-2 px-0.5 uppercase tracking-wider">Quick Actions</h2>
           <div className="grid grid-cols-4 gap-1.5">
             {[
               { icon: BarChart3, label: 'Markets', color: 'from-blue-500/10 to-blue-600/10 text-blue-600', path: '/markets' },
@@ -128,7 +128,7 @@ export default function Dashboard() {
                 <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br', action.color)}>
                   <action.icon size={17} strokeWidth={2} />
                 </div>
-                <span className="text-[10px] font-semibold text-text-secondary">{action.label}</span>
+                <span className="text-base font-semibold text-text-secondary">{action.label}</span>
               </button>
             ))}
           </div>
@@ -140,11 +140,11 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-2 px-0.5">
               <div className="flex items-center gap-1.5">
                 <Star size={12} className="text-amber-500 fill-amber-500" />
-                <h2 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">Watchlist</h2>
+                <h2 className="text-base font-bold text-text-secondary uppercase tracking-wider">Watchlist</h2>
               </div>
               <button
                 onClick={() => navigate('/markets')}
-                className="flex items-center gap-0.5 text-[10px] font-semibold text-primary"
+                className="flex items-center gap-0.5 text-base font-semibold text-primary"
               >
                 View All <ChevronRight size={12} />
               </button>
@@ -158,16 +158,16 @@ export default function Dashboard() {
                   onClick={() => handleInstrumentClick(stock)}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-[11px] font-bold text-text-primary">{stock.symbol}</p>
+                    <p className="text-base font-bold text-text-primary">{stock.symbol}</p>
                     <Star size={10} className="text-amber-400 fill-amber-400" />
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <p className="text-xs font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      <p className="text-sm font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                         {stock.price >= 100 ? '₹' + stock.price.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '$' + stock.price.toFixed(4)}
                       </p>
                       <div className={cn(
-                        'flex items-center gap-0.5 text-[10px] font-bold mt-0.5',
+                        'flex items-center gap-0.5 text-base font-bold mt-0.5',
                         stock.change >= 0 ? 'text-emerald-500' : 'text-red-500'
                       )}>
                         {stock.change >= 0 ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
@@ -186,10 +186,10 @@ export default function Dashboard() {
         {positions.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-2 px-0.5">
-              <h2 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">Open Positions</h2>
+              <h2 className="text-base font-bold text-text-secondary uppercase tracking-wider">Open Positions</h2>
               <button
                 onClick={() => navigate('/positions')}
-                className="flex items-center gap-0.5 text-[10px] font-semibold text-primary"
+                className="flex items-center gap-0.5 text-base font-semibold text-primary"
               >
                 View All <ChevronRight size={12} />
               </button>
@@ -200,25 +200,25 @@ export default function Dashboard() {
                   <div key={pos.id} className="flex items-center justify-between px-3 py-2.5 touch-active-subtle">
                     <div className="flex items-center gap-2.5">
                       <div className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-extrabold',
+                        'w-8 h-8 rounded-lg flex items-center justify-center text-base font-extrabold',
                         pos.type === 'BUY' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500'
                       )}>
                         {pos.type === 'BUY' ? 'B' : 'S'}
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-text-primary">{pos.symbol}</p>
-                        <p className="text-[10px] text-text-muted">Qty: {pos.quantity}</p>
+                        <p className="text-sm font-bold text-text-primary">{pos.symbol}</p>
+                        <p className="text-base text-text-muted">Qty: {pos.quantity}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className={cn(
-                        'text-xs font-extrabold tabular-nums',
+                        'text-sm font-extrabold tabular-nums',
                         pos.pnl >= 0 ? 'pnl-profit' : 'pnl-loss'
                       )} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                         {pos.pnl >= 0 ? '+' : ''}{formatCurrency(pos.pnl)}
                       </p>
                       <p className={cn(
-                        'text-[10px] font-semibold',
+                        'text-base font-semibold',
                         pos.pnl >= 0 ? 'text-emerald-500/70' : 'text-red-500/70'
                       )}>
                         {formatPercent(pos.pnlPercent)}
@@ -234,10 +234,10 @@ export default function Dashboard() {
         {/* Top Movers */}
         <div>
           <div className="flex items-center justify-between mb-2 px-0.5">
-            <h2 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">Top Movers</h2>
+            <h2 className="text-base font-bold text-text-secondary uppercase tracking-wider">Top Movers</h2>
             <button
               onClick={() => navigate('/markets')}
-              className="flex items-center gap-0.5 text-[10px] font-semibold text-primary"
+              className="flex items-center gap-0.5 text-base font-semibold text-primary"
             >
               See All <ChevronRight size={12} />
             </button>
@@ -253,21 +253,21 @@ export default function Dashboard() {
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center">
-                      <span className="text-[10px] font-bold text-text-secondary">{stock.symbol.slice(0, 2)}</span>
+                      <span className="text-base font-bold text-text-secondary">{stock.symbol.slice(0, 2)}</span>
                     </div>
                     <div className="text-left">
-                      <p className="text-xs font-bold text-text-primary">{stock.symbol}</p>
-                      <p className="text-[10px] text-text-muted">{stock.name}</p>
+                      <p className="text-sm font-bold text-text-primary">{stock.symbol}</p>
+                      <p className="text-base text-text-muted">{stock.name}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <Sparkline data={stock.sparkline} positive={stock.change >= 0} width={44} height={20} />
                     <div className="text-right min-w-[70px]">
-                      <p className="text-xs font-bold text-text-primary tabular-nums">
+                      <p className="text-sm font-bold text-text-primary tabular-nums">
                         {stock.price >= 100 ? '₹' : '$'}{stock.price >= 100 ? stock.price.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : stock.price.toFixed(4)}
                       </p>
                       <p className={cn(
-                        'text-[10px] font-bold',
+                        'text-base font-bold',
                         stock.change >= 0 ? 'text-emerald-500' : 'text-red-500'
                       )}>
                         {formatPercent(stock.changePercent)}
@@ -283,8 +283,8 @@ export default function Dashboard() {
         {/* Market Status */}
         <div className="flex items-center gap-2 px-1 py-2">
           <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse-dot" />
-          <span className="text-[10px] font-medium text-text-muted">Market Open</span>
-          <span className="text-[10px] text-text-muted/60 ml-auto">NSE · BSE</span>
+          <span className="text-base font-medium text-text-muted">Market Open</span>
+          <span className="text-base text-text-muted/60 ml-auto">NSE · BSE</span>
         </div>
       </div>
     </div>
