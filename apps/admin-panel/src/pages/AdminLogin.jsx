@@ -163,7 +163,7 @@ export default function AdminLogin() {
             )}
 
             {/* Submit */}
-            <button onClick={() => alert('Action triggered. Backend integration pending.')}
+            <button
               type="submit"
               disabled={loading || isLockedOut}
               className={`w-full py-2.5 bg-gradient-to-r ${selectedDept.color} text-white rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl`}
