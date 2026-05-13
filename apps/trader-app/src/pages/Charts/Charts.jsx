@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { AdvancedRealTimeChart } from 'react-ts-tradingview-widgets';
 import {
   TrendingUp,
   TrendingDown,
   Info,
-  BarChart2,
   Minus,
   Plus,
   Check,
@@ -19,11 +18,23 @@ import SlideToConfirm from '../../components/ui/SlideToConfirm';
 import { useTradeStore } from '../../store/useTradeStore';
 import { formatCurrency, formatPercent, cn } from '../../utils/helpers';
 
-
 const orderTypes = [
   { key: 'market', label: 'Market' },
   { key: 'limit', label: 'Limit' },
   { key: 'stoploss', label: 'SL' },
+];
+
+// ═══ Timeframe config for TradingView ═══
+const TIMEFRAMES = [
+  { label: '1m',  value: '1',   interval: '1' },
+  { label: '5m',  value: '5',   interval: '5' },
+  { label: '15m', value: '15',  interval: '15' },
+  { label: '30m', value: '30',  interval: '30' },
+  { label: '1H',  value: '60',  interval: '60' },
+  { label: '4H',  value: '240', interval: '240' },
+  { label: 'D',   value: 'D',   interval: 'D' },
+  { label: 'W',   value: 'W',   interval: 'W' },
+  { label: 'M',   value: 'M',   interval: 'M' },
 ];
 
 // Generate mock order book data
@@ -51,7 +62,7 @@ export default function Charts() {
   } = useTradeStore();
   const [limitPrice, setLimitPrice] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
-  const [activeTimeframe, setActiveTimeframe] = useState(3);
+  const [activeTimeframe, setActiveTimeframe] = useState(6); // Default to 'D'
   const [showPicker, setShowPicker] = useState(false);
   const [pricePulse, setPricePulse] = useState(null);
   const pulseTimer = useRef(null);
@@ -64,6 +75,17 @@ export default function Charts() {
 
   const totalValue = quantity ? (Number(quantity) * instrument.price) : 0;
   const estimatedMargin = totalValue * 0.2;
+
+  // Detect dark mode for TradingView
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'));
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   // Simulate price pulse
   useEffect(() => {
@@ -89,11 +111,21 @@ export default function Charts() {
   const currSymbol = isForex ? '$' : '₹';
   const fmtPrice = (p) => p >= 100 ? p.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : p.toFixed(4);
 
+  // Build TradingView symbol
+  const tvSymbol = useMemo(() => {
+    if (!instrument.symbol || instrument.symbol === 'LOADING') return 'BSE:RELIANCE';
+    if (instrument.symbol.includes(':')) return instrument.symbol;
+    if (isForex) return `FX:${instrument.symbol}`;
+    return `BSE:${instrument.symbol}`;
+  }, [instrument.symbol, isForex]);
+
+  const currentInterval = TIMEFRAMES[activeTimeframe]?.interval || 'D';
+
   return (
     <div className="page-enter">
       {/* Header */}
       <header className="sticky top-0 z-30 glass-heavy safe-top border-b border-border/30">
-        <div className="max-w-lg mx-auto flex items-center gap-2 px-3 py-2">
+        <div className="flex items-center gap-2 px-3 py-2">
           <button onClick={() => setShowPicker(!showPicker)} className="flex items-center gap-1 p-1 rounded-md hover:bg-surface transition-colors touch-active-subtle">
             <h1 className="text-base font-extrabold text-text-primary">{instrument.symbol}</h1>
             <ChevronDown size={14} className="text-text-muted" />
@@ -116,7 +148,7 @@ export default function Charts() {
           <div className="absolute top-full left-0 right-0 bg-surface border-b border-border/30 shadow-lg max-h-48 overflow-y-auto z-50">
             {allInstruments.map((inst) => (
               <button key={inst.symbol} onClick={() => { setSelectedInstrument(inst); setShowPicker(false); }}
-                className={cn('w-full flex items-center justify-between px-4 py-2 text-left hover:bg-surface/50 transition-colors', inst.symbol === instrument.symbol && 'bg-primary/5')}>
+                className={cn('w-full flex items-center justify-between px-4 py-2 text-left hover:bg-surface-2/50 transition-colors', inst.symbol === instrument.symbol && 'bg-primary/5')}>
                 <div>
                   <span className="text-base font-bold text-text-primary">{inst.symbol}</span>
                   <span className="text-sm text-text-muted ml-2">{inst.name}</span>
@@ -130,20 +162,48 @@ export default function Charts() {
         )}
       </header>
 
+      {/* ═══ Timeframe Selector ═══ */}
+      <div className="border-b border-border/20 bg-surface-2/50 overflow-x-auto scrollbar-hide">
+        <div className="flex items-center gap-0.5 px-2 py-1 min-w-max">
+          {TIMEFRAMES.map((tf, i) => (
+            <button
+              key={tf.label}
+              onClick={() => setActiveTimeframe(i)}
+              className={cn(
+                'px-2.5 py-1 text-xs font-bold rounded transition-all whitespace-nowrap',
+                activeTimeframe === i
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'text-text-muted hover:text-text-primary hover:bg-surface-2'
+              )}
+            >
+              {tf.label}
+            </button>
+          ))}
+          <div className="w-px h-4 bg-border/40 mx-1" />
+          <span className="text-[10px] text-text-muted/60 font-medium px-1">Interval</span>
+        </div>
+      </div>
+
       {/* Chart + Order Book side by side */}
       <div className="relative bg-surface border-b border-border/20">
-        <div className="flex" style={{ height: '52vh', minHeight: '260px', maxHeight: '400px' }}>
+        <div className="flex" style={{ height: '52vh', minHeight: '260px', maxHeight: '500px' }}>
           {/* Chart Area */}
-          <div className="flex-1 relative overflow-hidden bg-[#f8fafc]">
+          <div className="flex-1 relative overflow-hidden" style={{ background: isDark ? '#0b0e14' : '#f8fafc' }}>
             <AdvancedRealTimeChart
-              symbol={instrument.symbol?.includes(':') ? instrument.symbol : `BSE:${instrument.symbol}`}
-              theme="light"
+              key={`${tvSymbol}-${currentInterval}-${isDark}`}
+              symbol={tvSymbol}
+              interval={currentInterval}
+              theme={isDark ? 'dark' : 'light'}
               autosize
               hide_top_toolbar
               hide_legend
               save_image={false}
-              toolbar_bg="#f8fafc"
+              toolbar_bg={isDark ? '#131722' : '#f8fafc'}
               allow_symbol_change={false}
+              withdateranges={false}
+              details={false}
+              calendar={false}
+              style="1"
             />
           </div>
 
@@ -260,7 +320,7 @@ export default function Charts() {
       </div>
 
       {/* Sticky Bottom */}
-      <div className="sticky-action-bar max-w-lg mx-auto" style={{ bottom: '64px', zIndex: 45 }}>
+      <div className="sticky-action-bar max-w-lg mx-auto lg:max-w-none" style={{ bottom: '64px', zIndex: 45 }}>
         {showSuccess ? (
           <div className="flex items-center justify-center gap-2 py-3 bg-emerald-50 rounded-lg border border-emerald-200 order-success-burst">
             <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
