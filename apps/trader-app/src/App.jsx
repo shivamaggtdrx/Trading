@@ -47,7 +47,8 @@ export default function App() {
 
           {/* All protected routes inside AppLayout — desktop gets sidebar + nav on every page */}
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<Markets />} />
+            <Route path="/dashboard" element={<Home />} />
             <Route path="/positions" element={<Positions />} />
             <Route path="/charts" element={<Charts />} />
             <Route path="/orders" element={<Orders />} />

@@ -12,7 +12,7 @@ import { api } from '../../services/api';
 import { cn } from '../../utils/helpers';
 
 const desktopNavItems = [
-  { path: '/', icon: Home, label: 'Dashboard' },
+  { path: '/dashboard', icon: Home, label: 'Dashboard' },
   { path: '/orders', icon: ClipboardList, label: 'Orders' },
   { path: '/positions', icon: Layers, label: 'Portfolio' },
   { path: '/charts', icon: CandlestickChart, label: 'Charts' },

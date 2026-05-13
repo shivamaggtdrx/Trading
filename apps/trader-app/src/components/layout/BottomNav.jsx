@@ -1,9 +1,9 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Layers, CandlestickChart, ClipboardList, User } from 'lucide-react';
+import { BarChart3, Layers, CandlestickChart, ClipboardList, User } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 
 const navItems = [
-  { path: '/', icon: Home, label: 'Home' },
+  { path: '/', icon: BarChart3, label: 'Watchlist' },
   { path: '/positions', icon: Layers, label: 'Positions' },
   { path: '/charts', icon: CandlestickChart, label: 'Charts' },
   { path: '/orders', icon: ClipboardList, label: 'Orders' },
