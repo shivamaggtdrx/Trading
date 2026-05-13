@@ -27,7 +27,7 @@ export default function Modal({ isOpen, onClose, title, children, className = ''
       {/* Modal */}
       <div
         className={cn(
-          'relative bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl',
+          'relative bg-surface w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl',
           'max-h-[85vh] overflow-y-auto',
           'animate-[slideUp_0.25s_ease-out]',
           'safe-bottom',

@@ -135,7 +135,7 @@ export default function Trade() {
       </header>
 
       {/* Chart Area — Dominant (~55% viewport) */}
-      <div className="relative bg-white border-b border-border/20">
+      <div className="relative bg-surface border-b border-border/20">
           {/* Chart Area */}
           <div className="flex-1 relative overflow-hidden bg-[#f8fafc] w-full h-full">
             <AdvancedRealTimeChart
@@ -183,7 +183,7 @@ export default function Trade() {
                   'flex-1 py-1.5 text-sm font-bold rounded-lg transition-all',
                   i === activeTimeframe
                     ? 'bg-primary text-white shadow-sm'
-                    : 'bg-white/70 text-text-muted hover:bg-white hover:text-text-secondary'
+                    : 'bg-white/70 text-text-muted hover:bg-surface hover:text-text-secondary'
                 )}
               >
                 {tf}
@@ -203,7 +203,7 @@ export default function Trade() {
             { label: 'Chg', value: instrument.change, color: instrument.change >= 0 ? 'text-emerald-600' : 'text-red-500' },
             { label: 'Vol', value: instrument.volume, color: 'text-text-primary' },
           ].map((item) => (
-            <div key={item.label} className="bg-white rounded-lg p-2 border border-border/30">
+            <div key={item.label} className="bg-surface rounded-lg p-2 border border-border/30">
               <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider">{item.label}</p>
               <p className={cn('text-base font-extrabold tabular-nums mt-0.5', item.color)} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {typeof item.value === 'number'
@@ -249,7 +249,7 @@ export default function Trade() {
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => adjustQuantity(-1)}
-              className="w-10 h-10 rounded-xl bg-white border border-border/50 flex items-center justify-center touch-active-subtle hover:bg-surface"
+              className="w-10 h-10 rounded-xl bg-surface border border-border/50 flex items-center justify-center touch-active-subtle hover:bg-surface"
             >
               <Minus size={16} className="text-text-secondary" />
             </button>
@@ -258,12 +258,12 @@ export default function Trade() {
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               placeholder="0"
-              className="flex-1 bg-white border border-border/50 rounded-xl px-3 py-2.5 text-center text-base font-bold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all tabular-nums"
+              className="flex-1 bg-surface border border-border/50 rounded-xl px-3 py-2.5 text-center text-base font-bold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all tabular-nums"
               style={{ fontFamily: "'JetBrains Mono', monospace" }}
             />
             <button
               onClick={() => adjustQuantity(1)}
-              className="w-10 h-10 rounded-xl bg-white border border-border/50 flex items-center justify-center touch-active-subtle hover:bg-surface"
+              className="w-10 h-10 rounded-xl bg-surface border border-border/50 flex items-center justify-center touch-active-subtle hover:bg-surface"
             >
               <Plus size={16} className="text-text-secondary" />
             </button>
@@ -314,7 +314,7 @@ export default function Trade() {
 
         {/* Order Summary */}
         {quantity && Number(quantity) > 0 && (
-          <div className="bg-white rounded-xl p-3 border border-border/30 space-y-1.5">
+          <div className="bg-surface rounded-xl p-3 border border-border/30 space-y-1.5">
             <div className="flex items-center gap-1 mb-1">
               <Info size={11} className="text-text-muted" />
               <span className="text-base font-bold text-text-muted uppercase tracking-wider">Summary</span>

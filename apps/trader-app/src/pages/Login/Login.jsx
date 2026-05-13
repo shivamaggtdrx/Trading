@@ -26,33 +26,33 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center px-4">
+    <div className="min-h-screen bg-surface-2 flex flex-col justify-center items-center px-4">
       {/* Logo */}
       <div className="flex items-center gap-2 mb-8">
         <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
           <TrendingUp className="w-6 h-6 text-white" />
         </div>
-        <span className="text-2xl font-black text-gray-900">TradeX</span>
+        <span className="text-2xl font-black text-text-primary">TradeX</span>
       </div>
 
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-lg border border-border/30 p-6">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
-          <p className="text-sm text-gray-500 mt-1">Please log in to continue to your dashboard.</p>
+          <h2 className="text-2xl font-bold text-text-primary">Welcome Back</h2>
+          <p className="text-sm text-text-muted mt-1">Please log in to continue to your dashboard.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
 
           <div>
-            <label className="block text-sm font-bold text-gray-600 mb-1.5">Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" required />
+            <label className="block text-sm font-bold text-text-secondary mb-1.5">Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" className="w-full px-4 py-3 bg-surface-2 border border-border/50 rounded-xl text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" required />
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-600 mb-1.5">Password</label>
+            <label className="block text-sm font-bold text-text-secondary mb-1.5">Password</label>
             <div className="relative">
-              <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none pr-10" required minLength={6} />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" className="w-full px-4 py-3 bg-surface-2 border border-border/50 rounded-xl text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none pr-10" required minLength={6} />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted/60">
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
@@ -72,10 +72,10 @@ export default function Login() {
         </form>
 
         {/* Features banner */}
-        <div className="mt-6 pt-4 border-t border-gray-100 flex justify-around text-center">
-          <div><div className="text-lg font-black text-blue-600">0%</div><div className="text-base text-gray-500">Brokerage</div></div>
-          <div><div className="text-lg font-black text-blue-600">100x</div><div className="text-base text-gray-500">Leverage</div></div>
-          <div><div className="text-lg font-black text-blue-600">24/7</div><div className="text-base text-gray-500">Support</div></div>
+        <div className="mt-6 pt-4 border-t border-border/30 flex justify-around text-center">
+          <div><div className="text-lg font-black text-blue-600">0%</div><div className="text-base text-text-muted">Brokerage</div></div>
+          <div><div className="text-lg font-black text-blue-600">100x</div><div className="text-base text-text-muted">Leverage</div></div>
+          <div><div className="text-lg font-black text-blue-600">24/7</div><div className="text-base text-text-muted">Support</div></div>
         </div>
       </div>
     </div>

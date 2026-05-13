@@ -46,7 +46,7 @@ export default function Orders() {
         {/* Summary row — flat, no cards */}
         <div className="grid grid-cols-3 gap-1 mb-2">
           <button onClick={() => setActiveOrderTab('open')}
-            className={cn('bg-white rounded-md p-2 border text-left transition-all', activeOrderTab === 'open' ? 'border-amber-300 ring-1 ring-amber-200/50' : 'border-border/20')}>
+            className={cn('bg-surface rounded-md p-2 border text-left transition-all', activeOrderTab === 'open' ? 'border-amber-300 ring-1 ring-amber-200/50' : 'border-border/20')}>
             <div className="flex items-center gap-1 mb-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
               <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Open</p>
@@ -54,7 +54,7 @@ export default function Orders() {
             <p className={cn('text-lg font-extrabold tabular-nums', openCount > 0 ? 'text-amber-600' : 'text-text-primary')} style={{ fontFamily: "'JetBrains Mono', monospace" }}>{openCount}</p>
           </button>
           <button onClick={() => setActiveOrderTab('filled')}
-            className={cn('bg-white rounded-md p-2 border text-left transition-all', activeOrderTab === 'filled' ? 'border-emerald-300 ring-1 ring-emerald-200/50' : 'border-border/20')}>
+            className={cn('bg-surface rounded-md p-2 border text-left transition-all', activeOrderTab === 'filled' ? 'border-emerald-300 ring-1 ring-emerald-200/50' : 'border-border/20')}>
             <div className="flex items-center gap-1 mb-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Filled</p>
@@ -62,7 +62,7 @@ export default function Orders() {
             <p className="text-lg font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{filledCount}</p>
           </button>
           <button onClick={() => setActiveOrderTab('cancelled')}
-            className={cn('bg-white rounded-md p-2 border text-left transition-all', activeOrderTab === 'cancelled' ? 'border-slate-400 ring-1 ring-slate-200/50' : 'border-border/20')}>
+            className={cn('bg-surface rounded-md p-2 border text-left transition-all', activeOrderTab === 'cancelled' ? 'border-slate-400 ring-1 ring-slate-200/50' : 'border-border/20')}>
             <div className="flex items-center gap-1 mb-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-text-muted" />
               <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Cancelled</p>
@@ -88,7 +88,7 @@ export default function Orders() {
                 return (
                   <div key={order.id}
                     className={cn(
-                      'bg-white rounded-md border overflow-hidden transition-all',
+                      'bg-surface rounded-md border overflow-hidden transition-all',
                       isOpen ? 'border-amber-200/60 border-l-2 border-l-amber-400' : 'border-border/20 border-l-2',
                       config.border
                     )}>
@@ -159,7 +159,7 @@ export default function Orders() {
               })}
             </div>
           ) : (
-            <div className="py-10 text-center bg-white rounded-lg border border-border/20">
+            <div className="py-10 text-center bg-surface rounded-lg border border-border/20">
               <ClipboardList size={18} className="mx-auto text-text-muted/30 mb-1.5" />
               <p className="text-base font-semibold text-text-secondary">
                 No {activeOrderTab === 'open' ? 'open' : activeOrderTab === 'filled' ? 'filled' : 'cancelled'} orders

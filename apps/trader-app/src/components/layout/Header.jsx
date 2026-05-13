@@ -38,12 +38,12 @@ export default function Header({ title, showNotification = true, showGreeting = 
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={toggleDarkMode} className="p-2 rounded-xl bg-white/60 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 transition-colors touch-active-subtle border border-border/30 text-text-secondary">
+          <button onClick={toggleDarkMode} className="p-2 rounded-xl bg-white/60 dark:bg-white/10 hover:bg-surface dark:hover:bg-white/20 transition-colors touch-active-subtle border border-border/30 text-text-secondary">
             {isDark ? <Sun size={18} strokeWidth={1.8} /> : <Moon size={18} strokeWidth={1.8} />}
           </button>
           
           {showNotification && (
-            <button onClick={() => navigate('/notifications')} className="relative p-2 rounded-xl bg-white/60 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 transition-colors touch-active-subtle border border-border/30">
+            <button onClick={() => navigate('/notifications')} className="relative p-2 rounded-xl bg-white/60 dark:bg-white/10 hover:bg-surface dark:hover:bg-white/20 transition-colors touch-active-subtle border border-border/30">
               <Bell size={18} className="text-text-secondary" strokeWidth={1.8} />
               {unreadCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-danger text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-sm">

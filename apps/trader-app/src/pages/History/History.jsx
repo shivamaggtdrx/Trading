@@ -74,7 +74,7 @@ export default function History() {
               value={historyFilter.symbol}
               onChange={(e) => setHistoryFilter({ symbol: e.target.value })}
               placeholder="Filter by symbol..."
-              className="w-full bg-white border border-border/50 rounded-xl pl-8 pr-4 py-2 text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+              className="w-full bg-surface border border-border/50 rounded-xl pl-8 pr-4 py-2 text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
             />
           </div>
           <Tabs

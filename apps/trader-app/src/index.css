@@ -17,7 +17,7 @@
   --color-surface: #ffffff;
   --color-surface-2: #f8fafc;
   --color-surface-3: #f1f5f9;
-  --color-border: #f1f5f9;
+  --color-border: #e2e8f0;
   --color-text-primary: #111827;
   --color-text-secondary: #4b5563;
   --color-text-muted: #9ca3af;
@@ -46,18 +46,28 @@ body {
   transition: background-color 0.3s, color 0.3s;
 }
 
-/* Dark Mode Variables based on TRADEX screenshot */
 .dark {
   --color-surface: #0b0e14;
-  --color-surface-2: #151924;
+  --color-surface-2: #131722;
   --color-surface-3: #1e222d;
   --color-border: #2a2e39;
   --color-text-primary: #d1d4dc;
   --color-text-secondary: #a3a6af;
   --color-text-muted: #787b86;
-  --color-success-bg: rgba(16, 185, 129, 0.15);
-  --color-danger-bg: rgba(239, 68, 68, 0.15);
+  --color-success-bg: rgba(16, 185, 129, 0.12);
+  --color-danger-bg: rgba(239, 68, 68, 0.12);
 }
+
+/* Dark mode semantic overrides for colored utility classes */
+.dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.1) !important; }
+.dark .text-blue-700, .dark .text-blue-600 { color: #60a5fa !important; }
+.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.1) !important; }
+.dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.2) !important; }
+.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.1) !important; }
+.dark .bg-red-50 { background-color: rgba(239, 68, 68, 0.1) !important; }
+.dark .text-red-700 { color: #f87171 !important; }
+.dark .bg-green-50 { background-color: rgba(16, 185, 129, 0.1) !important; }
+.dark .text-green-600 { color: #34d399 !important; }
 
 /* Safe area handling for notched devices */
 .safe-top { padding-top: env(safe-area-inset-top, 0px); }
@@ -345,11 +355,11 @@ input[type="number"] {
    GLASSMORPHISM (REMOVED FOR CLEAN UI)
    ======================================== */
 .glass {
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 .glass-heavy {
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 /* ========================================

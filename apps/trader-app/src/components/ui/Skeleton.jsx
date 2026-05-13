@@ -47,7 +47,7 @@ export function MarketItemSkeleton() {
  */
 export function PositionCardSkeleton() {
   return (
-    <div className="bg-white rounded-2xl card-shadow border border-border/50 p-4 space-y-3">
+    <div className="bg-surface rounded-2xl card-shadow border border-border/50 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Skeleton variant="rect" width={40} height={40} />

@@ -174,7 +174,7 @@ export default function Security() {
             <label className="block text-base font-bold text-text-muted uppercase tracking-wider mb-1">Current Password</label>
             <div className="relative">
               <input type={showPassword ? "text" : "password"} placeholder="Enter current password"
-                className="w-full bg-white border border-border/50 rounded-xl px-3 py-2.5 text-base text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all pr-10" />
+                className="w-full bg-surface border border-border/50 rounded-xl px-3 py-2.5 text-base text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all pr-10" />
               <button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2">
                 {showPassword ? <EyeOff size={16} className="text-text-muted" /> : <Eye size={16} className="text-text-muted" />}
               </button>
@@ -183,12 +183,12 @@ export default function Security() {
           <div>
             <label className="block text-base font-bold text-text-muted uppercase tracking-wider mb-1">New Password</label>
             <input type="password" placeholder="Enter new password"
-              className="w-full bg-white border border-border/50 rounded-xl px-3 py-2.5 text-base text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all" />
+              className="w-full bg-surface border border-border/50 rounded-xl px-3 py-2.5 text-base text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all" />
           </div>
           <div>
             <label className="block text-base font-bold text-text-muted uppercase tracking-wider mb-1">Confirm New Password</label>
             <input type="password" placeholder="Re-enter new password"
-              className="w-full bg-white border border-border/50 rounded-xl px-3 py-2.5 text-base text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all" />
+              className="w-full bg-surface border border-border/50 rounded-xl px-3 py-2.5 text-base text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all" />
           </div>
           <div className="flex gap-2 pt-1">
             <Button variant="outline" fullWidth size="md" onClick={() => setShowPasswordModal(false)}>Cancel</Button>

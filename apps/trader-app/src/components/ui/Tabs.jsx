@@ -14,7 +14,7 @@ export default function Tabs({ tabs, activeTab, onChange, className = '', compac
             'flex-1 py-2 px-2 font-semibold rounded-md transition-all duration-200 select-none',
             compact ? 'text-base' : 'text-sm',
             activeTab === tab.key
-              ? 'bg-white text-text-primary card-shadow'
+              ? 'bg-surface text-text-primary card-shadow'
               : 'text-text-muted hover:text-text-secondary'
           )}
         >

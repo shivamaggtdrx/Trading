@@ -113,7 +113,7 @@ export default function Charts() {
           </div>
         </div>
         {showPicker && (
-          <div className="absolute top-full left-0 right-0 bg-white border-b border-border/30 shadow-lg max-h-48 overflow-y-auto z-50">
+          <div className="absolute top-full left-0 right-0 bg-surface border-b border-border/30 shadow-lg max-h-48 overflow-y-auto z-50">
             {allInstruments.map((inst) => (
               <button key={inst.symbol} onClick={() => { setSelectedInstrument(inst); setShowPicker(false); }}
                 className={cn('w-full flex items-center justify-between px-4 py-2 text-left hover:bg-surface/50 transition-colors', inst.symbol === instrument.symbol && 'bg-primary/5')}>
@@ -131,7 +131,7 @@ export default function Charts() {
       </header>
 
       {/* Chart + Order Book side by side */}
-      <div className="relative bg-white border-b border-border/20">
+      <div className="relative bg-surface border-b border-border/20">
         <div className="flex" style={{ height: '52vh', minHeight: '260px', maxHeight: '400px' }}>
           {/* Chart Area */}
           <div className="flex-1 relative overflow-hidden bg-[#f8fafc]">
@@ -195,7 +195,7 @@ export default function Charts() {
             { label: 'Chg', value: instrument.change, color: instrument.change >= 0 ? 'text-emerald-600' : 'text-red-500' },
             { label: 'Vol', value: instrument.volume, color: 'text-text-primary' },
           ].map((item) => (
-            <div key={item.label} className="bg-white rounded-md p-1.5 border border-border/20">
+            <div key={item.label} className="bg-surface rounded-md p-1.5 border border-border/20">
               <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">{item.label}</p>
               <p className={cn('text-base font-extrabold tabular-nums mt-0.5', item.color)} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {typeof item.value === 'number' ? (item.value >= 100 ? item.value.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : item.value.toFixed(4)) : item.value}
@@ -226,11 +226,11 @@ export default function Charts() {
         <div className="space-y-1">
           <label className="block text-sm font-bold text-text-muted uppercase tracking-wider">Quantity</label>
           <div className="flex items-center gap-1">
-            <button onClick={() => adjustQuantity(-1)} className="w-9 h-9 rounded-lg bg-white border border-border/40 flex items-center justify-center touch-active-subtle"><Minus size={14} className="text-text-secondary" /></button>
+            <button onClick={() => adjustQuantity(-1)} className="w-9 h-9 rounded-lg bg-surface border border-border/40 flex items-center justify-center touch-active-subtle"><Minus size={14} className="text-text-secondary" /></button>
             <input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0"
-              className="flex-1 bg-white border border-border/40 rounded-lg px-3 py-2 text-center text-base font-extrabold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all tabular-nums"
+              className="flex-1 bg-surface border border-border/40 rounded-lg px-3 py-2 text-center text-base font-extrabold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all tabular-nums"
               style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-            <button onClick={() => adjustQuantity(1)} className="w-9 h-9 rounded-lg bg-white border border-border/40 flex items-center justify-center touch-active-subtle"><Plus size={14} className="text-text-secondary" /></button>
+            <button onClick={() => adjustQuantity(1)} className="w-9 h-9 rounded-lg bg-surface border border-border/40 flex items-center justify-center touch-active-subtle"><Plus size={14} className="text-text-secondary" /></button>
           </div>
           <div className="flex gap-0.5 mt-0.5">
             {[1, 5, 10, 25, 50, 100].map(q => (
@@ -247,7 +247,7 @@ export default function Charts() {
 
         {/* Summary */}
         {quantity && Number(quantity) > 0 && (
-          <div className="bg-white rounded-lg p-2.5 border border-border/20 space-y-1">
+          <div className="bg-surface rounded-lg p-2.5 border border-border/20 space-y-1">
             <div className="flex items-center gap-1 mb-0.5">
               <Info size={10} className="text-text-muted" />
               <span className="text-sm font-bold text-text-muted uppercase tracking-wider">Summary</span>

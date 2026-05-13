@@ -15,6 +15,7 @@ import Security from './pages/Security/Security';
 import Help from './pages/Help/Help';
 import Preferences from './pages/Preferences/Preferences';
 import History from './pages/History/History';
+import Markets from './pages/Markets/Markets';
 import { useEffect } from 'react';
 
 function ProtectedRoute({ children }) {
@@ -44,7 +45,7 @@ export default function App() {
           {/* Public */}
           <Route path="/login" element={<Login />} />
 
-          {/* Protected — with bottom nav */}
+          {/* All protected routes inside AppLayout — desktop gets sidebar + nav on every page */}
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route path="/" element={<Home />} />
             <Route path="/positions" element={<Positions />} />
@@ -52,16 +53,15 @@ export default function App() {
             <Route path="/orders" element={<Orders />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/history" element={<History />} />
+            <Route path="/wallet" element={<Wallet />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/referral" element={<Referral />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/security" element={<Security />} />
+            <Route path="/help" element={<Help />} />
+            <Route path="/preferences" element={<Preferences />} />
+            <Route path="/markets" element={<Markets />} />
           </Route>
-
-          {/* Protected — sub-pages without bottom nav */}
-          <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
-          <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-          <Route path="/referral" element={<ProtectedRoute><Referral /></ProtectedRoute>} />
-          <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-          <Route path="/security" element={<ProtectedRoute><Security /></ProtectedRoute>} />
-          <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
-          <Route path="/preferences" element={<ProtectedRoute><Preferences /></ProtectedRoute>} />
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />

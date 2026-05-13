@@ -79,7 +79,7 @@ export default function Home() {
         <div className="relative">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
           <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search instruments..."
-            className="w-full bg-white border border-border/30 rounded-md pl-7 pr-3 py-1.5 text-base text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary/30 transition-all" />
+            className="w-full bg-surface border border-border/30 rounded-md pl-7 pr-3 py-1.5 text-base text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary/30 transition-all" />
         </div>
 
         {/* Tabs + Watchlist */}
@@ -88,7 +88,7 @@ export default function Home() {
             <Tabs tabs={marketTabs} activeTab={activeMarketTab} onChange={setActiveMarketTab} compact />
           </div>
           <button onClick={() => setShowWatchlistOnly(!showWatchlistOnly)}
-            className={cn('p-1.5 rounded-md border transition-all touch-active-subtle', showWatchlistOnly ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-white border-border/40 text-text-muted')}>
+            className={cn('p-1.5 rounded-md border transition-all touch-active-subtle', showWatchlistOnly ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-surface border-border/40 text-text-muted')}>
             <Star size={13} className={showWatchlistOnly ? 'fill-amber-500' : ''} strokeWidth={2} />
           </button>
         </div>
@@ -101,7 +101,7 @@ export default function Home() {
         </div>
 
         {/* Compact Instrument List — terminal-style rows */}
-        <div className="bg-white">
+        <div className="bg-surface">
           {/* Table header */}
           <div className="flex items-center px-2 py-2 border-b border-border/40 text-xs font-bold text-text-muted uppercase tracking-wider">
             <span className="w-6" />
@@ -164,7 +164,7 @@ export default function Home() {
                 View All <ChevronRight size={10} />
               </button>
             </div>
-            <div className="bg-white rounded-lg border border-border/20 overflow-hidden">
+            <div className="bg-surface rounded-lg border border-border/20 overflow-hidden">
               {positions.slice(0, 3).map((pos, i) => (
                 <div key={pos.id} className={cn('flex items-center justify-between px-2.5 py-1.5', i > 0 && 'border-t border-border/10')}>
                   <div className="flex items-center gap-1.5">

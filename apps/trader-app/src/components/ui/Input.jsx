@@ -30,7 +30,7 @@ export default function Input({
           onChange={onChange}
           placeholder={placeholder}
           className={cn(
-            'w-full bg-white border border-border/60 rounded-lg text-text-primary font-semibold',
+            'w-full bg-surface border border-border/60 rounded-lg text-text-primary font-semibold',
             'placeholder:text-text-muted/60 placeholder:font-normal',
             'focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40',
             'transition-all duration-150',

@@ -70,8 +70,8 @@ export default function WalletPage() {
 
   return (
     <div className="page-enter">
-      {/* Header */}
-      <header className="sticky top-0 z-30 glass-heavy safe-top border-b border-border/30">
+      {/* Header — Back button only on mobile */}
+      <header className="sticky top-0 z-30 glass-heavy safe-top border-b border-border/30 lg:hidden">
         <div className="max-w-lg mx-auto flex items-center gap-3 px-3 py-2.5">
           <button onClick={() => navigate(-1)} className="p-1 rounded-lg hover:bg-surface transition-colors touch-active-subtle">
             <ArrowLeft size={18} className="text-text-primary" />
@@ -79,6 +79,22 @@ export default function WalletPage() {
           <h1 className="text-base font-bold text-text-primary">Funds & Withdrawals</h1>
         </div>
       </header>
+
+      {/* Desktop Header */}
+      <div className="hidden lg:flex items-center justify-between px-6 py-4 border-b border-border/30">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Funds</h1>
+          <p className="text-sm text-text-muted mt-0.5">Manage your trading account funds</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button variant="outline-danger" size="md" onClick={() => openModal('withdraw')}>
+            <Minus size={14} className="mr-1.5" /> Withdraw
+          </Button>
+          <Button variant="success" size="md" onClick={() => openModal('deposit')}>
+            <Plus size={14} className="mr-1.5" /> Add Funds
+          </Button>
+        </div>
+      </div>
 
       <div className="px-3 space-y-2.5 pb-3 pt-2">
         {/* Balance Card */}
@@ -203,7 +219,7 @@ export default function WalletPage() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="Enter amount"
-                className="w-full bg-white border border-border/50 rounded-xl pl-8 pr-4 py-2.5 text-base font-bold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+                className="w-full bg-surface border border-border/50 rounded-xl pl-8 pr-4 py-2.5 text-base font-bold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
                 style={{ fontFamily: "'JetBrains Mono', monospace" }}
               />
             </div>
@@ -227,7 +243,7 @@ export default function WalletPage() {
                   value={utrNumber}
                   onChange={(e) => setUtrNumber(e.target.value)}
                   placeholder="Enter UTR / Transaction Ref"
-                  className="w-full bg-white border border-border/50 rounded-xl px-4 py-2.5 text-base font-medium text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+                  className="w-full bg-surface border border-border/50 rounded-xl px-4 py-2.5 text-base font-medium text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
                 />
               </div>
               <div className="flex items-start gap-2 bg-blue-50 rounded-lg p-2.5 border border-blue-200/50">

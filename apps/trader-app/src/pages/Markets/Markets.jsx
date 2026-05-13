@@ -46,7 +46,7 @@ export default function Markets() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search instruments..."
-            className="w-full bg-white border border-border/50 rounded-xl pl-9 pr-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+            className="w-full bg-surface border border-border/50 rounded-xl pl-9 pr-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
           />
         </div>
 
@@ -61,7 +61,7 @@ export default function Markets() {
               'p-2 rounded-xl border transition-all touch-active-subtle',
               showWatchlistOnly
                 ? 'bg-amber-50 border-amber-200 text-amber-600'
-                : 'bg-white border-border/50 text-text-muted'
+                : 'bg-surface border-border/50 text-text-muted'
             )}
           >
             <Star size={16} className={showWatchlistOnly ? 'fill-amber-500' : ''} strokeWidth={2} />

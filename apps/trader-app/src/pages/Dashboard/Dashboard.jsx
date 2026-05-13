@@ -123,7 +123,7 @@ export default function Dashboard() {
               <button
                 key={action.label}
                 onClick={() => navigate(action.path)}
-                className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white border border-border/30 hover:border-border transition-all touch-active-subtle"
+                className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-surface border border-border/30 hover:border-border transition-all touch-active-subtle"
               >
                 <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br', action.color)}>
                   <action.icon size={17} strokeWidth={2} />
