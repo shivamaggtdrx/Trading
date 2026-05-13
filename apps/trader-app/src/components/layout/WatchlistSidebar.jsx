@@ -17,7 +17,7 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
   // ═══ Resizable sidebar width ═══
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('tradex_sidebar_width');
-    return saved ? Number(saved) : 260;
+    return saved ? Number(saved) : 280;
   });
   const isResizing = useRef(false);
   const sidebarRef = useRef(null);

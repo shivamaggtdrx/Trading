@@ -111,13 +111,14 @@ export default function Charts() {
   const currSymbol = isForex ? '$' : '₹';
   const fmtPrice = (p) => p >= 100 ? p.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : p.toFixed(4);
 
-  // Build TradingView symbol
+  // Build TradingView symbol — use NSE for Indian equities (supports intraday)
   const tvSymbol = useMemo(() => {
-    if (!instrument.symbol || instrument.symbol === 'LOADING') return 'BSE:RELIANCE';
+    if (!instrument.symbol || instrument.symbol === 'LOADING') return 'NSE:RELIANCE';
     if (instrument.symbol.includes(':')) return instrument.symbol;
     if (isForex) return `FX:${instrument.symbol}`;
-    return `BSE:${instrument.symbol}`;
-  }, [instrument.symbol, isForex]);
+    if (instrument.segment === 'mcx') return `MCX:${instrument.symbol}`;
+    return `NSE:${instrument.symbol}`;
+  }, [instrument.symbol, isForex, instrument.segment]);
 
   const currentInterval = TIMEFRAMES[activeTimeframe]?.interval || 'D';
 
@@ -319,8 +320,8 @@ export default function Charts() {
         )}
       </div>
 
-      {/* Sticky Bottom */}
-      <div className="sticky-action-bar max-w-lg mx-auto lg:max-w-none" style={{ bottom: '64px', zIndex: 45 }}>
+      {/* Sticky Bottom — Mobile only, desktop has inline order panel */}
+      <div className="sticky-action-bar max-w-lg mx-auto lg:hidden" style={{ bottom: '64px', zIndex: 45 }}>
         {showSuccess ? (
           <div className="flex items-center justify-center gap-2 py-3 bg-emerald-50 rounded-lg border border-emerald-200 order-success-burst">
             <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
@@ -342,11 +343,7 @@ export default function Charts() {
             </div>
             <SlideToConfirm onConfirm={handleConfirmOrder} label={`Slide to ${orderSide === 'buy' ? 'Buy' : 'Sell'} ${instrument.symbol}`} variant={orderSide === 'buy' ? 'success' : 'danger'} />
           </div>
-        ) : (
-          <Button fullWidth size="lg" variant={orderSide === 'buy' ? 'success' : 'danger'} disabled className="text-sm font-extrabold tracking-wide">
-            Enter Quantity to {orderSide === 'buy' ? 'Buy' : 'Sell'}
-          </Button>
-        )}
+        ) : null}
       </div>
     </div>
   );
