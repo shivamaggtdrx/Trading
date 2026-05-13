@@ -23,7 +23,7 @@ export default function APIKeys() {
           <h1 className="text-2xl font-bold text-gray-900">API & Algorithmic Trading</h1>
           <p className="text-sm text-gray-500 mt-1">Manage FIX/REST API connections, rate limits, and webhook integrations.</p>
         </div>
-        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
+        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
           <Key className="h-4 w-4 mr-2" />
           Generate New API Key
         </button>
@@ -117,7 +117,7 @@ export default function APIKeys() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     {api.status === 'Active' ? (
-                      <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded transition-colors">
+                      <button onClick={() => console.log('Action triggered')} className="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded transition-colors">
                         Revoke Key
                       </button>
                     ) : (

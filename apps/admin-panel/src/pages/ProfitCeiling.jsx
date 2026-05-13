@@ -46,7 +46,7 @@ export default function ProfitCeiling() {
         </div>
         <div className="flex gap-2">
           <button onClick={() => setEditingGlobal(!editingGlobal)} className="inline-flex items-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 py-2"><Settings className="h-4 w-4 mr-2" /> Global Config</button>
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className={`inline-flex items-center rounded-md text-sm font-bold h-10 px-4 py-2 shadow-sm ${globalConfig.enabled ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-green-600 text-white hover:bg-green-700'}`}>
+          <button onClick={() => console.log('Action triggered')} className={`inline-flex items-center rounded-md text-sm font-bold h-10 px-4 py-2 shadow-sm ${globalConfig.enabled ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-green-600 text-white hover:bg-green-700'}`}>
             {globalConfig.enabled ? <><Lock className="h-4 w-4 mr-2" /> Active</> : <><Unlock className="h-4 w-4 mr-2" /> Disabled</>}
           </button>
         </div>
@@ -98,7 +98,7 @@ export default function ProfitCeiling() {
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between">
           <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2"><span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" /> Live Profit Ceiling Monitor</h2>
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-xs text-blue-600 font-bold hover:text-blue-800">+ Override Client</button>
+          <button onClick={() => console.log('Action triggered')} className="text-xs text-blue-600 font-bold hover:text-blue-800">+ Override Client</button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left whitespace-nowrap">

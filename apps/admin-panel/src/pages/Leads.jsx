@@ -1,15 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Filter, Phone, Mail, UserPlus, CheckCircle, Clock } from 'lucide-react';
-
-const leads = [
-  { id: 'LD-1029', name: 'Rahul Sharma', email: 'rahul.s@example.com', phone: '+91 9876543210', status: 'new', source: 'Website', date: '2026-05-04 14:30' },
-  { id: 'LD-1028', name: 'Amit Kumar', email: 'amit.k@example.com', phone: '+91 8765432109', status: 'contacted', source: 'Referral', date: '2026-05-04 11:15' },
-  { id: 'LD-1027', name: 'Priya Singh', email: 'priya.s@example.com', phone: '+91 7654321098', status: 'kyc_pending', source: 'Ad Campaign', date: '2026-05-03 16:45' },
-  { id: 'LD-1026', name: 'Vikram Patel', email: 'vikram.p@example.com', phone: '+91 6543210987', status: 'converted', source: 'Website', date: '2026-05-02 09:30' },
-];
+import { adminApi } from '../services/adminApi';
 
 export default function Leads() {
   const [activeTab, setActiveTab] = useState('all');
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi.getLeads().then(res => setLeads(res.leads || [])).catch(console.error).finally(() => setLoading(false));
+  }, []);
 
   const filteredLeads = leads.filter(l => activeTab === 'all' || l.status === activeTab);
 
@@ -20,7 +20,7 @@ export default function Leads() {
           <h1 className="text-2xl font-bold text-gray-900">Lead Management (CRM)</h1>
           <p className="text-sm text-gray-500 mt-1">Track and manage onboarding, KYC, and sales pipeline.</p>
         </div>
-        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
+        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
           <UserPlus className="h-4 w-4 mr-2" />
           Add Lead Manually
         </button>
@@ -117,16 +117,16 @@ export default function Leads() {
                   <td className="px-4 py-3 text-right">
                     {lead.status !== 'converted' && (
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-3 py-1 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded hover:bg-gray-50 shadow-sm">Log Call</button>
+                        <button onClick={() => console.log('Action triggered')} className="px-3 py-1 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded hover:bg-gray-50 shadow-sm">Log Call</button>
                         {lead.status === 'kyc_pending' ? (
-                          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 shadow-sm flex items-center gap-1"><CheckCircle className="h-3 w-3"/> Approve KYC</button>
+                          <button onClick={() => console.log('Action triggered')} className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 shadow-sm flex items-center gap-1"><CheckCircle className="h-3 w-3"/> Approve KYC</button>
                         ) : (
-                          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 shadow-sm flex items-center gap-1">Update Status</button>
+                          <button onClick={() => console.log('Action triggered')} className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 shadow-sm flex items-center gap-1">Update Status</button>
                         )}
                       </div>
                     )}
                     {lead.status === 'converted' && (
-                       <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-3 py-1 bg-white border border-gray-300 text-blue-600 text-xs font-bold rounded hover:bg-gray-50 shadow-sm">View Client Profile</button>
+                       <button onClick={() => console.log('Action triggered')} className="px-3 py-1 bg-white border border-gray-300 text-blue-600 text-xs font-bold rounded hover:bg-gray-50 shadow-sm">View Client Profile</button>
                     )}
                   </td>
                 </tr>

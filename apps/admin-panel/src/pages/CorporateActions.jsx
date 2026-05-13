@@ -15,7 +15,7 @@ export default function CorporateActions() {
           <h1 className="text-2xl font-bold text-gray-900">Corporate Actions</h1>
           <p className="text-sm text-gray-500 mt-1">Manage Dividends, Stock Splits, and Bonus Issues for B-Book holders.</p>
         </div>
-        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
+        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
           <Briefcase className="h-4 w-4 mr-2" />
           Declare New Action
         </button>
@@ -99,10 +99,10 @@ export default function CorporateActions() {
                   <td className="px-6 py-4 text-right">
                     {action.status === 'Pending' ? (
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded transition-colors">
+                        <button onClick={() => console.log('Action triggered')} className="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded transition-colors">
                           Skip / Ignore
                         </button>
-                        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-green-600 hover:text-green-800 font-bold text-xs bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded transition-colors inline-flex items-center">
+                        <button onClick={() => console.log('Action triggered')} className="text-green-600 hover:text-green-800 font-bold text-xs bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded transition-colors inline-flex items-center">
                           <CheckCircle className="h-3 w-3 mr-1" /> Execute Batch
                         </button>
                       </div>

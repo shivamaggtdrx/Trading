@@ -132,7 +132,7 @@ export default function RevenueLeakage() {
                 <div className="text-right flex-shrink-0">
                   <div className="text-lg font-black text-red-600">-₹{(leak.amount / 100000).toFixed(1)}L</div>
                   <div className="text-[10px] font-bold text-green-600 mt-0.5">Potential: {leak.impact}</div>
-                  <button onClick={() => alert('Action triggered. Backend integration pending.')} className="mt-2 px-3 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded hover:bg-blue-100 border border-blue-200">
+                  <button onClick={() => console.log('Action triggered')} className="mt-2 px-3 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded hover:bg-blue-100 border border-blue-200">
                     Apply Fix
                   </button>
                 </div>

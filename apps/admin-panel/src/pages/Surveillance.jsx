@@ -41,7 +41,7 @@ export default function Surveillance() {
           <h1 className="text-2xl font-bold text-gray-900">Advanced Risk Surveillance</h1>
           <p className="text-sm text-gray-500 mt-1">Auto-detection of price manipulation and scalping</p>
         </div>
-        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
+        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
           <Settings className="h-4 w-4 mr-2" />
           Surveillance Settings
         </button>
@@ -146,7 +146,7 @@ export default function Surveillance() {
                   <td className="px-4 py-3 text-right">
                     {alert.status === 'active' ? (
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-2 py-1 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700">Block User</button>
+                        <button onClick={() => console.log('Action triggered')} className="px-2 py-1 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700">Block User</button>
                         <button onClick={() => handleResolve(alert.id)} className="px-2 py-1 border border-gray-300 text-gray-700 text-xs font-bold rounded hover:bg-gray-50">Dismiss</button>
                       </div>
                     ) : (

@@ -27,7 +27,7 @@ export default function Users() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 h-9 px-4">
+        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 h-9 px-4">
           Export Users
         </button>
       </div>
@@ -114,10 +114,10 @@ export default function Users() {
                   <td className="px-4 py-2 text-xs text-gray-500">{new Date(user.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-2 text-right">
                     <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => alert('Action triggered. Backend integration pending.')} className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-white" title="Edit">
+                      <button onClick={() => console.log('Action triggered')} className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-white" title="Edit">
                         <Edit className="h-3.5 w-3.5" />
                       </button>
-                      <button onClick={() => alert('Action triggered. Backend integration pending.')} className="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-white" title="Block">
+                      <button onClick={() => console.log('Action triggered')} className="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-white" title="Block">
                         <Ban className="h-3.5 w-3.5" />
                       </button>
                     </div>

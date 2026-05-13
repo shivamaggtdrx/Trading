@@ -37,12 +37,26 @@ html {
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   color: var(--color-text-primary);
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'tnum' on, 'lnum' on;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* Dark Mode Variables based on TRADEX screenshot */
+.dark {
+  --color-surface: #0b0e14;
+  --color-surface-2: #151924;
+  --color-surface-3: #1e222d;
+  --color-border: #2a2e39;
+  --color-text-primary: #d1d4dc;
+  --color-text-secondary: #a3a6af;
+  --color-text-muted: #787b86;
+  --color-success-bg: rgba(16, 185, 129, 0.15);
+  --color-danger-bg: rgba(239, 68, 68, 0.15);
 }
 
 /* Safe area handling for notched devices */

@@ -76,12 +76,12 @@ export default function WithdrawalApprovals() {
         </div>
         <div className="flex gap-2">
           {bulkSelected.length > 0 && (
-            <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-green-600 text-white hover:bg-green-700 h-10 px-4 py-2 shadow-sm">
+            <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-green-600 text-white hover:bg-green-700 h-10 px-4 py-2 shadow-sm">
               <CheckCircle className="h-4 w-4 mr-2" />
               Bulk Approve ({bulkSelected.length})
             </button>
           )}
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 py-2">
+          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 py-2">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </button>

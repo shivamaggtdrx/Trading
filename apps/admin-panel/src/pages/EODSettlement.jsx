@@ -60,7 +60,7 @@ export default function EODSettlement() {
                </button>
             )}
             {status === 'running' && (
-               <button onClick={() => alert('Action triggered. Backend integration pending.')} disabled className="flex items-center gap-2 px-6 py-3 bg-blue-400 text-white rounded-lg font-medium cursor-wait shadow-sm transition-all">
+               <button onClick={() => console.log('Action triggered')} disabled className="flex items-center gap-2 px-6 py-3 bg-blue-400 text-white rounded-lg font-medium cursor-wait shadow-sm transition-all">
                   <Clock className="w-5 h-5 animate-spin" />
                   Processing...
                </button>

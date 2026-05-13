@@ -1,9 +1,78 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import { ShieldCheck, Zap, Globe2, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ShieldCheck, Zap, Globe2, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function Register() {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phoneCode: '+91',
+    phoneNumber: '',
+    password: '',
+    referralCode: '',
+    termsAccepted: false
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+    if (!formData.termsAccepted) {
+      setError('You must accept the Terms & Conditions.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+      const response = await fetch(`${API_URL}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          full_name: `${formData.firstName} ${formData.lastName}`.trim(),
+          phone: `${formData.phoneCode} ${formData.phoneNumber}`.trim(),
+          referral_code: formData.referralCode
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Signup failed');
+      }
+
+      setSuccess('Account created successfully! Redirecting to login...');
+      setTimeout(() => {
+        window.location.href = 'http://localhost:5173/login'; // Redirect to Trader App login
+      }, 2000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -97,12 +166,18 @@ export default function Register() {
             <p className="text-slate-500 font-medium">Please fill in your details to get started.</p>
           </div>
 
-          <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-5" onSubmit={handleSignup}>
+            {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm font-medium border border-red-200">{error}</div>}
+            {success && <div className="p-3 bg-green-50 text-green-600 rounded-lg text-sm font-medium border border-green-200">{success}</div>}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div className="space-y-1.5">
                 <label className="text-sm font-bold text-slate-700">First Name</label>
                 <input 
                   type="text" 
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
                   placeholder="John" 
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-slate-50 focus:bg-white"
                 />
@@ -111,6 +186,9 @@ export default function Register() {
                 <label className="text-sm font-bold text-slate-700">Last Name</label>
                 <input 
                   type="text" 
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
                   placeholder="Doe" 
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-slate-50 focus:bg-white"
                 />
@@ -121,6 +199,9 @@ export default function Register() {
               <label className="text-sm font-bold text-slate-700">Email Address</label>
               <input 
                 type="email" 
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
                 placeholder="john.doe@example.com" 
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-slate-50 focus:bg-white"
               />
@@ -129,14 +210,22 @@ export default function Register() {
             <div className="space-y-1.5">
               <label className="text-sm font-bold text-slate-700">Phone Number</label>
               <div className="flex">
-                <select className="px-3 py-3 rounded-l-xl border border-slate-200 border-r-0 focus:border-primary outline-none bg-slate-50 text-slate-700 font-medium">
-                  <option>+91</option>
-                  <option>+1</option>
-                  <option>+44</option>
-                  <option>+971</option>
+                <select 
+                  name="phoneCode"
+                  value={formData.phoneCode}
+                  onChange={handleChange}
+                  className="px-3 py-3 rounded-l-xl border border-slate-200 border-r-0 focus:border-primary outline-none bg-slate-50 text-slate-700 font-medium"
+                >
+                  <option value="+91">+91</option>
+                  <option value="+1">+1</option>
+                  <option value="+44">+44</option>
+                  <option value="+971">+971</option>
                 </select>
                 <input 
                   type="tel" 
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
                   placeholder="98765 43210" 
                   className="w-full px-4 py-3 rounded-r-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-slate-50 focus:bg-white"
                 />
@@ -147,6 +236,9 @@ export default function Register() {
               <label className="text-sm font-bold text-slate-700">Password</label>
               <input 
                 type="password" 
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
                 placeholder="••••••••" 
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-slate-50 focus:bg-white"
               />
@@ -156,6 +248,9 @@ export default function Register() {
               <label className="text-sm font-bold text-slate-700">Referral Code <span className="text-slate-400 font-normal">(Optional)</span></label>
               <input 
                 type="text" 
+                name="referralCode"
+                value={formData.referralCode}
+                onChange={handleChange}
                 placeholder="Enter code if you have one" 
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-slate-50 focus:bg-white uppercase"
               />
@@ -165,6 +260,9 @@ export default function Register() {
               <input 
                 type="checkbox" 
                 id="terms" 
+                name="termsAccepted"
+                checked={formData.termsAccepted}
+                onChange={handleChange}
                 className="mt-1 w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary"
               />
               <label htmlFor="terms" className="text-sm text-slate-600 leading-relaxed">
@@ -173,9 +271,13 @@ export default function Register() {
             </div>
 
             <div className="pt-4">
-              <button className="w-full bg-primary hover:bg-blue-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-blue-500/30 hover:-translate-y-1 transition-all flex items-center justify-center space-x-2">
-                <span>Create Account</span>
-                <ArrowRight size={20} />
+              <button disabled={loading} className="w-full bg-primary hover:bg-blue-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-blue-500/30 hover:-translate-y-1 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                {loading ? <Loader2 className="animate-spin" size={20} /> : (
+                  <>
+                    <span>Create Account</span>
+                    <ArrowRight size={20} />
+                  </>
+                )}
               </button>
             </div>
             

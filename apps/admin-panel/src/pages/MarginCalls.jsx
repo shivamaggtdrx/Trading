@@ -39,7 +39,7 @@ export default function MarginCalls() {
           <p className="text-sm text-gray-500 mt-1">Monitor accounts near liquidation and manage automated warnings.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-red-600 text-white hover:bg-red-700 h-10 px-4 py-2 shadow-sm">
+          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-red-600 text-white hover:bg-red-700 h-10 px-4 py-2 shadow-sm">
             <Ban className="h-4 w-4 mr-2" />
             Liquidate Critical Accounts
           </button>
@@ -141,10 +141,10 @@ export default function MarginCalls() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-1">
-                      <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-[10px] font-bold rounded shadow-sm inline-flex items-center gap-1">
+                      <button onClick={() => console.log('Action triggered')} className="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-[10px] font-bold rounded shadow-sm inline-flex items-center gap-1">
                         <Mail className="h-3 w-3" /> Warn
                       </button>
-                      <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-2.5 py-1 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 text-[10px] font-bold rounded shadow-sm inline-flex items-center gap-1">
+                      <button onClick={() => console.log('Action triggered')} className="px-2.5 py-1 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 text-[10px] font-bold rounded shadow-sm inline-flex items-center gap-1">
                         <TrendingDown className="h-3 w-3" /> Square Off
                       </button>
                     </div>

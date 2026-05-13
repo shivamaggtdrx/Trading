@@ -156,7 +156,7 @@ export default function UserDetail() {
               </div>
               
               <div className="mt-8 border-t pt-4">
-                <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-md text-sm transition-colors">
+                <button onClick={() => console.log('Action triggered')} className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-md text-sm transition-colors">
                   Save Revenue Settings
                 </button>
               </div>
@@ -228,7 +228,7 @@ export default function UserDetail() {
                     <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                   </label>
                 </div>
-                <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-md text-sm transition-colors">
+                <button onClick={() => console.log('Action triggered')} className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-md text-sm transition-colors">
                   Save Risk Rules
                 </button>
               </div>

@@ -54,11 +54,11 @@ export default function MarketControl() {
           <p className="text-sm text-gray-500 mt-1">Manage trading sessions, circuit breakers, margin rules, and market holidays.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 h-10 px-4 py-2">
+          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 h-10 px-4 py-2">
             <Pause className="h-4 w-4 mr-2" />
             Halt All Markets
           </button>
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm">
+          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm">
             <Save className="h-4 w-4 mr-2" />
             Save Changes
           </button>
@@ -145,7 +145,7 @@ export default function MarketControl() {
               <Shield className="h-4 w-4 text-orange-600" />
               Circuit Breaker Rules
             </h2>
-            <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-xs text-blue-600 font-bold hover:text-blue-800">+ Add Rule</button>
+            <button onClick={() => console.log('Action triggered')} className="text-xs text-blue-600 font-bold hover:text-blue-800">+ Add Rule</button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -191,7 +191,7 @@ export default function MarketControl() {
             <TrendingUp className="h-4 w-4 text-purple-600" />
             Margin & Leverage Rules
           </h2>
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-xs text-blue-600 font-bold hover:text-blue-800">+ Add Segment</button>
+          <button onClick={() => console.log('Action triggered')} className="text-xs text-blue-600 font-bold hover:text-blue-800">+ Add Segment</button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left whitespace-nowrap">
@@ -218,7 +218,7 @@ export default function MarketControl() {
                     <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded border border-green-200 uppercase">{rule.status}</span>
                   </td>
                   <td className="px-6 py-3 text-right">
-                    <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors">Edit</button>
+                    <button onClick={() => console.log('Action triggered')} className="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors">Edit</button>
                   </td>
                 </tr>
               ))}
@@ -234,7 +234,7 @@ export default function MarketControl() {
             <Calendar className="h-4 w-4 text-red-500" />
             Upcoming Market Holidays
           </h2>
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-xs text-blue-600 font-bold hover:text-blue-800">+ Declare Holiday</button>
+          <button onClick={() => console.log('Action triggered')} className="text-xs text-blue-600 font-bold hover:text-blue-800">+ Declare Holiday</button>
         </div>
         <div className="divide-y divide-gray-100">
           {holidays.map(h => (
@@ -249,7 +249,7 @@ export default function MarketControl() {
                   <div className="text-xs text-gray-500">Affected: {h.segments}</div>
                 </div>
               </div>
-              <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-red-500 hover:text-red-700 text-xs font-bold bg-red-50 px-3 py-1.5 rounded hover:bg-red-100 border border-red-200">Remove</button>
+              <button onClick={() => console.log('Action triggered')} className="text-red-500 hover:text-red-700 text-xs font-bold bg-red-50 px-3 py-1.5 rounded hover:bg-red-100 border border-red-200">Remove</button>
             </div>
           ))}
         </div>

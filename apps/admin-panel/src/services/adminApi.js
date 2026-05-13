@@ -29,6 +29,14 @@ async function request(path, options = {}) {
 }
 
 export const adminApi = {
+  // CRM
+  getLeads: () => request('/admin/crm/leads'),
+  getClientTiers: () => request('/admin/crm/client-tiers'),
+  getApiKeys: () => request('/admin/crm/api-keys'),
+  getNetworkNodes: () => request('/admin/crm/network-nodes'),
+  getCorporateActions: () => request('/admin/crm/corporate-actions'),
+  getNotificationTemplates: () => request('/admin/crm/notification-templates'),
+
   // ── Dashboard ──
   getDashboard: () => request('/admin/dashboard'),
 

@@ -44,7 +44,7 @@ export default function SmartSpread() {
           <h1 className="text-2xl font-bold text-gray-900">Smart Spread & Slippage Engine</h1>
           <p className="text-sm text-gray-500 mt-1">Per-client dynamic spreads based on tier profiling. Maximize revenue per trade.</p>
         </div>
-        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm"><Save className="h-4 w-4 mr-2" /> Save All Rules</button>
+        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm"><Save className="h-4 w-4 mr-2" /> Save All Rules</button>
       </div>
 
       {/* Revenue Impact */}

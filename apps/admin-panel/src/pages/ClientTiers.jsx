@@ -38,8 +38,8 @@ export default function ClientTiers() {
           <p className="text-sm text-gray-500 mt-1">Auto-classify clients for differentiated spreads, leverage, withdrawal rules & profit caps.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 py-2"><RefreshCw className="h-4 w-4 mr-2" /> Re-Classify All</button>
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm"><Save className="h-4 w-4 mr-2" /> Save Tier Rules</button>
+          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 py-2"><RefreshCw className="h-4 w-4 mr-2" /> Re-Classify All</button>
+          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm"><Save className="h-4 w-4 mr-2" /> Save Tier Rules</button>
         </div>
       </div>
 

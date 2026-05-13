@@ -63,7 +63,7 @@ export default function RiskManagement() {
           <p className="text-sm text-gray-500 mt-1">Real-time exposure monitoring, margin alerts, and position risk controls.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 h-10 px-4 py-2">
+          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 h-10 px-4 py-2">
             <AlertTriangle className="h-4 w-4 mr-2" />
             Force Margin Check
           </button>
@@ -192,8 +192,8 @@ export default function RiskManagement() {
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded hover:bg-blue-100 border border-blue-200">View</button>
-                  <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-2 py-1 bg-red-50 text-red-700 text-[10px] font-bold rounded hover:bg-red-100 border border-red-200">Action</button>
+                  <button onClick={() => console.log('Action triggered')} className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded hover:bg-blue-100 border border-blue-200">View</button>
+                  <button onClick={() => console.log('Action triggered')} className="px-2 py-1 bg-red-50 text-red-700 text-[10px] font-bold rounded hover:bg-red-100 border border-red-200">Action</button>
                 </div>
               </div>
             ))}
@@ -260,7 +260,7 @@ export default function RiskManagement() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-1">
-                      <button onClick={() => alert('Action triggered. Backend integration pending.')} className="p-1.5 rounded hover:bg-blue-50 text-blue-600 transition-colors" title="View Details">
+                      <button onClick={() => console.log('Action triggered')} className="p-1.5 rounded hover:bg-blue-50 text-blue-600 transition-colors" title="View Details">
                         <Eye className="h-3.5 w-3.5" />
                       </button>
                       <button className="p-1.5 rounded hover:bg-red-50 text-red-500 transition-colors" title="Force Liquidate"

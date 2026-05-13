@@ -16,7 +16,7 @@ export default function Reports() {
           <h1 className="text-2xl font-bold text-gray-900">Reports & Settlements</h1>
           <p className="text-sm text-gray-500 mt-1">Generate and download detailed ledgers, PNL, and brokerage reports.</p>
         </div>
-        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-6 py-2 shadow-sm">
+        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-6 py-2 shadow-sm">
           <FileText className="h-4 w-4 mr-2" />
           Generate New Report
         </button>
@@ -50,7 +50,7 @@ export default function Reports() {
                 <input type="date" className="w-full border border-gray-300 rounded p-2 text-sm focus:ring-blue-500 text-gray-500" />
               </div>
             </div>
-            <button onClick={() => alert('Action triggered. Backend integration pending.')} className="w-full bg-gray-900 text-white font-bold py-2 rounded shadow-sm hover:bg-gray-800 transition-colors">
+            <button onClick={() => console.log('Action triggered')} className="w-full bg-gray-900 text-white font-bold py-2 rounded shadow-sm hover:bg-gray-800 transition-colors">
               Queue Report Generation
             </button>
           </div>
@@ -71,7 +71,7 @@ export default function Reports() {
                       <span className="font-medium text-blue-600">{report.target}</span> • <Calendar className="h-3 w-3" /> {report.generated}
                     </div>
                   </div>
-                  <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors">
+                  <button onClick={() => console.log('Action triggered')} className="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors">
                     Download {report.format}
                   </button>
                 </li>

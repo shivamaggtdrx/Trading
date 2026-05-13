@@ -33,7 +33,7 @@ const NavDropdown = ({ title, items }) => {
   );
 };
 
-const MobileNavDropdown = ({ title, items }) => {
+const MobileNavDropdown = ({ title, items, closeMenu }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -52,6 +52,10 @@ const MobileNavDropdown = ({ title, items }) => {
             <Link 
               key={idx} 
               to={item.href || '#'} 
+              onClick={() => {
+                setIsOpen(false);
+                if (closeMenu) closeMenu();
+              }}
               className="block text-sm text-slate-600 hover:text-primary py-1"
             >
               {item.label}
@@ -149,9 +153,9 @@ export default function Navbar() {
         <div className="lg:hidden absolute top-full left-0 w-full bg-white shadow-xl max-h-[calc(100vh-70px)] overflow-y-auto">
           <div className="p-4 flex flex-col space-y-2">
             <Link to="/" className="block py-3 text-slate-600 font-medium border-b border-slate-100">Home</Link>
-            <MobileNavDropdown title="About Us" items={aboutItems} />
-            <MobileNavDropdown title="Markets" items={marketsItems} />
-            <MobileNavDropdown title="Trading" items={tradingItems} />
+            <MobileNavDropdown title="About Us" items={aboutItems} closeMenu={() => setMobileMenuOpen(false)} />
+            <MobileNavDropdown title="Markets" items={marketsItems} closeMenu={() => setMobileMenuOpen(false)} />
+            <MobileNavDropdown title="Trading" items={tradingItems} closeMenu={() => setMobileMenuOpen(false)} />
             <Link to="/news" onClick={() => setMobileMenuOpen(false)} className="block py-3 text-slate-600 font-medium border-b border-slate-100">News & Blogs</Link>
             <Link to="/calculator" onClick={() => setMobileMenuOpen(false)} className="block py-3 text-slate-600 font-medium border-b border-slate-100">Calculator</Link>
             <Link to="/faq" onClick={() => setMobileMenuOpen(false)} className="block py-3 text-slate-600 font-medium border-b border-slate-100">FAQ</Link>

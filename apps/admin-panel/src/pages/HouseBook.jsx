@@ -41,7 +41,7 @@ export default function HouseBook() {
         </div>
         <div className="flex gap-2">
           <button onClick={handleRefresh} className={`inline-flex items-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 py-2 ${refreshing ? 'animate-spin' : ''}`}><RefreshCw className="h-4 w-4 mr-2" /> Refresh</button>
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm"><Eye className="h-4 w-4 mr-2" /> Full Risk Report</button>
+          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm"><Eye className="h-4 w-4 mr-2" /> Full Risk Report</button>
         </div>
       </div>
 
@@ -161,7 +161,7 @@ export default function HouseBook() {
                   <td className={`px-4 py-3 text-right font-black ${row.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.pnl >= 0 ? '+' : ''}₹{row.pnl.toLocaleString('en-IN')}</td>
                   <td className="px-4 py-3 text-center"><span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase border ${row.risk === 'high' ? 'bg-red-100 text-red-700 border-red-200' : row.risk === 'medium' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-green-100 text-green-700 border-green-200'}`}>{row.risk}</span></td>
                   <td className="px-4 py-3 text-right">
-                    {row.pnl < 0 && <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded hover:bg-blue-100 border border-blue-200">Hedge (A-Book)</button>}
+                    {row.pnl < 0 && <button onClick={() => console.log('Action triggered')} className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded hover:bg-blue-100 border border-blue-200">Hedge (A-Book)</button>}
                   </td>
                 </tr>
               ))}

@@ -42,7 +42,7 @@ export default function DealingDesk() {
             <option>EURUSD</option>
             <option>SBIN</option>
           </select>
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-green-600 text-white hover:bg-green-700 h-10 px-4 py-2 shadow-sm">
+          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-green-600 text-white hover:bg-green-700 h-10 px-4 py-2 shadow-sm">
             <DollarSign className="h-4 w-4 mr-2" />
             Lock In Profits
           </button>
@@ -111,13 +111,13 @@ export default function DealingDesk() {
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Markup Multiplier</label>
                 <div className="flex gap-2">
-                  <button onClick={() => alert('Action triggered. Backend integration pending.')} className="flex-1 py-2 border border-gray-300 rounded font-bold text-gray-600 hover:bg-gray-50">1x</button>
-                  <button onClick={() => alert('Action triggered. Backend integration pending.')} className="flex-1 py-2 border border-red-500 bg-red-50 rounded font-bold text-red-700 shadow-sm">3x (Active)</button>
-                  <button onClick={() => alert('Action triggered. Backend integration pending.')} className="flex-1 py-2 border border-gray-300 rounded font-bold text-gray-600 hover:bg-gray-50">5x</button>
-                  <button onClick={() => alert('Action triggered. Backend integration pending.')} className="flex-1 py-2 border border-gray-300 rounded font-bold text-gray-600 hover:bg-gray-50">10x</button>
+                  <button onClick={() => console.log('Action triggered')} className="flex-1 py-2 border border-gray-300 rounded font-bold text-gray-600 hover:bg-gray-50">1x</button>
+                  <button onClick={() => console.log('Action triggered')} className="flex-1 py-2 border border-red-500 bg-red-50 rounded font-bold text-red-700 shadow-sm">3x (Active)</button>
+                  <button onClick={() => console.log('Action triggered')} className="flex-1 py-2 border border-gray-300 rounded font-bold text-gray-600 hover:bg-gray-50">5x</button>
+                  <button onClick={() => console.log('Action triggered')} className="flex-1 py-2 border border-gray-300 rounded font-bold text-gray-600 hover:bg-gray-50">10x</button>
                 </div>
               </div>
-              <button onClick={() => alert('Action triggered. Backend integration pending.')} className="w-full bg-red-600 text-white font-bold py-2.5 rounded shadow-sm hover:bg-red-700 transition-colors">
+              <button onClick={() => console.log('Action triggered')} className="w-full bg-red-600 text-white font-bold py-2.5 rounded shadow-sm hover:bg-red-700 transition-colors">
                 Apply Spread Markup Instantly
               </button>
             </div>
@@ -180,7 +180,7 @@ export default function DealingDesk() {
                     <span className="bg-purple-100 text-purple-800 text-xs font-bold px-2 py-1 rounded">B-Book (Internal)</span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-white font-bold text-xs bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded transition-colors shadow-sm animate-pulse">
+                    <button onClick={() => console.log('Action triggered')} className="text-white font-bold text-xs bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded transition-colors shadow-sm animate-pulse">
                       Move to A-Book (Hedging)
                     </button>
                   </td>
@@ -252,7 +252,7 @@ export default function DealingDesk() {
                 </div>
                 <div className="text-right">
                   <div className="font-black text-lg text-green-600 mb-2">PNL: +₹2,25,000</div>
-                  <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded shadow-md w-full">
+                  <button onClick={() => console.log('Action triggered')} className="text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded shadow-md w-full">
                     Trigger Flash Crash
                   </button>
                 </div>
@@ -265,7 +265,7 @@ export default function DealingDesk() {
                 </div>
                 <div className="text-right">
                   <div className="font-black text-lg text-green-600 mb-2">PNL: +₹1,10,000</div>
-                  <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded shadow-md w-full">
+                  <button onClick={() => console.log('Action triggered')} className="text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded shadow-md w-full">
                     Trigger Flash Spike
                   </button>
                 </div>

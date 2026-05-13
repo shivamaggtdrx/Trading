@@ -15,7 +15,7 @@ export default function Network() {
           <h1 className="text-2xl font-bold text-gray-900">Master / Sub-Broker Network</h1>
           <p className="text-sm text-gray-500 mt-1">Manage B2B partners, credit limits, and weekly settlements.</p>
         </div>
-        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
+        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
           <Users className="h-4 w-4 mr-2" />
           Add Master Account
         </button>
@@ -101,7 +101,7 @@ export default function Network() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors inline-flex items-center">
+                    <button onClick={() => console.log('Action triggered')} className="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors inline-flex items-center">
                       Settle Account <ChevronRight className="h-3 w-3 ml-1" />
                     </button>
                   </td>

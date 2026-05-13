@@ -21,7 +21,7 @@ export default function Templates() {
           <h1 className="text-2xl font-bold text-gray-900">SMS / Email Templates</h1>
           <p className="text-sm text-gray-500 mt-1">Manage automated communication sent to clients.</p>
         </div>
-        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-6 py-2 shadow-sm">
+        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-6 py-2 shadow-sm">
           <Save className="h-4 w-4 mr-2" />
           Save Template
         </button>
@@ -31,7 +31,7 @@ export default function Templates() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-900">System Templates</h2>
-            <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-xs font-bold text-blue-600 hover:text-blue-800">+ New</button>
+            <button onClick={() => console.log('Action triggered')} className="text-xs font-bold text-blue-600 hover:text-blue-800">+ New</button>
           </div>
           <div className="divide-y divide-gray-100">
             {templates.map(tpl => (
@@ -86,7 +86,7 @@ export default function Templates() {
               <div>
                 <div className="flex justify-between items-end mb-1">
                   <label className="block text-sm font-bold text-gray-700">Message Body</label>
-                  <button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"><Variable className="h-3 w-3"/> Insert Variable</button>
+                  <button onClick={() => console.log('Action triggered')} className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"><Variable className="h-3 w-3"/> Insert Variable</button>
                 </div>
                 <textarea 
                   rows="10" 

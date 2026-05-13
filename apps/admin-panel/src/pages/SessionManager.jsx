@@ -20,7 +20,7 @@ export default function SessionManager() {
           <h1 className="text-2xl font-bold text-gray-900">Session Manager</h1>
           <p className="text-sm text-gray-500 mt-1">View all active sessions, force logout remotely, and configure idle timeouts.</p>
         </div>
-        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 shadow-sm">
+        <button onClick={() => console.log('Action triggered')} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 shadow-sm">
           <LogOut className="w-4 h-4" /> Terminate All Client Sessions
         </button>
       </div>
@@ -68,7 +68,7 @@ export default function SessionManager() {
                 <option>5 min</option><option selected>15 min</option><option>30 min</option><option>60 min</option>
               </select>
             </div>
-            <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
+            <button onClick={() => console.log('Action triggered')} className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
           </div>
         </div>
       </div>
@@ -101,7 +101,7 @@ export default function SessionManager() {
                   <td className="py-3 px-4 text-gray-500">{s.started}</td>
                   <td className="py-3 px-4 text-gray-500">{s.lastActive}</td>
                   <td className="py-3 px-4"><span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-green-500 rounded-full"></span><span className="text-xs font-medium text-green-700">Active</span></span></td>
-                  <td className="py-3 px-4 text-right"><button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-red-600 hover:bg-red-50 px-2 py-1 rounded border border-red-200 text-xs font-medium">Force Logout</button></td>
+                  <td className="py-3 px-4 text-right"><button onClick={() => console.log('Action triggered')} className="text-red-600 hover:bg-red-50 px-2 py-1 rounded border border-red-200 text-xs font-medium">Force Logout</button></td>
                 </tr>
               ))}
             </tbody>
@@ -148,7 +148,7 @@ export default function SessionManager() {
                       <span className={`text-xs font-medium ${s.status === 'Active' ? 'text-green-700' : 'text-yellow-700'}`}>{s.status}</span>
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-right"><button onClick={() => alert('Action triggered. Backend integration pending.')} className="text-red-600 hover:bg-red-50 px-2 py-1 rounded border border-red-200 text-xs font-medium">Force Logout</button></td>
+                  <td className="py-3 px-4 text-right"><button onClick={() => console.log('Action triggered')} className="text-red-600 hover:bg-red-50 px-2 py-1 rounded border border-red-200 text-xs font-medium">Force Logout</button></td>
                 </tr>
               ))}
             </tbody>

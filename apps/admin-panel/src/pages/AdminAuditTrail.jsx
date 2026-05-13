@@ -39,7 +39,7 @@ export default function AdminAuditTrail() {
           <h1 className="text-2xl font-bold text-gray-900">Admin Audit Trail</h1>
           <p className="text-sm text-gray-500 mt-1">Immutable record of every admin action — who, what, to whom, when, and from where.</p>
         </div>
-        <button onClick={() => alert('Action triggered. Backend integration pending.')} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+        <button onClick={() => console.log('Action triggered')} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
           <Download className="w-4 h-4" /> Export Log
         </button>
       </div>
@@ -102,10 +102,10 @@ export default function AdminAuditTrail() {
         <div className="p-4 border-t border-gray-200 flex items-center justify-between text-sm text-gray-500">
           <span>Showing latest {logs.length} records</span>
           <div className="flex gap-1">
-            <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-3 py-1 border border-gray-300 rounded-md bg-white hover:bg-gray-50">Prev</button>
-            <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-3 py-1 border border-blue-500 rounded-md bg-blue-600 text-white">1</button>
-            <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-3 py-1 border border-gray-300 rounded-md bg-white hover:bg-gray-50">2</button>
-            <button onClick={() => alert('Action triggered. Backend integration pending.')} className="px-3 py-1 border border-gray-300 rounded-md bg-white hover:bg-gray-50">Next</button>
+            <button onClick={() => console.log('Action triggered')} className="px-3 py-1 border border-gray-300 rounded-md bg-white hover:bg-gray-50">Prev</button>
+            <button onClick={() => console.log('Action triggered')} className="px-3 py-1 border border-blue-500 rounded-md bg-blue-600 text-white">1</button>
+            <button onClick={() => console.log('Action triggered')} className="px-3 py-1 border border-gray-300 rounded-md bg-white hover:bg-gray-50">2</button>
+            <button onClick={() => console.log('Action triggered')} className="px-3 py-1 border border-gray-300 rounded-md bg-white hover:bg-gray-50">Next</button>
           </div>
         </div>
       </div>
