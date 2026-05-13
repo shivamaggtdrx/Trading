@@ -35,10 +35,10 @@ export default function AppLayout() {
             TradeX
           </div>
           <nav className="flex gap-6">
-            <NavLink to="/" className={({isActive}) => \`text-sm font-semibold flex items-center gap-2 transition-colors \${isActive ? 'text-primary-light' : 'text-gray-300 hover:text-white'}\`}><Home size={16}/> Dashboard</NavLink>
-            <NavLink to="/orders" className={({isActive}) => \`text-sm font-semibold flex items-center gap-2 transition-colors \${isActive ? 'text-primary-light' : 'text-gray-300 hover:text-white'}\`}><ClipboardList size={16}/> Orders</NavLink>
-            <NavLink to="/positions" className={({isActive}) => \`text-sm font-semibold flex items-center gap-2 transition-colors \${isActive ? 'text-primary-light' : 'text-gray-300 hover:text-white'}\`}><Layers size={16}/> Portfolio</NavLink>
-            <NavLink to="/charts" className={({isActive}) => \`text-sm font-semibold flex items-center gap-2 transition-colors \${isActive ? 'text-primary-light' : 'text-gray-300 hover:text-white'}\`}><CandlestickChart size={16}/> Charts</NavLink>
+            <NavLink to="/" className={({isActive}) => `text-sm font-semibold flex items-center gap-2 transition-colors ${isActive ? 'text-primary-light' : 'text-gray-300 hover:text-white'}`}><Home size={16}/> Dashboard</NavLink>
+            <NavLink to="/orders" className={({isActive}) => `text-sm font-semibold flex items-center gap-2 transition-colors ${isActive ? 'text-primary-light' : 'text-gray-300 hover:text-white'}`}><ClipboardList size={16}/> Orders</NavLink>
+            <NavLink to="/positions" className={({isActive}) => `text-sm font-semibold flex items-center gap-2 transition-colors ${isActive ? 'text-primary-light' : 'text-gray-300 hover:text-white'}`}><Layers size={16}/> Portfolio</NavLink>
+            <NavLink to="/charts" className={({isActive}) => `text-sm font-semibold flex items-center gap-2 transition-colors ${isActive ? 'text-primary-light' : 'text-gray-300 hover:text-white'}`}><CandlestickChart size={16}/> Charts</NavLink>
           </nav>
         </div>
         <div className="flex items-center gap-4">

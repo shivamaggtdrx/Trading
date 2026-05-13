@@ -1060,7 +1060,7 @@ router.get('/system-health', async (req, res) => {
       system: {
         cpu: cpuUsage,
         memory: memUsage,
-        memoryText: ${((totalMem - freeMem) / 1e9).toFixed(1)}GB / GB,
+        memoryText: `${((totalMem - freeMem) / 1e9).toFixed(1)}GB / ${(totalMem / 1e9).toFixed(1)}GB`,
         storage: 28
       },
       metrics: {
