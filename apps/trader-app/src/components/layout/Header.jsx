@@ -11,16 +11,16 @@ export default function Header({ title, showNotification = true, showGreeting = 
     <header className="sticky top-0 z-30 glass-heavy safe-top border-b border-border/30">
       <div className={cn(
         'max-w-lg mx-auto flex items-center justify-between px-4',
-        compact ? 'py-2' : 'py-2.5'
+        compact ? 'py-2' : 'py-3'
       )}>
         <div>
           {showGreeting ? (
             <>
-              <p className="text-base text-text-muted font-medium tracking-wide uppercase">{getTimeOfDay()}</p>
-              <h1 className="text-base font-bold text-text-primary tracking-tight leading-tight">{user?.name || user?.full_name || 'Trader'}</h1>
+              <p className="text-xs text-text-muted font-bold tracking-wide uppercase mb-0.5">{getTimeOfDay()}</p>
+              <h1 className="text-2xl font-bold text-text-primary tracking-tight leading-none">{user?.name || user?.full_name || 'Trader'}</h1>
             </>
           ) : (
-            <h1 className="text-base font-bold text-text-primary tracking-tight">{title}</h1>
+            <h1 className="text-xl font-bold text-text-primary tracking-tight">{title}</h1>
           )}
         </div>
 

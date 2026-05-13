@@ -57,6 +57,7 @@ export const adminApi = {
 
   // ── Force Actions ──
   forceSquareOff: (userId, reason) => request(`/admin/force-square-off/${userId}`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  forceSquareOffPositions: (positionIds, reason) => request('/admin/force-square-off-positions', { method: 'POST', body: JSON.stringify({ positionIds, reason }) }),
   globalSquareOff: () => request('/admin/global-square-off', { method: 'POST' }),
 
   // ── Audit Logs ──
@@ -110,4 +111,7 @@ export const adminApi = {
 
   // ── Client Ledger ──
   getClientLedger: (clientId) => request(`/admin/ledger/${clientId}`),
+
+  // ── System Health ──
+  getSystemHealth: () => request('/admin/system-health'),
 };

@@ -109,10 +109,7 @@ export default function Positions() {
                 <Card
                   key={pos.id}
                   padding="p-0"
-                  className={cn(
-                    'overflow-hidden transition-shadow duration-300',
-                    isProfit ? 'card-shadow-glow-green' : 'card-shadow-glow-red'
-                  )}
+                  className="overflow-hidden border border-border/60 shadow-sm"
                   style={{ animationDelay: `${i * 0.05}s` }}
                 >
                   {/* P&L accent bar */}

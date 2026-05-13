@@ -67,7 +67,16 @@ export default function RiskManagement() {
             <AlertTriangle className="h-4 w-4 mr-2" />
             Force Margin Check
           </button>
-          <button onClick={() => alert('Action triggered. Backend integration pending.')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-red-600 text-white hover:bg-red-700 h-10 px-4 py-2 shadow-sm">
+          <button onClick={async () => {
+             if (window.confirm('Are you sure you want to FREEZE ALL NEW ORDERS globally?')) {
+               try {
+                 await adminApi.updateSetting('trading_enabled', 'false');
+                 alert('Trading has been disabled globally.');
+               } catch (err) {
+                 alert('Failed to update setting.');
+               }
+             }
+          }} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-red-600 text-white hover:bg-red-700 h-10 px-4 py-2 shadow-sm">
             <Ban className="h-4 w-4 mr-2" />
             Freeze All New Orders
           </button>

@@ -42,7 +42,18 @@ export default function SquareOffPanel() {
         <div className="flex gap-3">
           <button 
              disabled={selected.length === 0}
-             onClick={() => { if(window.confirm(`Force square-off ${selected.length} position(s)? This will send market orders immediately.`)) { alert(`${selected.length} position(s) squared off successfully.`); setSelected([]); } }}
+             onClick={async () => { 
+               if(window.confirm(`Force square-off ${selected.length} position(s)? This will send market orders immediately.`)) { 
+                 try {
+                   await adminApi.forceSquareOffPositions(selected, 'Mass Execution from Admin Panel');
+                   alert(`${selected.length} position(s) squared off successfully.`); 
+                   setSelected([]); 
+                   fetchPositions();
+                 } catch (err) {
+                   alert('Failed to square off positions: ' + err.message);
+                 }
+               } 
+             }}
              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">
             <AlertTriangle className="w-4 h-4" />
             Force Square-Off Selected ({selected.length})
@@ -120,7 +131,17 @@ export default function SquareOffPanel() {
                      </span>
                   </td>
                   <td className="py-3 px-4 text-right">
-                     <button onClick={() => { if(window.confirm(`Force square-off ${item.instrument} for ${item.client}?`)) alert('Position squared off.'); }} className="text-red-600 hover:bg-red-50 px-2 py-1 rounded border border-red-200 text-xs font-medium transition-colors">
+                     <button onClick={async () => { 
+                        if(window.confirm(`Force square-off ${item.instrument} for ${item.client}?`)) {
+                           try {
+                             await adminApi.forceSquareOffPositions([item.id], 'Individual Force Square-off');
+                             alert('Position squared off.');
+                             fetchPositions();
+                           } catch (err) {
+                             alert('Failed to square off position');
+                           }
+                        } 
+                     }} className="text-red-600 hover:bg-red-50 px-2 py-1 rounded border border-red-200 text-xs font-medium transition-colors">
                         Square Off
                      </button>
                   </td>

@@ -39,50 +39,37 @@ export default function Home() {
     <div className="page-enter">
       <Header showGreeting showNotification />
 
-      <div className="px-3 space-y-1.5 pb-3">
-        {/* Portfolio Summary — ultra-compact */}
-        <div className="bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 px-3 py-2.5 rounded-lg text-white relative overflow-hidden">
-          <div className="absolute inset-0 opacity-[0.03]" style={{
-            backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
-            backgroundSize: '14px 14px'
-          }} />
-          <div className="relative z-10 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-white/10 rounded-md flex items-center justify-center">
-                <Wallet size={12} />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Equity</p>
-                <p className="text-base font-extrabold tracking-tight leading-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                  {formatCurrency(wallet.equity)}
-                </p>
-              </div>
-            </div>
+      <div className="px-4 space-y-4 pb-4 pt-2">
+        {/* Portfolio Summary — Clean Flat UI */}
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-semibold text-text-muted uppercase tracking-wider">Equity</p>
+          <div className="flex items-end justify-between">
+            <h2 className="text-3xl font-bold text-text-primary tabular-nums tracking-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              {formatCurrency(wallet.equity)}
+            </h2>
             <div className="text-right">
-              <div className={cn('flex items-center gap-0.5 text-sm font-bold justify-end', wallet.todayPnl >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                {wallet.todayPnl >= 0 ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+              <div className={cn('flex items-center gap-1 text-sm font-bold justify-end', wallet.todayPnl >= 0 ? 'text-emerald-500' : 'text-red-500')}>
+                {wallet.todayPnl >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                 {wallet.todayPnl >= 0 ? '+' : ''}{formatCurrency(wallet.todayPnl)}
               </div>
-              <p className={cn('text-[11px] font-bold', wallet.todayPnl >= 0 ? 'text-emerald-400/60' : 'text-red-400/60')}>
-                {formatPercent(wallet.todayPnlPercent)} today
-              </p>
+              <p className="text-xs text-text-muted mt-0.5">Today's P&L</p>
             </div>
           </div>
         </div>
 
-        {/* Stats — inline row, no card wrapper */}
-        <div className="grid grid-cols-3 gap-1">
-          <div className="bg-white rounded-md px-2.5 py-1.5 border border-border/20">
-            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Balance</p>
-            <p className="text-base font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(wallet.balance)}</p>
+        {/* Stats — inline row, minimal border */}
+        <div className="grid grid-cols-3 gap-3 py-3 border-y border-border/40">
+          <div>
+            <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider mb-1">Balance</p>
+            <p className="text-sm font-bold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(wallet.balance)}</p>
           </div>
-          <div className="bg-white rounded-md px-2.5 py-1.5 border border-border/20">
-            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Margin</p>
-            <p className="text-base font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(wallet.usedMargin)}</p>
+          <div>
+            <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider mb-1">Margin</p>
+            <p className="text-sm font-bold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(wallet.usedMargin)}</p>
           </div>
-          <div className="bg-white rounded-md px-2.5 py-1.5 border border-border/20">
-            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Open P&L</p>
-            <p className={cn('text-base font-extrabold tabular-nums mt-0.5', totalOpenPnl >= 0 ? 'pnl-glow-profit' : 'pnl-glow-loss')} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+          <div>
+            <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider mb-1">Open P&L</p>
+            <p className={cn('text-sm font-bold tabular-nums', totalOpenPnl >= 0 ? 'text-emerald-500' : 'text-red-500')} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               {totalOpenPnl >= 0 ? '+' : ''}{formatCurrency(totalOpenPnl)}
             </p>
           </div>
@@ -114,53 +101,55 @@ export default function Home() {
         </div>
 
         {/* Compact Instrument List — terminal-style rows */}
-        <div className="bg-white rounded-lg border border-border/20 overflow-hidden">
+        <div className="bg-white">
           {/* Table header */}
-          <div className="flex items-center px-2 py-1 bg-surface/50 border-b border-border/15 text-[10px] font-bold text-text-muted uppercase tracking-wider">
-            <span className="w-5" />
+          <div className="flex items-center px-2 py-2 border-b border-border/40 text-xs font-bold text-text-muted uppercase tracking-wider">
+            <span className="w-6" />
             <span className="flex-1">Symbol</span>
-            <span className="w-10 text-center">Chart</span>
-            <span className="w-[62px] text-right">Price</span>
-            <span className="w-[50px] text-right">Chg %</span>
+            <span className="w-12 text-center">Chart</span>
+            <span className="w-20 text-right">Price</span>
+            <span className="w-16 text-right">Chg %</span>
           </div>
 
-          {instruments.map((inst, idx) => (
-            <div key={inst.symbol} className={cn('instrument-row flex items-center', idx % 2 === 1 && 'bg-surface/20')}>
-              {/* Star */}
-              <button onClick={(e) => { e.stopPropagation(); toggleFavorite(inst.symbol); }}
-                className="w-5 flex items-center justify-center pl-1.5 py-1.5 touch-active-subtle">
-                <Star size={10} className={cn('transition-all', inst.isFavorite ? 'text-amber-400 fill-amber-400 star-pop' : 'text-border/60 hover:text-text-muted')} />
-              </button>
+          <div className="divide-y divide-border/20">
+            {instruments.map((inst) => (
+              <div key={inst.symbol} className="instrument-row flex items-center group hover:bg-surface/30 transition-colors">
+                {/* Star */}
+                <button onClick={(e) => { e.stopPropagation(); toggleFavorite(inst.symbol); }}
+                  className="w-6 flex items-center justify-center pl-1 py-3 touch-active-subtle">
+                  <Star size={14} className={cn('transition-all', inst.isFavorite ? 'text-amber-400 fill-amber-400 star-pop' : 'text-border/60 hover:text-text-muted')} />
+                </button>
 
-              {/* Row content */}
-              <button onClick={() => handleInstrumentClick(inst)} className="flex-1 flex items-center py-1.5 pr-2 touch-active-subtle">
-                <div className="flex-1 min-w-0 pl-1">
-                  <p className="text-base font-extrabold text-text-primary leading-tight">{inst.symbol}</p>
-                  <p className="text-[10px] text-text-muted truncate">{inst.name}</p>
-                </div>
-                <div className="w-10 flex justify-center">
-                  <Sparkline data={inst.sparkline} positive={inst.change >= 0} width={36} height={16} />
-                </div>
-                <div className="w-[62px] text-right">
-                  <p className="text-base font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                    {inst.price >= 100 ? '₹' + inst.price.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '$' + inst.price.toFixed(4)}
-                  </p>
-                  <p className="text-[10px] text-text-muted font-medium">{inst.volume}</p>
-                </div>
-                <div className={cn('w-[50px] flex items-center gap-0.5 justify-end', inst.change >= 0 ? 'text-emerald-600' : 'text-red-500')}>
-                  {inst.change >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
-                  <span className="text-sm font-extrabold tabular-nums">{formatPercent(inst.changePercent)}</span>
-                </div>
-              </button>
-            </div>
-          ))}
+                {/* Row content */}
+                <button onClick={() => handleInstrumentClick(inst)} className="flex-1 flex items-center py-2.5 pr-2 touch-active-subtle">
+                  <div className="flex-1 min-w-0 pl-1">
+                    <p className="text-sm font-bold text-text-primary leading-tight">{inst.symbol}</p>
+                    <p className="text-xs text-text-muted truncate mt-0.5">{inst.name}</p>
+                  </div>
+                  <div className="w-12 flex justify-center">
+                    <Sparkline data={inst.sparkline} positive={inst.change >= 0} width={40} height={16} />
+                  </div>
+                  <div className="w-20 text-right">
+                    <p className="text-sm font-bold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      {inst.price >= 100 ? '₹' + inst.price.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '$' + inst.price.toFixed(4)}
+                    </p>
+                    <p className="text-[10px] text-text-muted font-medium mt-0.5">{inst.volume}</p>
+                  </div>
+                  <div className={cn('w-16 flex items-center gap-0.5 justify-end', inst.change >= 0 ? 'text-emerald-600' : 'text-red-500')}>
+                    {inst.change >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                    <span className="text-sm font-bold tabular-nums">{formatPercent(inst.changePercent)}</span>
+                  </div>
+                </button>
+              </div>
+            ))}
+          </div>
 
           {instruments.length === 0 && (
-            <div className="py-8 text-center">
+            <div className="py-12 text-center">
               {showWatchlistOnly ? (
-                <><Star size={20} className="mx-auto text-text-muted/20 mb-1.5" /><p className="text-base font-semibold text-text-muted">No favorites yet</p></>
+                <><Star size={24} className="mx-auto text-text-muted/30 mb-2" /><p className="text-sm font-semibold text-text-muted">No favorites yet</p></>
               ) : (
-                <><Search size={20} className="mx-auto text-text-muted/20 mb-1.5" /><p className="text-base font-semibold text-text-muted">No instruments found</p></>
+                <><Search size={24} className="mx-auto text-text-muted/30 mb-2" /><p className="text-sm font-semibold text-text-muted">No instruments found</p></>
               )}
             </div>
           )}

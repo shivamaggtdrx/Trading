@@ -14,13 +14,13 @@
   --color-danger-bg: rgba(239, 68, 68, 0.08);
   --color-danger-glow: rgba(239, 68, 68, 0.25);
   --color-warning: #f59e0b;
-  --color-surface: #f8fafc;
-  --color-surface-2: #f1f5f9;
-  --color-surface-3: #e2e8f0;
-  --color-border: #e2e8f0;
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #475569;
-  --color-text-muted: #94a3b8;
+  --color-surface: #ffffff;
+  --color-surface-2: #f8fafc;
+  --color-surface-3: #f1f5f9;
+  --color-border: #f1f5f9;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #9ca3af;
 }
 
 /* Global Resets */
@@ -37,7 +37,7 @@ html {
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #f3f5f8;
+  background-color: #ffffff;
   color: var(--color-text-primary);
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
@@ -328,18 +328,14 @@ input[type="number"] {
 }
 
 /* ========================================
-   GLASSMORPHISM
+   GLASSMORPHISM (REMOVED FOR CLEAN UI)
    ======================================== */
 .glass {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: #ffffff;
 }
 
 .glass-heavy {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: #ffffff;
 }
 
 /* ========================================
@@ -417,23 +413,19 @@ input[type="number"] {
    ======================================== */
 .pnl-profit {
   color: #10b981;
-  text-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
 }
 
 .pnl-loss {
   color: #ef4444;
-  text-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
 }
 
 /* P&L glow — stronger glow for terminal feel */
 .pnl-glow-profit {
   color: #10b981;
-  text-shadow: 0 0 8px rgba(16, 185, 129, 0.3), 0 0 20px rgba(16, 185, 129, 0.12);
 }
 
 .pnl-glow-loss {
   color: #ef4444;
-  text-shadow: 0 0 8px rgba(239, 68, 68, 0.3), 0 0 20px rgba(239, 68, 68, 0.12);
 }
 
 /* Blinking update indicator */
@@ -547,7 +539,7 @@ input[type="number"] {
    TERMINAL BACKGROUND
    ======================================== */
 .terminal-bg {
-  background-color: #f3f5f8;
+  background-color: #ffffff;
 }
 
 /* ========================================

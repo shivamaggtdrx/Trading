@@ -19,43 +19,25 @@ export default function BottomNav() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
-          const isChartsBtn = item.path === '/charts';
 
           return (
             <NavLink
               key={item.path}
               to={item.path}
-              className="flex flex-col items-center justify-center w-14 py-1 select-none touch-active-subtle"
+              className="flex flex-col items-center justify-center w-16 py-1 select-none touch-active-subtle"
             >
-              {isChartsBtn ? (
-                <div className={cn(
-                  'flex items-center justify-center w-11 h-11 rounded-xl -mt-5 mb-0 transition-all duration-200',
-                  isActive
-                    ? 'bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30'
-                    : 'bg-gradient-to-br from-blue-500/90 to-indigo-600/90 shadow-md shadow-blue-500/20'
-                )}>
-                  <Icon size={19} className="text-white" strokeWidth={2.5} />
-                </div>
-              ) : (
-                <div className={cn(
-                  'flex items-center justify-center w-9 h-7 rounded-md transition-all duration-200',
-                  isActive && 'bg-primary/8'
-                )}>
-                  <Icon
-                    size={19}
-                    className={cn(
-                      'transition-colors duration-200',
-                      isActive ? 'text-primary' : 'text-text-muted'
-                    )}
-                    strokeWidth={isActive ? 2.5 : 1.8}
-                  />
-                </div>
-              )}
+              <Icon
+                size={22}
+                className={cn(
+                  'transition-colors duration-200 mb-0.5',
+                  isActive ? 'text-primary' : 'text-text-muted/70'
+                )}
+                strokeWidth={isActive ? 2.5 : 2}
+              />
               <span
                 className={cn(
-                  'text-sm mt-0.5 font-semibold tracking-wide transition-colors duration-200',
-                  isActive ? 'text-primary' : 'text-text-muted',
-                  isChartsBtn && 'text-primary'
+                  'text-xs font-bold tracking-wide transition-colors duration-200',
+                  isActive ? 'text-primary' : 'text-text-muted/70'
                 )}
               >
                 {item.label}

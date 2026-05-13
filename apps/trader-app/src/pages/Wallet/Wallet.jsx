@@ -82,26 +82,15 @@ export default function WalletPage() {
 
       <div className="px-3 space-y-2.5 pb-3 pt-2">
         {/* Balance Card */}
-        <Card padding="p-0" className="overflow-hidden">
-          <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-4 rounded-2xl text-white relative overflow-hidden">
-            <div className="absolute inset-0 opacity-[0.03]" style={{
-              backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
-              backgroundSize: '14px 14px'
-            }} />
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center">
-                  <WalletIcon size={14} />
-                </div>
-                <span className="text-base font-medium text-white/50 uppercase tracking-wider">Available Balance</span>
-              </div>
-              <p className="text-2xl font-extrabold tracking-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                {formatCurrency(wallet?.balance || 0)}
-              </p>
-            </div>
-            <div className="absolute -top-6 -right-6 w-24 h-24 bg-blue-400/5 rounded-full" />
+        <div className="flex flex-col gap-1 px-1">
+          <div className="flex items-center gap-1.5 mb-1">
+            <WalletIcon size={16} className="text-text-muted" />
+            <span className="text-sm font-semibold text-text-muted uppercase tracking-wider">Available Balance</span>
           </div>
-        </Card>
+          <p className="text-3xl font-bold tracking-tight text-text-primary" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            {formatCurrency(wallet?.balance || 0)}
+          </p>
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-1.5">

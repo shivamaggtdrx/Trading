@@ -59,6 +59,8 @@ function isMarketOpen() {
   return currentMinutes >= marketOpen && currentMinutes <= marketClose;
 }
 
+const yahooFinance = require('yahoo-finance2').default;
+
 /**
  * Price simulation engine
  * In production: replace this with a real market data feed
@@ -73,8 +75,10 @@ async function startPriceSimulation() {
         wss.clients.forEach((client) => {
           if (client.readyState === WebSocket.OPEN) client.send(message);
         });
-        return; // Skip price fluctuations while closed
+        // We still fetch the latest closing prices from Yahoo once a minute when closed, but for now we can return
+        return; 
       }
+      
       // Fetch all active instruments
       const { data: instruments } = await supabaseAdmin
         .from('instruments')
@@ -84,49 +88,63 @@ async function startPriceSimulation() {
       if (!instruments || instruments.length === 0) return;
 
       const priceUpdates = [];
+      const symbolsToFetch = instruments.map(i => {
+        let sym = i.symbol;
+        if (!sym.includes('.')) sym = sym + '.NS'; // Default to NSE
+        return sym;
+      });
+
+      let quotesArray = [];
+      try {
+        const quotes = await yahooFinance.quote(symbolsToFetch);
+        quotesArray = Array.isArray(quotes) ? quotes : [quotes];
+      } catch (yfError) {
+        console.error('Yahoo Finance fetch error:', yfError.message);
+        return; // Skip this tick if Yahoo fails
+      }
 
       for (const inst of instruments) {
-        // Simulate price movement: small random walk
-        const volatility = inst.last_price * 0.0003; // 0.03% per tick
-        const direction = Math.random() > 0.48 ? 1 : -1; // slight upward bias
-        const noise = (Math.random() * volatility * 2 - volatility) + (direction * volatility * 0.1);
-        let newPrice = inst.last_price + noise;
+        let searchSym = inst.symbol;
+        if (!searchSym.includes('.')) searchSym += '.NS';
+        const quote = quotesArray.find(q => q.symbol === searchSym);
 
-        // Round to tick size
-        const tickSize = inst.tick_size || 0.05;
-        newPrice = Math.round(newPrice / tickSize) * tickSize;
-        newPrice = Math.max(newPrice, tickSize); // never go to 0
+        if (quote && quote.regularMarketPrice) {
+          let newPrice = quote.regularMarketPrice;
+          const tickSize = inst.tick_size || 0.05;
 
-        const change = newPrice - inst.prev_close;
-        const changePct = inst.prev_close ? (change / inst.prev_close) * 100 : 0;
+          const change = newPrice - (quote.regularMarketPreviousClose || inst.prev_close || newPrice);
+          const changePct = quote.regularMarketChangePercent || (quote.regularMarketPreviousClose ? (change / quote.regularMarketPreviousClose) * 100 : 0);
 
-        priceUpdates.push({
-          symbol: inst.symbol,
-          price: newPrice,
-          change: Math.round(change * 10000) / 10000,
-          change_percent: Math.round(changePct * 100) / 100,
-          high: Math.max(inst.day_high || newPrice, newPrice),
-          low: inst.day_low > 0 ? Math.min(inst.day_low, newPrice) : newPrice,
-          bid: newPrice - (tickSize * (inst.spread_multiplier || 1)),
-          ask: newPrice + (tickSize * (inst.spread_multiplier || 1)),
-          timestamp: Date.now(),
-        });
-
-        // Update in database (batch would be better in production)
-        await supabaseAdmin
-          .from('instruments')
-          .update({
-            last_price: newPrice,
-            bid_price: newPrice - (tickSize * (inst.spread_multiplier || 1)),
-            ask_price: newPrice + (tickSize * (inst.spread_multiplier || 1)),
-            change_amount: Math.round(change * 10000) / 10000,
+          priceUpdates.push({
+            symbol: inst.symbol,
+            price: newPrice,
+            change: Math.round(change * 10000) / 10000,
             change_percent: Math.round(changePct * 100) / 100,
-            day_high: Math.max(inst.day_high || newPrice, newPrice),
-            day_low: inst.day_low > 0 ? Math.min(inst.day_low, newPrice) : newPrice,
-            last_price_update: new Date().toISOString(),
-          })
-          .eq('id', inst.id);
+            high: Math.max(inst.day_high || quote.regularMarketDayHigh || newPrice, newPrice),
+            low: inst.day_low > 0 ? Math.min(inst.day_low, quote.regularMarketDayLow || newPrice) : (quote.regularMarketDayLow || newPrice),
+            bid: newPrice - (tickSize * (inst.spread_multiplier || 1)),
+            ask: newPrice + (tickSize * (inst.spread_multiplier || 1)),
+            timestamp: Date.now(),
+          });
+
+          // Update in database
+          await supabaseAdmin
+            .from('instruments')
+            .update({
+              last_price: newPrice,
+              bid_price: newPrice - (tickSize * (inst.spread_multiplier || 1)),
+              ask_price: newPrice + (tickSize * (inst.spread_multiplier || 1)),
+              change_amount: Math.round(change * 10000) / 10000,
+              change_percent: Math.round(changePct * 100) / 100,
+              day_high: Math.max(inst.day_high || quote.regularMarketDayHigh || newPrice, newPrice),
+              day_low: inst.day_low > 0 ? Math.min(inst.day_low, quote.regularMarketDayLow || newPrice) : (quote.regularMarketDayLow || newPrice),
+              last_price_update: new Date().toISOString(),
+            })
+            .eq('id', inst.id);
+        }
       }
+
+      if (priceUpdates.length === 0) return;
 
       // Broadcast to all connected clients
       const message = JSON.stringify({ type: 'price_update', data: priceUpdates });

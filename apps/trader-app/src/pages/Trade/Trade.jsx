@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { AdvancedRealTimeChart } from 'react-ts-tradingview-widgets';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -135,55 +136,18 @@ export default function Trade() {
 
       {/* Chart Area — Dominant (~55% viewport) */}
       <div className="relative bg-white border-b border-border/20">
-        <div className="h-[55vh] min-h-[280px] max-h-[420px] flex flex-col items-center justify-center relative overflow-hidden">
-          {/* Mock chart background */}
-          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 300" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="chartGradBuy" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={orderSide === 'buy' ? '#10b981' : '#ef4444'} stopOpacity="0.08" />
-                <stop offset="100%" stopColor={orderSide === 'buy' ? '#10b981' : '#ef4444'} stopOpacity="0" />
-              </linearGradient>
-              <linearGradient id="chartLine" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor={instrument.change >= 0 ? '#10b981' : '#ef4444'} stopOpacity="0.4" />
-                <stop offset="100%" stopColor={instrument.change >= 0 ? '#10b981' : '#ef4444'} stopOpacity="1" />
-              </linearGradient>
-            </defs>
-
-            {/* Grid lines */}
-            {[60, 120, 180, 240].map(y => (
-              <line key={y} x1="0" y1={y} x2="400" y2={y} stroke="#e2e8f0" strokeWidth="0.5" strokeDasharray="4,4" opacity="0.5" />
-            ))}
-            {[80, 160, 240, 320].map(x => (
-              <line key={x} x1={x} y1="0" x2={x} y2="300" stroke="#e2e8f0" strokeWidth="0.5" strokeDasharray="4,4" opacity="0.3" />
-            ))}
-
-            {/* Chart area fill */}
-            <path
-              d="M0,220 C20,215 40,210 60,200 C80,190 100,185 120,175 C140,165 160,170 180,160 C200,150 220,155 240,140 C260,125 280,130 300,115 C320,100 340,110 360,95 C380,80 390,85 400,70 L400,300 L0,300 Z"
-              fill="url(#chartGradBuy)"
+          {/* Chart Area */}
+          <div className="flex-1 relative overflow-hidden bg-[#f8fafc] w-full h-full">
+            <AdvancedRealTimeChart
+              symbol={instrument.symbol}
+              theme="light"
+              autosize
+              hide_top_toolbar
+              hide_legend
+              save_image={false}
+              toolbar_bg="#f8fafc"
+              allow_symbol_change={false}
             />
-
-            {/* Chart line */}
-            <path
-              d="M0,220 C20,215 40,210 60,200 C80,190 100,185 120,175 C140,165 160,170 180,160 C200,150 220,155 240,140 C260,125 280,130 300,115 C320,100 340,110 360,95 C380,80 390,85 400,70"
-              fill="none"
-              stroke="url(#chartLine)"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-
-            {/* Current price dot */}
-            <circle cx="400" cy="70" r="4" fill={instrument.change >= 0 ? '#10b981' : '#ef4444'} />
-            <circle cx="400" cy="70" r="7" fill={instrument.change >= 0 ? '#10b981' : '#ef4444'} opacity="0.2">
-              <animate attributeName="r" values="7;12;7" dur="2s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.2;0;0.2" dur="2s" repeatCount="indefinite" />
-            </circle>
-          </svg>
-
-          {/* Chart overlay content */}
-          <div className="relative z-10 flex flex-col items-center">
-            <BarChart2 size={32} className="text-text-muted/20 mb-1" />
-            <p className="text-base text-text-muted/40 font-medium">TradingView Chart</p>
           </div>
 
           {/* OHLC bar */}
@@ -255,10 +219,10 @@ export default function Trade() {
           <button
             onClick={() => setOrderSide('buy')}
             className={cn(
-              'py-3.5 rounded-xl text-base font-extrabold tracking-wide transition-all duration-200 btn-ripple',
+              'py-3.5 rounded-xl text-base font-extrabold tracking-wide transition-all duration-200',
               orderSide === 'buy'
-                ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25'
-                : 'bg-emerald-500/6 text-emerald-600 border border-emerald-200/50'
+                ? 'bg-[#00b852] text-white'
+                : 'bg-[#f0fdf4] text-[#00b852] border border-[#dcfce7]'
             )}
           >
             ▲ BUY
@@ -266,10 +230,10 @@ export default function Trade() {
           <button
             onClick={() => setOrderSide('sell')}
             className={cn(
-              'py-3.5 rounded-xl text-base font-extrabold tracking-wide transition-all duration-200 btn-ripple',
+              'py-3.5 rounded-xl text-base font-extrabold tracking-wide transition-all duration-200',
               orderSide === 'sell'
-                ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-500/25'
-                : 'bg-red-500/6 text-red-500 border border-red-200/50'
+                ? 'bg-[#ef4444] text-white'
+                : 'bg-[#fef2f2] text-[#ef4444] border border-[#fee2e2]'
             )}
           >
             ▼ SELL
@@ -386,7 +350,7 @@ export default function Trade() {
       </div>
 
       {/* Sticky Bottom Action Bar */}
-      <div className="sticky-action-bar max-w-lg mx-auto">
+      <div className="sticky-action-bar max-w-lg mx-auto" style={{ bottom: '64px' }}>
         {showSuccess ? (
           <div className="flex items-center justify-center gap-2 py-3 bg-emerald-50 rounded-xl border border-emerald-200">
             <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">

@@ -42,24 +42,24 @@ export default function Profile() {
     {
       title: 'Account',
       items: [
-        { icon: CreditCard, label: 'Funds & Withdrawals', subtitle: 'Manage your wallet', iconColor: 'from-blue-500/10 to-blue-600/10 text-blue-600', path: '/wallet' },
-        { icon: FileText, label: 'Reports & Statements', subtitle: 'Download trade reports', iconColor: 'from-violet-500/10 to-purple-500/10 text-violet-600', path: '/reports' },
-        { icon: Bell, label: 'Notifications', subtitle: 'Manage alerts & notifications', iconColor: 'from-amber-500/10 to-orange-500/10 text-amber-600', path: '/notifications' },
+        { icon: CreditCard, label: 'Funds & Withdrawals', subtitle: 'Manage your wallet', iconColor: 'bg-blue-50 text-blue-600', path: '/wallet' },
+        { icon: FileText, label: 'Reports & Statements', subtitle: 'Download trade reports', iconColor: 'bg-violet-50 text-violet-600', path: '/reports' },
+        { icon: Bell, label: 'Notifications', subtitle: 'Manage alerts & notifications', iconColor: 'bg-amber-50 text-amber-600', path: '/notifications' },
       ],
     },
     {
       title: 'Settings',
       items: [
-        { icon: Settings, label: 'Trading Preferences', subtitle: 'Default order settings', iconColor: 'from-slate-500/10 to-gray-500/10 text-slate-600', path: '/preferences' },
-        { icon: Smartphone, label: 'App Settings', subtitle: 'Appearance & behavior', iconColor: 'from-cyan-500/10 to-teal-500/10 text-cyan-600', path: '/preferences' },
-        { icon: Shield, label: 'Security', subtitle: 'Password & 2FA', iconColor: 'from-emerald-500/10 to-green-500/10 text-emerald-600', path: '/security' },
+        { icon: Settings, label: 'Trading Preferences', subtitle: 'Default order settings', iconColor: 'bg-slate-100 text-slate-600', path: '/preferences' },
+        { icon: Smartphone, label: 'App Settings', subtitle: 'Appearance & behavior', iconColor: 'bg-cyan-50 text-cyan-600', path: '/preferences' },
+        { icon: Shield, label: 'Security', subtitle: 'Password & 2FA', iconColor: 'bg-emerald-50 text-emerald-600', path: '/security' },
       ],
     },
     {
       title: 'Support',
       items: [
-        { icon: HelpCircle, label: 'Help & Support', subtitle: 'FAQs & contact us', iconColor: 'from-indigo-500/10 to-blue-500/10 text-indigo-600', path: '/help' },
-        { icon: Share2, label: 'Refer & Earn', subtitle: 'Invite friends, earn rewards', iconColor: 'from-pink-500/10 to-rose-500/10 text-pink-600', path: '/referral' },
+        { icon: HelpCircle, label: 'Help & Support', subtitle: 'FAQs & contact us', iconColor: 'bg-indigo-50 text-indigo-600', path: '/help' },
+        { icon: Share2, label: 'Refer & Earn', subtitle: 'Invite friends, earn rewards', iconColor: 'bg-pink-50 text-pink-600', path: '/referral' },
       ],
     },
   ];
@@ -72,7 +72,7 @@ export default function Profile() {
         {/* User Info Card */}
         <Card padding="p-4">
           <div className="flex items-center gap-3">
-            <div className="w-14 h-14 bg-gradient-to-br from-slate-800 to-blue-900 rounded-xl flex items-center justify-center text-white text-lg font-extrabold shadow-lg shadow-slate-800/20">
+            <div className="w-14 h-14 bg-primary rounded-lg flex items-center justify-center text-white text-xl font-bold">
               {userName.charAt(0)}
             </div>
             <div className="flex-1 min-w-0">
@@ -145,7 +145,7 @@ export default function Profile() {
                       className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-surface/30 active:bg-surface transition-colors touch-active-subtle"
                     >
                       <div className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br',
+                        'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
                         item.iconColor
                       )}>
                         <Icon size={15} strokeWidth={1.8} />
