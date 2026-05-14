@@ -1,109 +1,176 @@
 import { useNavigate } from 'react-router-dom';
-import { Briefcase, PieChart, Circle } from 'lucide-react';
+import {
+  TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight,
+  ChevronRight, BarChart3, Zap, Activity, Shield, Layers,
+  Clock, DollarSign, PieChart, Briefcase
+} from 'lucide-react';
+import Header from '../../components/layout/Header';
 import { useTradeStore } from '../../store/useTradeStore';
+import { formatCurrency, formatPercent, cn } from '../../utils/helpers';
 
 export default function Home() {
-  const { user } = useTradeStore();
+  const { positions, instruments, setSelectedInstrument } = useTradeStore();
   const navigate = useNavigate();
   const walletRaw = useTradeStore(s => s.wallet);
   const wallet = walletRaw || { balance: 0, equity: 0, usedMargin: 0, todayPnl: 0, todayPnlPercent: 0, availableMargin: 0 };
 
-  const formatAmount = (val) => {
-    return Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
+  const totalOpenPnl = positions.reduce((sum, p) => sum + (p.pnl || 0), 0);
+
+  // Market status
+  const now = new Date();
+  const hours = now.getHours();
+  const mins = now.getMinutes();
+  const totalMins = hours * 60 + mins;
+  const isMarketOpen = totalMins >= 555 && totalMins <= 930;
 
   return (
-    <div className="page-enter bg-white dark:bg-[#0b0e14] min-h-full">
-      <div className="px-4 lg:px-12 py-8 max-w-6xl mx-auto">
-        <h1 className="text-[28px] font-normal text-text-primary mb-10 tracking-tight">
-          Hi, {user?.name?.split(' ')[0] || 'Trader'}
-        </h1>
+    <div className="page-enter bg-surface min-h-full pb-20 lg:pb-8">
+      {/* Mobile Header */}
+      <div className="lg:hidden">
+        <Header showGreeting showNotification />
+      </div>
 
-        {/* Equity and Commodity Split */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-0 border-b border-border/40 pb-16 mb-12">
+      <div className="px-4 lg:px-8 py-6 max-w-5xl mx-auto space-y-8">
+        
+        {/* Desktop Greeting & Market Status */}
+        <div className="hidden lg:flex items-end justify-between border-b border-border/40 pb-6">
+           <h1 className="text-[28px] font-normal text-text-primary tracking-tight">
+             Hi, {useTradeStore(s => s.user)?.name?.split(' ')[0] || 'Trader'}
+           </h1>
+           <div className="flex items-center gap-2">
+             <div className={cn('w-1.5 h-1.5 rounded-full', isMarketOpen ? 'bg-emerald-500' : 'bg-red-500')} />
+             <span className="text-[13px] text-text-muted">{isMarketOpen ? 'Market Open' : 'Market Closed'}</span>
+           </div>
+        </div>
+
+        {/* Portfolio Summary Row - Clean Flat Styling */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 pb-6 border-b border-border/30">
+          <div>
+            <div className="text-[13px] text-text-muted mb-1.5 flex items-center gap-1.5"><Wallet size={12}/> Portfolio Value</div>
+            <div className="text-[32px] font-light text-text-primary tracking-tight mb-1.5 leading-none">
+              {formatCurrency(wallet.equity).replace('₹', '').replace('$', '')}
+            </div>
+            <div className="flex items-center gap-1 text-[13px] font-medium">
+               <span className={wallet.todayPnl >= 0 ? 'text-emerald-500' : 'text-red-500'}>
+                 {wallet.todayPnl >= 0 ? '+' : ''}{formatCurrency(wallet.todayPnl)}
+               </span>
+               <span className="text-text-muted font-normal">today</span>
+            </div>
+          </div>
           
-          {/* Equity Section */}
-          <div className="md:pr-16">
-            <div className="flex items-center gap-2 mb-8 text-text-secondary">
-              <PieChart size={18} strokeWidth={1.5} />
-              <span className="text-[15px]">Equity</span>
+          <div>
+            <div className="text-[13px] text-text-muted mb-1.5">Available Margin</div>
+            <div className="text-[32px] font-light text-text-primary tracking-tight mb-1.5 leading-none">
+              {formatCurrency(wallet.availableMargin).replace('₹', '').replace('$', '')}
             </div>
-            
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-[44px] leading-none font-light text-text-primary tracking-tight mb-3">
-                  {formatAmount(wallet.balance)}
-                </div>
-                <div className="text-[13px] text-text-muted">Margin available</div>
-              </div>
-              
-              <div className="text-right space-y-5">
-                <div className="flex justify-between gap-8 items-end border-b border-border/30 pb-2">
-                  <div className="text-[13px] text-text-muted text-left">Margins used</div>
-                  <div className="text-[15px] text-text-primary">{formatAmount(wallet.usedMargin)}</div>
-                </div>
-                <div className="flex justify-between gap-8 items-end border-b border-border/30 pb-2">
-                  <div className="text-[13px] text-text-muted text-left">Opening balance</div>
-                  <div className="text-[15px] text-text-primary">{formatAmount(wallet.balance)}</div>
-                </div>
-                <div className="pt-1">
-                  <button className="text-[13px] text-blue-500 hover:text-blue-600 flex items-center justify-end gap-1.5 font-medium ml-auto transition-colors">
-                    <Circle size={10} strokeWidth={3} className="text-blue-500" /> View statement
-                  </button>
-                </div>
-              </div>
+            <div className="flex items-center gap-1.5 text-[13px]">
+               <span className="text-text-muted">Used:</span>
+               <span className="text-text-primary font-medium">{formatCurrency(wallet.usedMargin)}</span>
             </div>
           </div>
-
-          {/* Commodity Section */}
-          <div className="md:border-l border-border/40 md:pl-16 mt-12 md:mt-0">
-            <div className="flex items-center gap-2 mb-8 text-text-secondary">
-              <Circle size={18} strokeWidth={1.5} />
-              <span className="text-[15px]">Commodity</span>
+          
+          <div>
+            <div className="text-[13px] text-text-muted mb-1.5">Open P&L</div>
+            <div className={cn('text-[32px] font-light tracking-tight mb-1.5 leading-none', totalOpenPnl >= 0 ? 'text-emerald-500' : 'text-red-500')}>
+              {totalOpenPnl >= 0 ? '+' : ''}{formatCurrency(totalOpenPnl).replace('₹', '').replace('$', '')}
             </div>
-            
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-[44px] leading-none font-light text-text-primary tracking-tight mb-3">
-                  0.00
-                </div>
-                <div className="text-[13px] text-text-muted">Margin available</div>
-              </div>
-              
-              <div className="text-right space-y-5">
-                <div className="flex justify-between gap-8 items-end border-b border-border/30 pb-2">
-                  <div className="text-[13px] text-text-muted text-left">Margins used</div>
-                  <div className="text-[15px] text-text-primary">0.00</div>
-                </div>
-                <div className="flex justify-between gap-8 items-end border-b border-border/30 pb-2">
-                  <div className="text-[13px] text-text-muted text-left">Opening balance</div>
-                  <div className="text-[15px] text-text-primary">0.00</div>
-                </div>
-                <div className="pt-1">
-                  <button className="text-[13px] text-blue-500 hover:text-blue-600 flex items-center justify-end gap-1.5 font-medium ml-auto transition-colors">
-                    <Circle size={10} strokeWidth={3} className="text-blue-500" /> View statement
-                  </button>
-                </div>
-              </div>
+            <div className="flex items-center gap-1.5 text-[13px] text-text-muted">
+               Across {positions.length} positions
             </div>
+          </div>
+          
+          <div>
+            <div className="text-[13px] text-text-muted mb-1.5">Balance</div>
+            <div className="text-[32px] font-light text-text-primary tracking-tight mb-1.5 leading-none">
+              {formatCurrency(wallet.balance).replace('₹', '').replace('$', '')}
+            </div>
+            <button onClick={() => navigate('/wallet')} className="text-[13px] text-[#387ed1] hover:text-[#2b6eb5] font-medium transition-colors">
+               View statement
+            </button>
           </div>
         </div>
 
-        {/* Holdings empty state (similar to Zerodha) */}
-        <div className="flex flex-col items-center justify-center py-8 text-center">
-          <div className="mb-8 opacity-20 text-text-primary">
-            <Briefcase size={80} strokeWidth={1} />
+        {/* Quick Actions */}
+        <div>
+          <h2 className="text-[15px] font-medium text-text-secondary mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-4 lg:grid-cols-8 gap-3 lg:gap-4">
+            {[
+              { icon: BarChart3, label: 'Markets', path: '/markets' },
+              { icon: Zap, label: 'Trade', path: '/charts' },
+              { icon: Layers, label: 'Positions', path: '/positions' },
+              { icon: Shield, label: 'History', path: '/history' },
+              { icon: DollarSign, label: 'Funds', path: '/wallet' },
+              { icon: Activity, label: 'Orders', path: '/orders' },
+              { icon: PieChart, label: 'Reports', path: '/reports' },
+              { icon: Clock, label: 'Referral', path: '/referral' },
+            ].map((action) => (
+              <button
+                key={action.label}
+                onClick={() => navigate(action.path)}
+                className="flex flex-col items-center gap-2 group p-2"
+              >
+                <div className="w-12 h-12 rounded bg-surface border border-border/60 flex items-center justify-center text-text-secondary group-hover:text-[#387ed1] group-hover:border-[#387ed1]/30 transition-all">
+                  <action.icon size={20} strokeWidth={1.5} />
+                </div>
+                <span className="text-[12px] font-medium text-text-secondary group-hover:text-text-primary">{action.label}</span>
+              </button>
+            ))}
           </div>
-          <p className="text-[15px] text-text-secondary mb-8 max-w-[400px] leading-relaxed">
-            You don't have any stocks in your DEMAT yet. Get started with absolutely free equity investments.
-          </p>
-          <button 
-            onClick={() => navigate('/markets')} 
-            className="bg-[#387ed1] hover:bg-[#2b6eb5] text-white px-8 py-2.5 rounded text-[15px] font-medium transition-colors"
-          >
-            Start investing
-          </button>
         </div>
+
+        {/* Open Positions */}
+        <div className="pt-2">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[15px] font-medium text-text-secondary">
+              Open Positions <span className="text-text-muted ml-1">({positions.length})</span>
+            </h2>
+            {positions.length > 0 && (
+              <button onClick={() => navigate('/positions')} className="text-[13px] text-[#387ed1] hover:text-[#2b6eb5] font-medium transition-colors">
+                View all
+              </button>
+            )}
+          </div>
+          
+          <div className="bg-surface border border-border/60 rounded">
+            {positions.length > 0 ? (
+              <div className="divide-y divide-border/40">
+                {positions.slice(0, 5).map((pos) => (
+                  <div key={pos.id} className="flex items-center justify-between px-4 py-3 hover:bg-surface-2 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        'w-9 h-9 rounded flex items-center justify-center text-[11px] font-bold',
+                        pos.type === 'BUY' ? 'bg-[#f0fdf4] text-[#00b852]' : 'bg-[#fef2f2] text-[#ef4444]'
+                      )}>
+                        {pos.type === 'BUY' ? 'BUY' : 'SELL'}
+                      </div>
+                      <div>
+                        <p className="text-[14px] font-medium text-text-primary">{pos.symbol}</p>
+                        <p className="text-[12px] text-text-muted mt-0.5">Qty: {pos.quantity}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={cn('text-[14px] font-medium', pos.pnl >= 0 ? 'text-emerald-500' : 'text-red-500')}>
+                        {pos.pnl >= 0 ? '+' : ''}{formatCurrency(pos.pnl)}
+                      </p>
+                      <p className={cn('text-[12px] mt-0.5', pos.pnl >= 0 ? 'text-emerald-500/80' : 'text-red-500/80')}>
+                        {formatPercent(pos.pnlPercent)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="mb-4 opacity-20 text-text-primary">
+                  <Briefcase size={64} strokeWidth={1} />
+                </div>
+                <p className="text-[14px] text-text-secondary mb-1">No open positions</p>
+                <p className="text-[13px] text-text-muted">You don't have any active trades right now.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );

@@ -196,7 +196,7 @@ export const api = {
 let ws = null;
 let reconnectTimer = null;
 
-export function connectPriceFeed(onPriceUpdate, symbols = []) {
+export function connectPriceFeed(onPriceUpdate, onCandleUpdate = null, symbols = []) {
   if (ws && ws.readyState === WebSocket.OPEN) return;
 
   ws = new WebSocket(WS_BASE);
@@ -211,8 +211,14 @@ export function connectPriceFeed(onPriceUpdate, symbols = []) {
   ws.onmessage = (event) => {
     try {
       const msg = JSON.parse(event.data);
-      if (msg.type === 'price_update' && onPriceUpdate) {
+      if (msg.type === 'live_tick' && onPriceUpdate) {
+        onPriceUpdate([msg.data]); // Pass as array for backward compatibility
+      } else if (msg.type === 'price_update' && onPriceUpdate) {
         onPriceUpdate(msg.data);
+      } else if (msg.type === 'historical_candles' && onCandleUpdate) {
+        onCandleUpdate(msg.data);
+      } else if (msg.type === 'position_updated') {
+        // Trigger position refresh via event or direct state update (handled elsewhere if needed)
       }
     } catch (e) {
       console.warn('WS parse error', e);
@@ -221,10 +227,22 @@ export function connectPriceFeed(onPriceUpdate, symbols = []) {
 
   ws.onclose = () => {
     console.log('📡 Price feed disconnected, reconnecting in 3s...');
-    reconnectTimer = setTimeout(() => connectPriceFeed(onPriceUpdate, symbols), 3000);
+    reconnectTimer = setTimeout(() => connectPriceFeed(onPriceUpdate, onCandleUpdate, symbols), 3000);
   };
 
   ws.onerror = () => ws.close();
+}
+
+export function requestHistoricalCandles(symbol, timeframe) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'get_candles', data: { symbol, timeframe } }));
+  }
+}
+
+export function updatePositionSlTgtWs(positionId, stopLoss, target) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'update_sl_tgt', data: { positionId, stopLoss, target } }));
+  }
 }
 
 export function disconnectPriceFeed() {

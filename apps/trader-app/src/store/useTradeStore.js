@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, connectPriceFeed, disconnectPriceFeed, isLoggedIn, getStoredUser } from '../services/api';
+import { api, connectPriceFeed, disconnectPriceFeed, isLoggedIn, getStoredUser, requestHistoricalCandles, updatePositionSlTgtWs } from '../services/api';
 
 // ── Normalization helpers ──
 function normalizeUser(raw) {
@@ -285,6 +285,21 @@ export const useTradeStore = create((set, get) => ({
     }
   },
 
+  updatePositionSlTgt: (positionId, stopLoss, target) => {
+    // Optimistic UI update
+    set(state => ({
+      positions: state.positions.map(p => p.id === positionId ? { ...p, stop_loss: stopLoss, target: target } : p)
+    }));
+    // Send to backend via WS
+    updatePositionSlTgtWs(positionId, stopLoss, target);
+  },
+
+  // ── Candles ──
+  candles: {},
+  requestCandles: (symbol, timeframe) => {
+    requestHistoricalCandles(symbol, timeframe);
+  },
+
   // ── Orders ──
   orders: [],
   ordersLoading: false,
@@ -366,19 +381,20 @@ export const useTradeStore = create((set, get) => ({
           if (idx !== -1) {
             newInstruments[idx] = {
               ...newInstruments[idx],
-              // Keep both snake_case (for any code that uses it) and camelCase
-              last_price: update.price,
-              price: update.price,
-              change_amount: update.change,
-              change: update.change,
-              change_percent: update.change_percent,
-              changePercent: update.change_percent,
-              day_high: update.high,
-              high: update.high,
-              day_low: update.low,
-              low: update.low,
+              // Handle both legacy format and AngelOne format
+              last_price: update.ltp || update.price,
+              price: update.ltp || update.price,
+              change_amount: update.change || 0,
+              change: update.change || 0,
+              change_percent: update.change_percent || 0,
+              changePercent: update.change_percent || 0,
+              day_high: update.high || update.ltp || update.price,
+              high: update.high || update.ltp || update.price,
+              day_low: update.low || update.ltp || update.price,
+              low: update.low || update.ltp || update.price,
               bid_price: update.bid,
               ask_price: update.ask,
+              spread: update.spread,
             };
           }
         }
@@ -404,6 +420,14 @@ export const useTradeStore = create((set, get) => ({
 
         return { instruments: newInstruments, positions: newPositions };
       });
+    }, (candleMsg) => {
+      // Handle historical candles
+      set(state => ({
+        candles: {
+          ...state.candles,
+          [`${candleMsg.symbol}_${candleMsg.timeframe}`]: candleMsg.candles
+        }
+      }));
     });
   },
 

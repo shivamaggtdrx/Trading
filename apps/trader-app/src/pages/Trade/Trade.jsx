@@ -146,18 +146,21 @@ export default function Trade() {
             />
           </div>
 
-          {/* OHLC bar */}
-          <div className="absolute top-3 left-3 flex gap-3">
+          {/* OHLC + Bid/Ask/Spread bar */}
+          <div className="absolute top-3 left-3 flex flex-wrap gap-x-2 gap-y-1.5 z-10 pointer-events-none max-w-[80%]">
             {[
-              { label: 'O', value: instrument.low + (instrument.high - instrument.low) * 0.3 },
-              { label: 'H', value: instrument.high, color: 'text-emerald-500' },
-              { label: 'L', value: instrument.low, color: 'text-red-500' },
+              { label: 'O', value: instrument.open || instrument.price },
+              { label: 'H', value: instrument.high || instrument.price, color: 'text-emerald-500' },
+              { label: 'L', value: instrument.low || instrument.price, color: 'text-red-500' },
               { label: 'C', value: instrument.price },
+              { label: 'BID', value: instrument.bid_price, color: 'text-emerald-600' },
+              { label: 'ASK', value: instrument.ask_price, color: 'text-red-500' },
+              { label: 'SPREAD', value: instrument.spread, color: 'text-text-primary' },
             ].map(item => (
-              <div key={item.label} className="text-sm">
-                <span className="text-text-muted font-medium">{item.label}: </span>
+              <div key={item.label} className="text-[10px] bg-white/70 dark:bg-black/50 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                <span className="text-text-muted font-bold">{item.label}: </span>
                 <span className={cn('font-bold tabular-nums', item.color || 'text-text-secondary')}>
-                  {item.value >= 100 ? item.value.toFixed(2) : item.value.toFixed(4)}
+                  {item.value !== undefined ? (item.value >= 100 ? item.value.toFixed(2) : item.value.toFixed(4)) : '-'}
                 </span>
               </div>
             ))}
