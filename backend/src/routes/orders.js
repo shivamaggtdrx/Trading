@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { supabaseAdmin } = require('../config/supabase');
 const { authenticateUser } = require('../middleware/auth');
+const angelOneFeed = require('../ws/angelOneFeed');
 
 router.use(authenticateUser);
 
@@ -67,20 +68,26 @@ router.post('/', async (req, res) => {
 
     const sp = spreadProfile || { base_spread_pct: 0.05, slippage_min_pct: 0, slippage_max_pct: 0.05, execution_delay_min_ms: 0, execution_delay_max_ms: 200, house_favor_pct: 70 };
 
-    // Apply spread markup
-    const spreadAmount = instrument.last_price * (sp.base_spread_pct / 100);
+    // Get latest tick from memory (fallback to DB last_price if not available)
+    const latestTick = angelOneFeed.getLatestTick(symbol.toUpperCase());
+    const referencePrice = latestTick ? latestTick.ltp : instrument.last_price;
+    const bidPrice = latestTick && latestTick.bid > 0 ? latestTick.bid : referencePrice;
+    const askPrice = latestTick && latestTick.ask > 0 ? latestTick.ask : referencePrice;
+
+    // Apply spread markup from tier
+    const spreadAmount = referencePrice * (sp.base_spread_pct / 100);
     // Apply slippage (random within range, biased towards house)
     const slippageRange = sp.slippage_max_pct - sp.slippage_min_pct;
     const slippagePct = sp.slippage_min_pct + (Math.random() * slippageRange);
-    const slippageAmount = instrument.last_price * (slippagePct / 100);
+    const slippageAmount = referencePrice * (slippagePct / 100);
     const houseFavors = Math.random() * 100 < sp.house_favor_pct;
 
-    let executionPrice = instrument.last_price;
+    let executionPrice;
     if (side === 'buy') {
-      executionPrice += spreadAmount / 2; // buyer pays higher
+      executionPrice = askPrice + (spreadAmount / 2); // buyer pays higher
       executionPrice += houseFavors ? slippageAmount : -slippageAmount * 0.3;
     } else {
-      executionPrice -= spreadAmount / 2; // seller gets lower
+      executionPrice = bidPrice - (spreadAmount / 2); // seller gets lower
       executionPrice -= houseFavors ? slippageAmount : -slippageAmount * 0.3;
     }
 
@@ -125,11 +132,11 @@ router.post('/', async (req, res) => {
       quantity,
       price: order_type === 'limit' ? price : null,
       trigger_price: order_type === 'stop_loss' ? trigger_price : null,
-      requested_price: instrument.last_price,
+      requested_price: referencePrice,
       executed_price: order_type === 'market' ? executionPrice : null,
       filled_quantity: order_type === 'market' ? quantity : 0,
       avg_fill_price: order_type === 'market' ? executionPrice : null,
-      slippage_amount: Math.abs(executionPrice - instrument.last_price),
+      slippage_amount: Math.abs(executionPrice - (side === 'buy' ? askPrice : bidPrice)),
       spread_markup: spreadAmount,
       execution_delay_ms: executionDelay,
       margin_required: marginRequired,
@@ -157,7 +164,7 @@ router.post('/', async (req, res) => {
         side: side === 'buy' ? 'long' : 'short',
         quantity,
         entry_price: executionPrice,
-        current_price: instrument.last_price,
+        current_price: referencePrice,
         margin_used: marginRequired,
         leverage: 100 / instrument.margin_required,
         stop_loss: stop_loss || null,
@@ -196,10 +203,10 @@ router.post('/', async (req, res) => {
         order,
         position,
         execution: {
-          requested_price: instrument.last_price,
+          requested_price: referencePrice,
           executed_price: executionPrice,
           spread: spreadAmount,
-          slippage: Math.abs(executionPrice - instrument.last_price),
+          slippage: Math.abs(executionPrice - (side === 'buy' ? askPrice : bidPrice)),
           delay_ms: executionDelay,
         },
       });

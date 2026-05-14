@@ -195,11 +195,29 @@ export const api = {
 // ══════════════════════════════════════════════════════════════
 let ws = null;
 let reconnectTimer = null;
+let staleCheckTimer = null;
+let lastMessageTime = Date.now();
 
-export function connectPriceFeed(onPriceUpdate, onCandleUpdate = null, symbols = []) {
+export function connectPriceFeed(onPriceUpdate, onCandleUpdate = null, onDebugUpdate = null, symbols = []) {
   if (ws && ws.readyState === WebSocket.OPEN) return;
 
-  ws = new WebSocket(WS_BASE);
+  const token = getToken();
+  const wsUrl = token ? `${WS_BASE}?token=${token}` : WS_BASE;
+  ws = new WebSocket(wsUrl);
+
+  ws.onerror = (error) => {
+    console.error('WS Error:', error);
+  };
+
+  // Stale feed detection (15 seconds)
+  if (staleCheckTimer) clearInterval(staleCheckTimer);
+  staleCheckTimer = setInterval(() => {
+    if (Date.now() - lastMessageTime > 15000) {
+      if (onDebugUpdate) {
+        onDebugUpdate({ connected: false, staleWarning: true });
+      }
+    }
+  }, 2000);
 
   ws.onopen = () => {
     console.log('📡 Price feed connected');
@@ -209,6 +227,7 @@ export function connectPriceFeed(onPriceUpdate, onCandleUpdate = null, symbols =
   };
 
   ws.onmessage = (event) => {
+    lastMessageTime = Date.now();
     try {
       const msg = JSON.parse(event.data);
       if (msg.type === 'live_tick' && onPriceUpdate) {
@@ -217,6 +236,8 @@ export function connectPriceFeed(onPriceUpdate, onCandleUpdate = null, symbols =
         onPriceUpdate(msg.data);
       } else if (msg.type === 'historical_candles' && onCandleUpdate) {
         onCandleUpdate(msg.data);
+      } else if (msg.type === 'debug_stats' && onDebugUpdate) {
+        onDebugUpdate(msg.data);
       } else if (msg.type === 'position_updated') {
         // Trigger position refresh via event or direct state update (handled elsewhere if needed)
       }
@@ -242,6 +263,18 @@ export function requestHistoricalCandles(symbol, timeframe) {
 export function updatePositionSlTgtWs(positionId, stopLoss, target) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'update_sl_tgt', data: { positionId, stopLoss, target } }));
+  }
+}
+
+export function subscribeWsSymbols(symbols) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'subscribe', symbols }));
+  }
+}
+
+export function debugSubscribeWs() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'debug_subscribe' }));
   }
 }
 

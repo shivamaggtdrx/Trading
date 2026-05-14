@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, connectPriceFeed, disconnectPriceFeed, isLoggedIn, getStoredUser, requestHistoricalCandles, updatePositionSlTgtWs } from '../services/api';
+import { api, connectPriceFeed, disconnectPriceFeed, isLoggedIn, getStoredUser, requestHistoricalCandles, updatePositionSlTgtWs, subscribeWsSymbols, debugSubscribeWs } from '../services/api';
 
 // ── Normalization helpers ──
 function normalizeUser(raw) {
@@ -232,7 +232,10 @@ export const useTradeStore = create((set, get) => ({
 
   // ── Selected Instrument ──
   selectedInstrument: null,
-  setSelectedInstrument: (instrument) => set({ selectedInstrument: instrument }),
+  setSelectedInstrument: (instrument) => {
+    set({ selectedInstrument: instrument });
+    get().updateSubscriptions();
+  },
 
   // ── Trading ──
   orderType: 'market',
@@ -372,6 +375,7 @@ export const useTradeStore = create((set, get) => ({
   })),
 
   // ── Live Price Updates ──
+  debugStats: null,
   startPriceFeed: () => {
     connectPriceFeed((updates) => {
       set((state) => {
@@ -404,13 +408,17 @@ export const useTradeStore = create((set, get) => ({
           const priceUpdate = updates.find(u => u.symbol === pos.symbol);
           if (priceUpdate) {
             const currentPrice = priceUpdate.price;
+            const exitPrice = pos.type === 'BUY' ? priceUpdate.bid : priceUpdate.ask;
+            const evalPrice = exitPrice > 0 ? exitPrice : currentPrice; // Fallback if bid/ask is 0
+            
             const unrealizedPnl = pos.type === 'BUY'
-              ? (currentPrice - pos.entryPrice) * pos.quantity
-              : (pos.entryPrice - currentPrice) * pos.quantity;
+              ? (evalPrice - pos.entryPrice) * pos.quantity
+              : (pos.entryPrice - evalPrice) * pos.quantity;
+              
             return {
               ...pos,
-              current_price: currentPrice,
-              currentPrice,
+              current_price: evalPrice,
+              currentPrice: evalPrice,
               pnl: unrealizedPnl,
               pnlPercent: pos.margin > 0 ? (unrealizedPnl / pos.margin) * 100 : 0,
             };
@@ -428,7 +436,33 @@ export const useTradeStore = create((set, get) => ({
           [`${candleMsg.symbol}_${candleMsg.timeframe}`]: candleMsg.candles
         }
       }));
+    }, (debugMsg) => {
+      set({ debugStats: debugMsg });
     });
+    
+    // Subscribe to debug info
+    setTimeout(() => debugSubscribeWs(), 1000);
+  },
+  
+  updateSubscriptions: () => {
+    const state = get();
+    const symbolsToSub = new Set();
+    
+    // Watchlist
+    const favs = JSON.parse(localStorage.getItem('tradex_favorites') || '[]');
+    favs.forEach(s => symbolsToSub.add(s));
+    
+    // Chart
+    if (state.selectedInstrument) {
+      symbolsToSub.add(state.selectedInstrument.symbol);
+    }
+    
+    // Positions
+    state.positions.forEach(p => {
+      if (p.status !== 'CLOSED') symbolsToSub.add(p.symbol);
+    });
+    
+    subscribeWsSymbols(Array.from(symbolsToSub));
   },
 
   // ── UI State ──
@@ -477,6 +511,7 @@ export const useTradeStore = create((set, get) => ({
       get().fetchHistory(),
     ]);
     get().startPriceFeed();
+    get().updateSubscriptions();
     set({ isLoading: false });
   },
 }));

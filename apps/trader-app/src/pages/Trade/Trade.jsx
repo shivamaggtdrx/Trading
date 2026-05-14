@@ -29,27 +29,28 @@ const orderTypes = [
 ];
 
 export default function Trade() {
-  const {
-    selectedInstrument,
-    setSelectedInstrument,
-    orderType,
-    setOrderType,
-    orderSide,
-    setOrderSide,
-    quantity,
-    setQuantity,
-    placeOrder,
-    orderLoading,
-  } = useTradeStore();
+  const selectedInstrument = useTradeStore(state => state.selectedInstrument);
+  const setSelectedInstrument = useTradeStore(state => state.setSelectedInstrument);
+  const orderType = useTradeStore(state => state.orderType);
+  const setOrderType = useTradeStore(state => state.setOrderType);
+  const orderSide = useTradeStore(state => state.orderSide);
+  const setOrderSide = useTradeStore(state => state.setOrderSide);
+  const quantity = useTradeStore(state => state.quantity);
+  const setQuantity = useTradeStore(state => state.setQuantity);
+  const placeOrder = useTradeStore(state => state.placeOrder);
+  const orderLoading = useTradeStore(state => state.orderLoading);
+  const debugStats = useTradeStore(state => state.debugStats);
   const navigate = useNavigate();
   const [limitPrice, setLimitPrice] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [orderError, setOrderError] = useState(null);
   const [activeTimeframe, setActiveTimeframe] = useState(3); // 1H default
 
-  const instruments = useTradeStore(state => state.getAllInstruments());
-  // Default to first instrument if none selected
-  const instrument = selectedInstrument || (instruments.length > 0 ? instruments[0] : { symbol: 'LOADING', name: '', price: 0, change: 0, changePercent: 0, high: 0, low: 0, volume: 0 });
+  const instrument = useTradeStore(state => {
+    const inst = state.instruments.find(i => i.symbol === state.selectedInstrument?.symbol);
+    if (inst) return inst;
+    return state.selectedInstrument || state.instruments[0] || { symbol: 'LOADING', name: '', price: 0, change: 0, changePercent: 0, high: 0, low: 0, volume: 0 };
+  });
 
   const totalValue = quantity ? (Number(quantity) * instrument.price) : 0;
   const estimatedMargin = totalValue * 0.2; // 5x leverage
@@ -190,6 +191,30 @@ export default function Trade() {
             ))}
           </div>
       </div>
+      
+      {/* Latency Debug Panel Overlay */}
+      {debugStats && (
+        <div className="absolute top-16 right-3 bg-black/80 backdrop-blur-md rounded border border-white/10 p-2 text-[10px] font-mono text-white/90 z-40 pointer-events-none shadow-lg">
+          <div className="flex items-center gap-1.5 mb-1">
+            <div className={cn("w-1.5 h-1.5 rounded-full", debugStats.connected ? "bg-emerald-500" : "bg-red-500 animate-pulse")} />
+            <span className={cn("font-bold", debugStats.staleWarning && "text-red-500 animate-pulse")}>
+              {debugStats.staleWarning ? 'STALE FEED' : `WS ${debugStats.connected ? 'LIVE' : 'DOWN'}`}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 opacity-80">
+            <span>Latency:</span>
+            <span className={cn("text-right", instrument._debug?.latencyMs > 500 ? "text-red-400" : "text-emerald-400")}>
+              {instrument._debug?.latencyMs ?? 0}ms
+            </span>
+            <span>Subs:</span>
+            <span className="text-right">{debugStats.subscriptions || 0}</span>
+            <span>Tick/s:</span>
+            <span className="text-right">{debugStats.packetsPerSec || 0}</span>
+            <span>Reconnects:</span>
+            <span className="text-right">{debugStats.reconnects || 0}</span>
+          </div>
+        </div>
+      )}
 
       {/* Trading Panel Below Chart */}
       <div className="px-3 space-y-2.5 py-3 pb-44">
@@ -366,11 +391,13 @@ export default function Trade() {
                 {formatCurrency(totalValue)}
               </span>
             </div>
-            <SlideToConfirm
-              onConfirm={handleConfirmOrder}
-              label={`Slide to ${orderSide === 'buy' ? 'Buy' : 'Sell'} ${instrument.symbol}`}
-              variant={orderSide === 'buy' ? 'success' : 'danger'}
-            />
+            <div className={cn(debugStats?.staleWarning ? 'opacity-50 pointer-events-none' : '')}>
+              <SlideToConfirm
+                onConfirm={handleConfirmOrder}
+                label={`Slide to ${orderSide === 'buy' ? 'Buy' : 'Sell'} ${instrument.symbol}`}
+                variant={orderSide === 'buy' ? 'success' : 'danger'}
+              />
+            </div>
           </div>
         ) : (
           <Button

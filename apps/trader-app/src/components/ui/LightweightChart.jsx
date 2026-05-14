@@ -172,14 +172,12 @@ export default function LightweightChart({ symbol, timeframe, isDark }) {
     let draggedLineType = null;
     let positionId = null;
 
-    const handleMouseDown = (e) => {
+    const startDrag = (clientY) => {
       const rect = container.getBoundingClientRect();
-      const y = e.clientY - rect.top;
+      const y = clientY - rect.top;
       const price = seriesRef.current.coordinateToPrice(y);
       if (!price) return;
 
-      // Find if we clicked near a line (tolerance of e.g. 10 pixels roughly converted to price)
-      // We estimate price tolerance by checking price at y-10 and y+10
       const priceTolerance = Math.abs(seriesRef.current.coordinateToPrice(y - 10) - price);
 
       let found = null;
@@ -199,17 +197,16 @@ export default function LightweightChart({ symbol, timeframe, isDark }) {
         draggedLineId = found.id;
         draggedLineType = found.type;
         positionId = found.posId;
-        chart.applyOptions({ handleScroll: false, handleScale: false }); // Disable chart scrolling while dragging
+        chart.applyOptions({ handleScroll: false, handleScale: false });
       }
     };
 
-    const handleMouseMove = (e) => {
+    const moveDrag = (clientY) => {
       if (!isDragging || !draggedLineId) return;
       const rect = container.getBoundingClientRect();
-      const y = e.clientY - rect.top;
+      const y = clientY - rect.top;
       const newPrice = seriesRef.current.coordinateToPrice(y);
       if (newPrice) {
-        // Optimistically update the line position visually
         const line = priceLinesRef.current[draggedLineId];
         if (line) {
           line.applyOptions({ price: newPrice });
@@ -217,20 +214,18 @@ export default function LightweightChart({ symbol, timeframe, isDark }) {
       }
     };
 
-    const handleMouseUp = (e) => {
+    const endDrag = (clientY) => {
       if (isDragging && positionId) {
         const rect = container.getBoundingClientRect();
-        const y = e.clientY - rect.top;
+        const y = clientY - rect.top;
         const finalPrice = seriesRef.current.coordinateToPrice(y);
         
         const pos = symbolPositions.find(p => p.id === positionId);
         if (pos && finalPrice) {
           let sl = pos.stop_loss;
           let tgt = pos.target;
-          
           if (draggedLineType === 'sl') sl = finalPrice;
           if (draggedLineType === 'tgt') tgt = finalPrice;
-          
           updatePositionSlTgt(positionId, sl, tgt);
         }
       }
@@ -238,17 +233,47 @@ export default function LightweightChart({ symbol, timeframe, isDark }) {
       draggedLineId = null;
       draggedLineType = null;
       positionId = null;
-      chart.applyOptions({ handleScroll: true, handleScale: true }); // Re-enable scrolling
+      chart.applyOptions({ handleScroll: true, handleScale: true });
+    };
+
+    const handleMouseDown = (e) => {
+      startDrag(e.clientY);
+    };
+
+    const handleMouseMove = (e) => {
+      moveDrag(e.clientY);
+    };
+
+    const handleMouseUp = (e) => {
+      endDrag(e.clientY);
+    };
+
+    const handleTouchStart = (e) => {
+      if (e.touches.length > 0) startDrag(e.touches[0].clientY);
+    };
+
+    const handleTouchMove = (e) => {
+      if (e.touches.length > 0) moveDrag(e.touches[0].clientY);
+    };
+
+    const handleTouchEnd = (e) => {
+      if (e.changedTouches.length > 0) endDrag(e.changedTouches[0].clientY);
     };
 
     container.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
     
     return () => {
       container.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      container.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [symbolPositions]);
 

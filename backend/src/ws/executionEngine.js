@@ -28,12 +28,13 @@ async function syncPositions() {
 /**
  * Handle updates to SL/TGT from frontend (drag events)
  */
-async function updatePositionTargets(positionId, stopLoss, target) {
+async function updatePositionTargets(positionId, stopLoss, target, userId) {
   try {
     const { data, error } = await supabaseAdmin
       .from('positions')
       .update({ stop_loss: stopLoss, target: target })
       .eq('id', positionId)
+      .eq('user_id', userId)
       .select()
       .single();
       
@@ -55,7 +56,7 @@ async function updatePositionTargets(positionId, stopLoss, target) {
  * Evaluate a tick against open positions
  */
 async function evaluateTick(tick) {
-  const { symbol, ltp } = tick;
+  const { symbol, ltp, bid, ask } = tick;
   
   // Filter positions for this symbol
   const positionsToEval = activePositions.filter(p => p.symbol === symbol);
@@ -65,31 +66,34 @@ async function evaluateTick(tick) {
     let triggerType = null;
     let exitPrice = null;
 
-    if (pos.side === 'BUY') {
+    // Use bid/ask if available, fallback to ltp
+    const evalPrice = (pos.side === 'BUY' || pos.side === 'long') ? (bid || ltp) : (ask || ltp);
+
+    if (pos.side === 'BUY' || pos.side === 'long') {
       // Check Stop Loss
-      if (pos.stop_loss && ltp <= pos.stop_loss) {
+      if (pos.stop_loss && evalPrice <= pos.stop_loss) {
         triggered = true;
         triggerType = 'STOP_LOSS';
-        exitPrice = pos.stop_loss;
+        exitPrice = evalPrice;
       }
       // Check Target
-      else if (pos.target && ltp >= pos.target) {
+      else if (pos.target && evalPrice >= pos.target) {
         triggered = true;
         triggerType = 'TARGET';
-        exitPrice = pos.target;
+        exitPrice = evalPrice;
       }
-    } else if (pos.side === 'SELL') {
+    } else if (pos.side === 'SELL' || pos.side === 'short') {
       // Check Stop Loss
-      if (pos.stop_loss && ltp >= pos.stop_loss) {
+      if (pos.stop_loss && evalPrice >= pos.stop_loss) {
         triggered = true;
         triggerType = 'STOP_LOSS';
-        exitPrice = pos.stop_loss;
+        exitPrice = evalPrice;
       }
       // Check Target
-      else if (pos.target && ltp <= pos.target) {
+      else if (pos.target && evalPrice <= pos.target) {
         triggered = true;
         triggerType = 'TARGET';
-        exitPrice = pos.target;
+        exitPrice = evalPrice;
       }
     }
 
@@ -105,7 +109,7 @@ async function evaluateTick(tick) {
 async function executeSquareOff(position, exitPrice, triggerType) {
   console.log(`⚡ Auto-Squareoff Triggered: ${position.symbol} ${triggerType} at ${exitPrice}`);
   
-  const pnl = position.side === 'BUY' 
+  const pnl = (position.side === 'BUY' || position.side === 'long')
     ? (exitPrice - position.entry_price) * position.quantity
     : (position.entry_price - exitPrice) * position.quantity;
     
