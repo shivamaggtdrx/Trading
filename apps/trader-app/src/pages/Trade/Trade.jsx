@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { AdvancedRealTimeChart } from 'react-ts-tradingview-widgets';
+import LightweightChart from '../../components/ui/LightweightChart';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -138,15 +138,11 @@ export default function Trade() {
       <div className="relative bg-surface border-b border-border/20">
           {/* Chart Area */}
           <div className="flex-1 relative overflow-hidden bg-[#f8fafc] w-full h-full">
-            <AdvancedRealTimeChart
+            <LightweightChart
               symbol={instrument.symbol}
-              theme="light"
-              autosize
-              hide_top_toolbar
-              hide_legend
-              save_image={false}
-              toolbar_bg="#f8fafc"
-              allow_symbol_change={false}
+              timeframe={['1M', '5M', '15M', '1H', '4H', '1D', '1W'][activeTimeframe]}
+              basePrice={instrument.price}
+              isDark={false}
             />
           </div>
 
@@ -190,7 +186,6 @@ export default function Trade() {
               </button>
             ))}
           </div>
-        </div>
       </div>
 
       {/* Trading Panel Below Chart */}

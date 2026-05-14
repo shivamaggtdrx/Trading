@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { AdvancedRealTimeChart } from 'react-ts-tradingview-widgets';
+import LightweightChart from '../../components/ui/LightweightChart';
 import {
   TrendingUp,
   TrendingDown,
@@ -9,6 +9,8 @@ import {
   Check,
   ChevronDown,
   Zap,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -65,6 +67,7 @@ export default function Charts() {
   const [activeTimeframe, setActiveTimeframe] = useState(6); // Default to 'D'
   const [showPicker, setShowPicker] = useState(false);
   const [pricePulse, setPricePulse] = useState(null);
+  const [isFullScreen, setIsFullScreen] = useState(false);
   const pulseTimer = useRef(null);
 
   const allInstruments = getAllInstruments();
@@ -113,11 +116,11 @@ export default function Charts() {
 
   // Build TradingView symbol — use NSE for Indian equities (supports intraday)
   const tvSymbol = useMemo(() => {
-    if (!instrument.symbol || instrument.symbol === 'LOADING') return 'BSE:RELIANCE';
+    if (!instrument.symbol || instrument.symbol === 'LOADING') return 'NSE:RELIANCE';
     if (instrument.symbol.includes(':')) return instrument.symbol;
     if (isForex) return `FX:${instrument.symbol}`;
     if (instrument.segment === 'mcx') return `MCX:${instrument.symbol}`;
-    return `BSE:${instrument.symbol}`;
+    return `NSE:${instrument.symbol}`;
   }, [instrument.symbol, isForex, instrument.segment]);
 
   const currentInterval = TIMEFRAMES[activeTimeframe]?.interval || 'D';
@@ -186,25 +189,51 @@ export default function Charts() {
       </div>
 
       {/* Chart + Order Book side by side */}
-      <div className="relative bg-surface border-b border-border/20">
-        <div className="flex" style={{ height: '52vh', minHeight: '260px', maxHeight: '500px' }}>
+      <div className={cn(isFullScreen ? 'fixed inset-0 z-[100] bg-surface flex flex-col' : 'relative bg-surface border-b border-border/20')}>
+        {isFullScreen && (
+          <div className="flex items-center justify-between p-2 border-b border-border/20 bg-surface">
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-bold text-text-primary">{instrument.symbol}</h1>
+              <span className={cn('text-xs font-bold px-1.5 py-0.5 rounded-md', instrument.change >= 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-red-500 bg-red-500/10')}>
+                {instrument.change >= 0 ? '+' : ''}{instrument.change >= 100 ? instrument.change.toFixed(2) : instrument.change.toFixed(4)} ({formatPercent(instrument.changePercent)})
+              </span>
+            </div>
+            {/* Show interval selector in fullscreen */}
+            <div className="hidden sm:flex items-center gap-1">
+              {TIMEFRAMES.map((tf, i) => (
+                <button
+                  key={`fs-${tf.label}`}
+                  onClick={() => setActiveTimeframe(i)}
+                  className={cn(
+                    'px-2 py-0.5 text-xs font-bold rounded transition-all',
+                    activeTimeframe === i ? 'bg-primary text-white' : 'text-text-muted hover:bg-surface-2'
+                  )}
+                >
+                  {tf.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setIsFullScreen(false)} className="p-1.5 rounded-md bg-surface-2 hover:bg-surface-3 transition text-text-secondary">
+              <Minimize2 size={16} />
+            </button>
+          </div>
+        )}
+        <div className={cn("flex", isFullScreen ? "flex-1" : "")} style={!isFullScreen ? { height: '52vh', minHeight: '260px', maxHeight: '500px' } : {}}>
           {/* Chart Area */}
-          <div className="flex-1 relative overflow-hidden" style={{ background: isDark ? '#0b0e14' : '#f8fafc' }}>
-            <AdvancedRealTimeChart
-              key={`${tvSymbol}-${currentInterval}-${isDark}`}
-              symbol={tvSymbol}
-              interval={currentInterval}
-              theme={isDark ? 'dark' : 'light'}
-              autosize
-              hide_top_toolbar
-              hide_legend
-              save_image={false}
-              toolbar_bg={isDark ? '#131722' : '#f8fafc'}
-              allow_symbol_change={false}
-              withdateranges={false}
-              details={false}
-              calendar={false}
-              style="1"
+          <div className="flex-1 relative overflow-hidden group" style={{ background: isDark ? '#0b0e14' : '#f8fafc' }}>
+            {!isFullScreen && (
+              <button 
+                onClick={() => setIsFullScreen(true)}
+                className="absolute top-2 right-2 z-10 p-1.5 rounded bg-surface/80 backdrop-blur border border-border/40 text-text-secondary hover:text-text-primary opacity-0 group-hover:opacity-100 transition shadow-sm"
+              >
+                <Maximize2 size={14} />
+              </button>
+            )}
+            <LightweightChart
+              symbol={instrument.symbol}
+              timeframe={TIMEFRAMES[activeTimeframe].label}
+              basePrice={instrument.price}
+              isDark={isDark}
             />
           </div>
 

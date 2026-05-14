@@ -181,7 +181,7 @@ export const useTradeStore = create((set, get) => ({
   getFilteredInstruments: () => {
     const state = get();
     const query = state.searchQuery.toLowerCase();
-    let instruments = [];
+    let instruments;
 
     switch (state.activeMarketTab) {
       case 'stocks': instruments = state.getStocks(); break;
@@ -334,7 +334,7 @@ export const useTradeStore = create((set, get) => ({
     try {
       const data = await api.getTradeHistory();
       set({ tradeHistory: (data.trades || []).map(normalizeTrade), historyLoading: false });
-    } catch (err) {
+    } catch {
       set({ historyLoading: false });
     }
   },

@@ -47,110 +47,93 @@ export default function AppLayout() {
   return (
     <div className="min-h-screen bg-surface flex flex-col">
       {/* ═══ DESKTOP: Market Ticker Bar + Top Navbar ═══ */}
-      <div className="hidden lg:block sticky top-0 z-50">
-        <MarketTickerBar />
+      <div className="hidden lg:block sticky top-0 z-50 bg-surface shadow-sm border-b border-border/60">
+        <div className="flex items-center h-14 w-full">
+          {/* Left Side: Logo or Ticker space */}
+          <div className="w-[320px] shrink-0 border-r border-border/40 flex items-center px-4">
+             {/* We can place the ticker here or just a logo */}
+             <div className="text-xl font-bold tracking-tighter text-primary">TRADEX</div>
+          </div>
 
-        {/* Main Navigation Bar */}
-        <header className="flex items-center justify-between px-4 py-0 glass-heavy border-b border-border/40 z-50">
-          {/* Nav Items */}
-          <nav className="flex items-center">
-            {desktopNavItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) => cn(
-                  'flex items-center gap-1.5 px-4 py-3 text-[13px] font-semibold transition-all border-b-2 -mb-[1px]',
-                  isActive
-                    ? 'text-primary border-primary bg-primary/5'
-                    : 'text-text-secondary border-transparent hover:text-text-primary hover:bg-surface-2/50'
-                )}
-              >
-                <item.icon size={15} />
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
+          {/* Right Side: Navigation */}
+          <header className="flex-1 flex items-center justify-between px-6 h-full">
+            {/* Nav Items */}
+            <nav className="flex items-center gap-6">
+              {desktopNavItems.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) => cn(
+                    'text-[14px] font-medium transition-colors hover:text-[#f06428]',
+                    isActive ? 'text-[#f06428]' : 'text-text-secondary'
+                  )}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
 
-          {/* Right Side — User Controls */}
-          <div className="flex items-center gap-1">
-            {/* Screeners (like competitor) */}
-            <NavLink
-              to="/markets"
-              className={({ isActive }) => cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-semibold transition-all',
-                isActive
-                  ? 'bg-primary text-white'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
-              )}
-            >
-              <BarChart3 size={14} />
-              Screeners
-            </NavLink>
-
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleDarkMode}
-              className="p-2 rounded-md hover:bg-surface-2 transition-colors text-text-secondary hover:text-text-primary"
-              title="Toggle Theme"
-            >
-              {isDark ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-
-            {/* User Profile Dropdown */}
-            <div className="relative ml-1">
+            {/* Right Side — User Controls */}
+            <div className="flex items-center gap-4">
+              {/* Theme Toggle */}
               <button
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface-2 transition-colors"
+                onClick={toggleDarkMode}
+                className="text-text-secondary hover:text-[#f06428] transition-colors"
+                title="Toggle Theme"
               >
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-primary/20">
-                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                </div>
+                {isDark ? <Sun size={18} /> : <Moon size={18} />}
               </button>
 
-              {/* Profile Dropdown Menu */}
-              {showProfileMenu && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-56 bg-surface border border-border/40 rounded-lg shadow-2xl z-50 py-1 overflow-hidden">
-                    {/* User Info */}
-                    <div className="px-3 py-2.5 border-b border-border/30">
-                      <p className="text-sm font-bold text-text-primary">{user?.name || 'Trader'}</p>
-                      <p className="text-[11px] text-text-muted mt-0.5">{user?.clientId || 'TDX-00000'}</p>
-                    </div>
-
-                    <button
-                      onClick={() => { navigate('/profile'); setShowProfileMenu(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
-                    >
-                      <User size={14} /> My Profile
-                    </button>
-                    <button
-                      onClick={() => { navigate('/preferences'); setShowProfileMenu(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
-                    >
-                      <Settings size={14} /> Preferences
-                    </button>
-                    <button
-                      onClick={() => { navigate('/referral'); setShowProfileMenu(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
-                    >
-                      <BarChart3 size={14} /> Referral Program
-                    </button>
-
-                    <div className="border-t border-border/30 mt-1">
-                      <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-500/5 transition-colors"
-                      >
-                        <LogOut size={14} /> Logout
-                      </button>
-                    </div>
+              {/* User Profile Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className="flex items-center gap-2 text-[13px] font-medium text-text-secondary hover:text-[#f06428] transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                   </div>
-                </>
-              )}
+                  <span>{user?.clientId || 'GZ5936'}</span>
+                </button>
+
+                {/* Profile Dropdown Menu */}
+                {showProfileMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-surface border border-border/60 rounded shadow-xl z-50 py-1 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-border/40">
+                        <p className="text-sm font-semibold text-text-primary">{user?.name || 'Trader'}</p>
+                        <p className="text-xs text-text-muted mt-0.5">{user?.email || 'trader@example.com'}</p>
+                      </div>
+
+                      <button
+                        onClick={() => { navigate('/profile'); setShowProfileMenu(false); }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-surface-2 hover:text-[#f06428] transition-colors"
+                      >
+                        <User size={16} strokeWidth={1.5} /> My Profile
+                      </button>
+                      <button
+                        onClick={() => { navigate('/preferences'); setShowProfileMenu(false); }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-surface-2 hover:text-[#f06428] transition-colors"
+                      >
+                        <Settings size={16} strokeWidth={1.5} /> Preferences
+                      </button>
+
+                      <div className="border-t border-border/40 mt-1">
+                        <button
+                          onClick={handleLogout}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-text-secondary hover:bg-surface-2 hover:text-red-500 transition-colors"
+                        >
+                          <LogOut size={16} strokeWidth={1.5} /> Logout
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
+        </div>
       </div>
 
       {/* ═══ MAIN AREA: Sidebar + Content ═══ */}

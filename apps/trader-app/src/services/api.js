@@ -36,7 +36,7 @@ async function tryRefreshToken() {
   try {
     const refreshToken = getRefreshToken();
     if (!refreshToken) return false;
-    const res = await fetch(`${API_BASE}/auth/login`, {
+    await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken }),
@@ -99,7 +99,7 @@ export const api = {
   },
 
   async logout() {
-    try { await request('/auth/logout', { method: 'POST' }); } catch {}
+    try { await request('/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
     clearSession();
   },
 
@@ -214,7 +214,9 @@ export function connectPriceFeed(onPriceUpdate, symbols = []) {
       if (msg.type === 'price_update' && onPriceUpdate) {
         onPriceUpdate(msg.data);
       }
-    } catch {}
+    } catch (e) {
+      console.warn('WS parse error', e);
+    }
   };
 
   ws.onclose = () => {
