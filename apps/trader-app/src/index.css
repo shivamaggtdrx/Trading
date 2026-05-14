@@ -2,25 +2,25 @@
 
 @theme {
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --color-primary: #3b82f6;
-  --color-primary-light: #60a5fa;
-  --color-primary-dark: #2563eb;
-  --color-success: #10b981;
+  --color-primary: #6366f1;
+  --color-primary-light: #818cf8;
+  --color-primary-dark: #4f46e5;
+  --color-success: #00df82;
   --color-success-light: #34d399;
-  --color-success-bg: rgba(16, 185, 129, 0.08);
-  --color-success-glow: rgba(16, 185, 129, 0.25);
-  --color-danger: #ef4444;
-  --color-danger-light: #f87171;
-  --color-danger-bg: rgba(239, 68, 68, 0.08);
-  --color-danger-glow: rgba(239, 68, 68, 0.25);
+  --color-success-bg: rgba(0, 223, 130, 0.08);
+  --color-success-glow: rgba(0, 223, 130, 0.25);
+  --color-danger: #ff3b69;
+  --color-danger-light: #fb7185;
+  --color-danger-bg: rgba(255, 59, 105, 0.08);
+  --color-danger-glow: rgba(255, 59, 105, 0.25);
   --color-warning: #f59e0b;
   --color-surface: #ffffff;
   --color-surface-2: #f8fafc;
   --color-surface-3: #f1f5f9;
   --color-border: #e2e8f0;
-  --color-text-primary: #111827;
-  --color-text-secondary: #4b5563;
-  --color-text-muted: #9ca3af;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
 }
 
 /* Global Resets */
@@ -47,15 +47,15 @@ body {
 }
 
 .dark {
-  --color-surface: #0b0e14;
-  --color-surface-2: #131722;
-  --color-surface-3: #1e222d;
-  --color-border: #2a2e39;
-  --color-text-primary: #d1d4dc;
-  --color-text-secondary: #a3a6af;
-  --color-text-muted: #787b86;
-  --color-success-bg: rgba(16, 185, 129, 0.12);
-  --color-danger-bg: rgba(239, 68, 68, 0.12);
+  --color-surface: #0a0e17;
+  --color-surface-2: #121826;
+  --color-surface-3: #1a2235;
+  --color-border: #222d42;
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #64748b;
+  --color-success-bg: rgba(0, 223, 130, 0.12);
+  --color-danger-bg: rgba(255, 59, 105, 0.12);
 }
 
 /* Dark mode semantic overrides for colored utility classes */
@@ -352,14 +352,30 @@ input[type="number"] {
 }
 
 /* ========================================
-   GLASSMORPHISM (REMOVED FOR CLEAN UI)
+   GLASSMORPHISM
    ======================================== */
 .glass {
-  background: var(--color-surface);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.dark .glass {
+  background: rgba(10, 14, 23, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .glass-heavy {
-  background: var(--color-surface);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.dark .glass-heavy {
+  background: rgba(10, 14, 23, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* ========================================
@@ -377,7 +393,7 @@ input[type="number"] {
    GRADIENT TEXT
    ======================================== */
 .gradient-text {
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  background: linear-gradient(135deg, #6366f1, #d946ef);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

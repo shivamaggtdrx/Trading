@@ -113,11 +113,11 @@ export default function Charts() {
 
   // Build TradingView symbol — use NSE for Indian equities (supports intraday)
   const tvSymbol = useMemo(() => {
-    if (!instrument.symbol || instrument.symbol === 'LOADING') return 'NSE:RELIANCE';
+    if (!instrument.symbol || instrument.symbol === 'LOADING') return 'BSE:RELIANCE';
     if (instrument.symbol.includes(':')) return instrument.symbol;
     if (isForex) return `FX:${instrument.symbol}`;
     if (instrument.segment === 'mcx') return `MCX:${instrument.symbol}`;
-    return `NSE:${instrument.symbol}`;
+    return `BSE:${instrument.symbol}`;
   }, [instrument.symbol, isForex, instrument.segment]);
 
   const currentInterval = TIMEFRAMES[activeTimeframe]?.interval || 'D';

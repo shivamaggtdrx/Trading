@@ -155,8 +155,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ═══ Desktop: Two-column layout for Positions + Top Movers ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* ═══ Desktop: Full width layout for Positions ═══ */}
+        <div className="grid grid-cols-1 gap-4">
           {/* Open Positions */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -173,7 +173,7 @@ export default function Home() {
               {positions.length > 0 ? (
                 <div className="divide-y divide-border/20">
                   {positions.slice(0, 5).map((pos) => (
-                    <div key={pos.id} className="flex items-center justify-between px-3 py-2.5">
+                    <div key={pos.id} className="flex items-center justify-between px-3 py-2.5 hover:bg-surface-2/50 transition-colors">
                       <div className="flex items-center gap-2.5">
                         <div className={cn(
                           'w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold',
@@ -203,55 +203,6 @@ export default function Home() {
                   <Layers size={20} className="mx-auto text-text-muted/30 mb-2" />
                   <p className="text-sm font-semibold text-text-muted">No open positions</p>
                   <p className="text-xs text-text-muted/60 mt-0.5">Click an instrument from the sidebar to start trading</p>
-                </div>
-              )}
-            </Card>
-          </div>
-
-          {/* Top Movers */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-bold text-text-secondary uppercase tracking-wider">Top Movers</h2>
-              <button onClick={() => navigate('/markets')} className="flex items-center gap-0.5 text-xs font-semibold text-primary">
-                See All <ChevronRight size={12} />
-              </button>
-            </div>
-            <Card padding="p-0">
-              {topMovers.length > 0 ? (
-                <div className="divide-y divide-border/20">
-                  {topMovers.map((stock) => (
-                    <button
-                      key={stock.symbol}
-                      onClick={() => handleInstrumentClick(stock)}
-                      className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-surface-2/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-surface-2 flex items-center justify-center">
-                          <span className="text-xs font-bold text-text-secondary">{stock.symbol.slice(0, 2)}</span>
-                        </div>
-                        <div className="text-left">
-                          <p className="text-sm font-bold text-text-primary">{stock.symbol}</p>
-                          <p className="text-xs text-text-muted truncate max-w-[100px]">{stock.name}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Sparkline data={stock.sparkline} positive={stock.change >= 0} width={44} height={20} />
-                        <div className="text-right min-w-[70px]">
-                          <p className="text-sm font-bold text-text-primary tabular-nums">
-                            {stock.price >= 100 ? '₹' : '$'}{stock.price >= 100 ? stock.price.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : stock.price.toFixed(4)}
-                          </p>
-                          <p className={cn('text-xs font-bold', stock.change >= 0 ? 'text-emerald-500' : 'text-red-500')}>
-                            {formatPercent(stock.changePercent)}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8 text-center">
-                  <TrendingUp size={20} className="mx-auto text-text-muted/30 mb-2" />
-                  <p className="text-sm font-semibold text-text-muted">Loading market data...</p>
                 </div>
               )}
             </Card>

@@ -51,7 +51,7 @@ export default function AppLayout() {
         <MarketTickerBar />
 
         {/* Main Navigation Bar */}
-        <header className="flex items-center justify-between px-4 py-0 bg-[#131722] text-white border-b border-white/5">
+        <header className="flex items-center justify-between px-4 py-0 glass-heavy border-b border-border/40 z-50">
           {/* Nav Items */}
           <nav className="flex items-center">
             {desktopNavItems.map((item) => (
@@ -61,8 +61,8 @@ export default function AppLayout() {
                 className={({ isActive }) => cn(
                   'flex items-center gap-1.5 px-4 py-3 text-[13px] font-semibold transition-all border-b-2 -mb-[1px]',
                   isActive
-                    ? 'text-white border-primary bg-white/5'
-                    : 'text-gray-400 border-transparent hover:text-gray-200 hover:bg-white/[0.03]'
+                    ? 'text-primary border-primary bg-primary/5'
+                    : 'text-text-secondary border-transparent hover:text-text-primary hover:bg-surface-2/50'
                 )}
               >
                 <item.icon size={15} />
@@ -80,7 +80,7 @@ export default function AppLayout() {
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-semibold transition-all',
                 isActive
                   ? 'bg-primary text-white'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
               )}
             >
               <BarChart3 size={14} />
@@ -90,7 +90,7 @@ export default function AppLayout() {
             {/* Theme Toggle */}
             <button
               onClick={toggleDarkMode}
-              className="p-2 rounded-md hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+              className="p-2 rounded-md hover:bg-surface-2 transition-colors text-text-secondary hover:text-text-primary"
               title="Toggle Theme"
             >
               {isDark ? <Sun size={16} /> : <Moon size={16} />}
@@ -100,7 +100,7 @@ export default function AppLayout() {
             <div className="relative ml-1">
               <button
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-white/5 transition-colors"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface-2 transition-colors"
               >
                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-primary/20">
                   {user?.name?.charAt(0)?.toUpperCase() || 'U'}
