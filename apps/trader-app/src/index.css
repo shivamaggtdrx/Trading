@@ -47,13 +47,13 @@ body {
 }
 
 .dark {
-  --color-surface: #0a0e17;
-  --color-surface-2: #121826;
-  --color-surface-3: #1a2235;
-  --color-border: #222d42;
-  --color-text-primary: #f8fafc;
-  --color-text-secondary: #cbd5e1;
-  --color-text-muted: #64748b;
+  --color-surface: #0d1117;
+  --color-surface-2: #161b26;
+  --color-surface-3: #1e2433;
+  --color-border: #2a3040;
+  --color-text-primary: #f0f2f5;
+  --color-text-secondary: #c9d1d9;
+  --color-text-muted: #6b7280;
   --color-success-bg: rgba(0, 223, 130, 0.12);
   --color-danger-bg: rgba(255, 59, 105, 0.12);
 }
@@ -68,6 +68,18 @@ body {
 .dark .text-red-700 { color: #f87171 !important; }
 .dark .bg-green-50 { background-color: rgba(16, 185, 129, 0.1) !important; }
 .dark .text-green-600 { color: #34d399 !important; }
+.dark .bg-gray-50 { background-color: rgba(255, 255, 255, 0.04) !important; }
+.dark .bg-gray-100 { background-color: rgba(255, 255, 255, 0.06) !important; }
+.dark .bg-gray-200 { background-color: rgba(255, 255, 255, 0.08) !important; }
+.dark .border-gray-100, .dark .border-gray-200, .dark .border-gray-300 {
+  border-color: var(--color-border) !important;
+}
+.dark .text-gray-900, .dark .text-gray-800 { color: var(--color-text-primary) !important; }
+.dark .text-gray-700 { color: var(--color-text-secondary) !important; }
+.dark .text-gray-500, .dark .text-gray-400, .dark .text-gray-600 { color: var(--color-text-muted) !important; }
+.dark .bg-white { background-color: var(--color-surface-2) !important; }
+.dark .border-red-300 { border-color: rgba(239, 68, 68, 0.3) !important; }
+.dark .text-amber-700 { color: #fbbf24 !important; }
 
 /* Safe area handling for notched devices */
 .safe-top { padding-top: env(safe-area-inset-top, 0px); }
@@ -179,6 +191,33 @@ input[type="number"] {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideRight {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-slideRight {
+  animation: slideRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Shimmer / Skeleton loading */

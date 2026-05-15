@@ -175,7 +175,7 @@ export default function Profile() {
 
         {/* App Version */}
         <p className="text-center text-sm text-text-muted/60 py-1">
-          TradeX v1.0.0 · Built for traders
+          Stocks Lab v1.0.0 · Built for traders
         </p>
       </div>
     </div>

@@ -94,7 +94,7 @@ export default function Help() {
               <Mail size={14} className="text-violet-600" />
             </div>
             <p className="text-base font-bold text-text-primary">Email</p>
-            <p className="text-[11px] text-text-muted mt-0.5">support@tradex.com</p>
+            <p className="text-[11px] text-text-muted mt-0.5">support@stockslab.com</p>
           </Card>
         </div>
 

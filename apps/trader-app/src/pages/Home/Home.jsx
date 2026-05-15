@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import {
-  TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight,
-  ChevronRight, BarChart3, Zap, Activity, Shield, Layers,
+  Wallet, ChevronRight, BarChart3, Zap, Activity, Shield, Layers,
   Clock, DollarSign, PieChart, Briefcase
 } from 'lucide-react';
 import Header from '../../components/layout/Header';
@@ -9,7 +8,7 @@ import { useTradeStore } from '../../store/useTradeStore';
 import { formatCurrency, formatPercent, cn } from '../../utils/helpers';
 
 export default function Home() {
-  const { positions, instruments, setSelectedInstrument } = useTradeStore();
+  const { positions, instruments, setSelectedInstrument, user } = useTradeStore();
   const navigate = useNavigate();
   const walletRaw = useTradeStore(s => s.wallet);
   const wallet = walletRaw || { balance: 0, equity: 0, usedMargin: 0, todayPnl: 0, todayPnlPercent: 0, availableMargin: 0 };
@@ -35,7 +34,7 @@ export default function Home() {
         {/* Desktop Greeting & Market Status */}
         <div className="hidden lg:flex items-end justify-between border-b border-border/40 pb-6">
            <h1 className="text-[28px] font-normal text-text-primary tracking-tight">
-             Hi, {useTradeStore(s => s.user)?.name?.split(' ')[0] || 'Trader'}
+             Hi, {user?.name?.split(' ')[0] || 'Trader'}
            </h1>
            <div className="flex items-center gap-2">
              <div className={cn('w-1.5 h-1.5 rounded-full', isMarketOpen ? 'bg-emerald-500' : 'bg-red-500')} />

@@ -17,7 +17,7 @@ export default function History() {
   const history = getFilteredHistory();
 
   const totalPnl = history.reduce((sum, t) => sum + t.pnl, 0);
-  const winRate = ((history.filter((t) => t.pnl > 0).length / history.length) * 100).toFixed(0);
+  const winRate = history.length > 0 ? ((history.filter((t) => t.pnl > 0).length / history.length) * 100).toFixed(0) : '0';
   const avgPnl = history.length > 0 ? totalPnl / history.length : 0;
 
   return (

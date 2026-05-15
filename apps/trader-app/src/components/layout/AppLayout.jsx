@@ -1,12 +1,13 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Layers, CandlestickChart, ClipboardList, User, LogOut,
-  Moon, Sun, Wallet, FileText, Headphones, BarChart3, Settings,
+  Moon, Sun, Wallet, FileText, Headphones, Settings,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import BottomNav from './BottomNav';
 import WatchlistSidebar from './WatchlistSidebar';
 import MarketTickerBar from './MarketTickerBar';
+import AcknowledgmentModal from '../ui/AcknowledgmentModal';
 import { useTradeStore } from '../../store/useTradeStore';
 import { api } from '../../services/api';
 import { cn } from '../../utils/helpers';
@@ -23,11 +24,12 @@ const desktopNavItems = [
 
 export default function AppLayout() {
   const user = useTradeStore((s) => s.user);
+  const logout = useTradeStore((s) => s.logout);
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    await api.logout();
-    window.location.href = '/login';
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   const [isDark, setIsDark] = useState(false);
@@ -52,7 +54,7 @@ export default function AppLayout() {
           {/* Left Side: Logo or Ticker space */}
           <div className="w-[320px] shrink-0 border-r border-border/40 flex items-center px-4">
              {/* We can place the ticker here or just a logo */}
-             <div className="text-xl font-bold tracking-tighter text-primary">TRADEX</div>
+             <div className="text-xl font-bold tracking-tighter text-primary">STOCKS LAB</div>
           </div>
 
           {/* Right Side: Navigation */}
@@ -163,6 +165,9 @@ export default function AppLayout() {
       <div className="lg:hidden">
         <BottomNav />
       </div>
+
+      {/* ═══ Risk Acknowledgment Modal ═══ */}
+      <AcknowledgmentModal />
     </div>
   );
 }

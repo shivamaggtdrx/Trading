@@ -32,6 +32,7 @@ app.use(cors({
     process.env.FRONTEND_URL || 'http://localhost:5173',
     process.env.ADMIN_URL || 'http://localhost:5174',
     'http://localhost:5175',
+    'http://localhost:3000',
   ],
   credentials: true,
 }));
@@ -39,7 +40,7 @@ app.use(cors({
 // ── Rate Limiting ──
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 100,
+  max: parseInt(process.env.RATE_LIMIT_MAX) || 500,
   message: { error: 'Too many requests, please try again later.' },
 });
 app.use('/api/', limiter);

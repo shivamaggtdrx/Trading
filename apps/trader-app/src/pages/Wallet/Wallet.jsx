@@ -1,24 +1,30 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Wallet as WalletIcon, ArrowUpRight, ArrowDownRight,
-  Plus, Minus, Clock, CheckCircle2, XCircle, IndianRupee, Shield,
-  AlertCircle, Loader2,
+  Plus, ArrowDownToLine, Clock, CheckCircle2, XCircle,
+  IndianRupee, Shield, AlertCircle, Loader2,
 } from 'lucide-react';
-import Card from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
+import Button from '../../components/ui/Button';
 import { useTradeStore } from '../../store/useTradeStore';
 import { formatCurrency, cn } from '../../utils/helpers';
 
 export default function WalletPage() {
   const navigate = useNavigate();
-  const { wallet, walletTransactions, submitDeposit, submitWithdrawal, depositLoading, withdrawLoading } = useTradeStore();
+  const { wallet, walletTransactions, positions, submitDeposit, submitWithdrawal, depositLoading, withdrawLoading } = useTradeStore();
+  const [activeInfoTab, setActiveInfoTab] = useState('info');
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('deposit');
   const [amount, setAmount] = useState('');
   const [utrNumber, setUtrNumber] = useState('');
   const [submitResult, setSubmitResult] = useState(null);
+
+  const bal = wallet?.balance || 0;
+  const availMargin = wallet?.availableMargin || 0;
+  const usedMargin = wallet?.usedMargin || 0;
+  const equity = wallet?.equity || 0;
+  const unrealizedPnl = positions.reduce((sum, p) => sum + (p.pnl || 0), 0);
+  const equityPct = bal > 0 ? ((equity / bal) * 100).toFixed(2) : '--';
 
   const openModal = (type) => {
     setModalType(type);
@@ -33,7 +39,7 @@ export default function WalletPage() {
     if (modalType === 'deposit') {
       const result = await submitDeposit(Number(amount), 'UPI', utrNumber || undefined);
       if (result.success) {
-        setSubmitResult({ type: 'success', message: 'Deposit request submitted! It will be reviewed shortly.' });
+        setSubmitResult({ type: 'success', message: 'Deposit request submitted!' });
         setTimeout(() => { setShowModal(false); setSubmitResult(null); }, 2500);
       } else {
         setSubmitResult({ type: 'error', message: result.error || 'Deposit failed' });
@@ -50,13 +56,12 @@ export default function WalletPage() {
   };
 
   const statusConfig = {
-    completed: { icon: CheckCircle2, label: 'Completed', color: 'text-emerald-600', bg: 'bg-emerald-500/8' },
-    approved: { icon: CheckCircle2, label: 'Completed', color: 'text-emerald-600', bg: 'bg-emerald-500/8' },
-    pending: { icon: Clock, label: 'Pending', color: 'text-amber-600', bg: 'bg-amber-500/8' },
-    rejected: { icon: XCircle, label: 'Rejected', color: 'text-red-500', bg: 'bg-red-500/8' },
+    completed: { icon: CheckCircle2, label: 'Completed', color: 'text-emerald-500' },
+    approved: { icon: CheckCircle2, label: 'Completed', color: 'text-emerald-500' },
+    pending: { icon: Clock, label: 'Pending', color: 'text-amber-500' },
+    rejected: { icon: XCircle, label: 'Rejected', color: 'text-red-500' },
   };
 
-  // Format wallet transaction for display
   const formatTxType = (type) => {
     const map = {
       deposit: 'Deposit', withdrawal: 'Withdrawal', trade_pnl: 'Trade P&L',
@@ -66,137 +71,125 @@ export default function WalletPage() {
     return map[type] || type;
   };
 
-  const isCredit = (tx) => tx.amount > 0;
+  const infoItems = [
+    { label: 'Balance', value: formatCurrency(bal) },
+    { label: 'Available Margin', value: formatCurrency(availMargin) },
+    { label: 'Unrealized P&L', value: formatCurrency(unrealizedPnl), color: unrealizedPnl >= 0 ? 'text-emerald-500' : 'text-red-500' },
+    { label: 'Blocked Margin', value: formatCurrency(usedMargin) },
+    { label: 'Equity', value: formatCurrency(equity) },
+    { label: 'Equity Percentage', value: equityPct },
+  ];
 
   return (
-    <div className="page-enter">
-      {/* Header — Back button only on mobile */}
-      <header className="sticky top-0 z-30 glass-heavy safe-top border-b border-border/30 lg:hidden">
-        <div className="max-w-lg mx-auto flex items-center gap-3 px-3 py-2.5">
-          <button onClick={() => navigate(-1)} className="p-1 rounded-lg hover:bg-surface transition-colors touch-active-subtle">
-            <ArrowLeft size={18} className="text-text-primary" />
-          </button>
-          <h1 className="text-base font-bold text-text-primary">Funds & Withdrawals</h1>
-        </div>
-      </header>
-
-      {/* Desktop Header */}
-      <div className="hidden lg:flex items-center justify-between px-6 py-4 border-b border-border/30">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Funds</h1>
-          <p className="text-sm text-text-muted mt-0.5">Manage your trading account funds</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline-danger" size="md" onClick={() => openModal('withdraw')}>
-            <Minus size={14} className="mr-1.5" /> Withdraw
-          </Button>
-          <Button variant="success" size="md" onClick={() => openModal('deposit')}>
-            <Plus size={14} className="mr-1.5" /> Add Funds
-          </Button>
-        </div>
+    <div className="page-enter bg-surface min-h-screen">
+      {/* Header */}
+      <div className="px-4 pt-6 pb-4">
+        <h1 className="text-2xl font-bold text-text-primary">Funds</h1>
+        <p className="text-sm text-text-muted mt-1">Manage your trading account funds</p>
       </div>
 
-      <div className="px-3 space-y-2.5 pb-3 pt-2">
-        {/* Balance Card */}
-        <div className="flex flex-col gap-1 px-1">
-          <div className="flex items-center gap-1.5 mb-1">
-            <WalletIcon size={16} className="text-text-muted" />
-            <span className="text-sm font-semibold text-text-muted uppercase tracking-wider">Available Balance</span>
+      {/* Action Buttons */}
+      <div className="px-4 pb-4 flex gap-3">
+        <button
+          onClick={() => openModal('withdraw')}
+          className="flex items-center gap-2 px-5 py-2.5 bg-surface-3 border border-border rounded-lg text-text-primary font-semibold text-sm hover:bg-surface-2 transition-colors"
+        >
+          <ArrowDownToLine size={16} className="text-blue-400" />
+          Withdraw
+        </button>
+        <button
+          onClick={() => openModal('deposit')}
+          className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 rounded-lg text-white font-semibold text-sm hover:bg-emerald-700 transition-colors"
+        >
+          <Plus size={16} />
+          Add Funds
+        </button>
+      </div>
+
+      {/* Info / Transactions Tabs */}
+      <div className="px-4 pb-2">
+        <div className="bg-surface-2 rounded-xl border border-border overflow-hidden">
+          {/* Tab Bar */}
+          <div className="flex border-b border-border">
+            <button
+              onClick={() => setActiveInfoTab('info')}
+              className={cn(
+                'flex-1 py-3 text-sm font-semibold text-center transition-colors relative',
+                activeInfoTab === 'info' ? 'text-blue-500' : 'text-text-muted'
+              )}
+            >
+              Info
+              {activeInfoTab === 'info' && (
+                <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-blue-500 rounded-full" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveInfoTab('transactions')}
+              className={cn(
+                'flex-1 py-3 text-sm font-semibold text-center transition-colors relative',
+                activeInfoTab === 'transactions' ? 'text-blue-500' : 'text-text-muted'
+              )}
+            >
+              Transactions
+              {activeInfoTab === 'transactions' && (
+                <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-blue-500 rounded-full" />
+              )}
+            </button>
           </div>
-          <p className="text-3xl font-bold tracking-tight text-text-primary" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-            {formatCurrency(wallet?.balance || 0)}
-          </p>
-        </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-1.5">
-          <Card padding="p-2.5">
-            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Equity</p>
-            <p className="text-base font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              {formatCurrency(wallet?.equity || 0)}
-            </p>
-          </Card>
-          <Card padding="p-2.5">
-            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Used Margin</p>
-            <p className="text-base font-extrabold text-text-primary tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              {formatCurrency(wallet?.usedMargin || 0)}
-            </p>
-          </Card>
-          <Card padding="p-2.5">
-            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Free Margin</p>
-            <p className="text-base font-extrabold text-emerald-500 tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              {formatCurrency(wallet?.availableMargin || 0)}
-            </p>
-          </Card>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="success" fullWidth size="md" onClick={() => openModal('deposit')}>
-            <Plus size={14} className="mr-1.5" /> Add Funds
-          </Button>
-          <Button variant="outline-danger" fullWidth size="md" onClick={() => openModal('withdraw')}>
-            <Minus size={14} className="mr-1.5" /> Withdraw
-          </Button>
-        </div>
-
-        {/* Transaction History */}
-        <div>
-          <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
-            Recent Transactions
-          </h3>
-          {walletTransactions.length > 0 ? (
-            <Card padding="p-0">
-              <div className="divide-y divide-border/20">
-                {walletTransactions.map((tx) => {
-                  const credit = isCredit(tx);
-                  const status = tx.status || (credit ? 'completed' : 'completed');
-                  const config = statusConfig[status] || statusConfig.completed;
-                  const StatusIcon = config.icon;
-                  return (
-                    <div key={tx.id} className="px-3 py-2.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className={cn(
-                            'w-8 h-8 rounded-lg flex items-center justify-center',
-                            credit ? 'bg-emerald-500/10' : 'bg-red-500/10'
-                          )}>
-                            {credit ? (
-                              <ArrowDownRight size={14} className="text-emerald-600" />
-                            ) : (
-                              <ArrowUpRight size={14} className="text-red-500" />
-                            )}
-                          </div>
+          {/* Tab Content */}
+          {activeInfoTab === 'info' ? (
+            <div className="divide-y divide-border">
+              {infoItems.map((item) => (
+                <div key={item.label} className="flex items-center justify-between px-4 py-3.5">
+                  <span className="text-[14px] text-text-muted">{item.label}</span>
+                  <span className={cn('text-[14px] font-semibold tabular-nums', item.color || 'text-text-primary')}>
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div>
+              {walletTransactions.length > 0 ? (
+                <div className="divide-y divide-border">
+                  {walletTransactions.map((tx) => {
+                    const credit = tx.amount > 0;
+                    const status = tx.status || 'completed';
+                    const config = statusConfig[status] || statusConfig.completed;
+                    const StatusIcon = config.icon;
+                    return (
+                      <div key={tx.id} className="px-4 py-3">
+                        <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-base font-bold text-text-primary">{formatTxType(tx.type)}</p>
-                            <p className="text-sm text-text-muted mt-0.5 truncate max-w-[180px]">
-                              {tx.description || tx.type} · {new Date(tx.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            <p className="text-[13px] font-semibold text-text-primary">{formatTxType(tx.type)}</p>
+                            <p className="text-[11px] text-text-muted mt-0.5">
+                              {new Date(tx.created_at).toLocaleDateString('en-IN', {
+                                day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                              })}
                             </p>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <p className={cn(
-                            'text-base font-extrabold tabular-nums',
-                            credit ? 'text-emerald-600' : 'text-text-primary'
-                          )} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                            {credit ? '+' : ''}{formatCurrency(tx.amount)}
-                          </p>
-                          <div className={cn('flex items-center gap-0.5 justify-end mt-0.5', config.color)}>
-                            <StatusIcon size={8} />
-                            <span className="text-[11px] font-bold">{config.label}</span>
+                          <div className="text-right">
+                            <p className={cn('text-[13px] font-bold tabular-nums', credit ? 'text-emerald-400' : 'text-text-primary')}>
+                              {credit ? '+' : ''}{formatCurrency(tx.amount)}
+                            </p>
+                            <div className={cn('flex items-center gap-1 justify-end mt-0.5', config.color)}>
+                              <StatusIcon size={10} />
+                              <span className="text-[10px] font-semibold">{config.label}</span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          ) : (
-            <Card className="py-6 text-center">
-              <Clock size={18} className="mx-auto text-text-muted/40 mb-1.5" />
-              <p className="text-base font-semibold text-text-muted">No transactions yet</p>
-            </Card>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-12 text-center">
+                  <Clock size={24} className="mx-auto text-text-muted/30 mb-2" />
+                  <p className="text-sm text-text-muted">No transactions yet</p>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -207,7 +200,7 @@ export default function WalletPage() {
           <div className="bg-surface rounded-lg p-3">
             <div className="flex justify-between text-base mb-2">
               <span className="text-text-muted">Available Balance</span>
-              <span className="font-bold text-text-primary">{formatCurrency(wallet?.balance || 0)}</span>
+              <span className="font-bold text-text-primary">{formatCurrency(bal)}</span>
             </div>
           </div>
           <div>
@@ -252,7 +245,6 @@ export default function WalletPage() {
               </div>
             </>
           )}
-          {/* Result message */}
           {submitResult && (
             <div className={cn(
               'flex items-center gap-2 rounded-lg p-2.5 border text-base font-semibold',

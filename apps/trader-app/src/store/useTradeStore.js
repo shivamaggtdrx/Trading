@@ -385,17 +385,22 @@ export const useTradeStore = create((set, get) => ({
           if (idx !== -1) {
             newInstruments[idx] = {
               ...newInstruments[idx],
-              // Handle both legacy format and AngelOne format
+              // Handle both legacy format and AngelOne/Yahoo format
               last_price: update.ltp || update.price,
               price: update.ltp || update.price,
               change_amount: update.change || 0,
               change: update.change || 0,
               change_percent: update.change_percent || 0,
               changePercent: update.change_percent || 0,
-              day_high: update.high || update.ltp || update.price,
-              high: update.high || update.ltp || update.price,
-              day_low: update.low || update.ltp || update.price,
-              low: update.low || update.ltp || update.price,
+              day_high: update.high || newInstruments[idx].high || 0,
+              high: update.high || newInstruments[idx].high || 0,
+              day_low: update.low || newInstruments[idx].low || 0,
+              low: update.low || newInstruments[idx].low || 0,
+              day_open: update.open || newInstruments[idx].open || 0,
+              open: update.open || newInstruments[idx].open || 0,
+              prev_close: update.prev_close || newInstruments[idx].prevClose || 0,
+              prevClose: update.prev_close || newInstruments[idx].prevClose || 0,
+              volume: update.volume || newInstruments[idx].volume || 0,
               bid_price: update.bid,
               ask_price: update.ask,
               spread: update.spread,

@@ -248,7 +248,7 @@ export function connectPriceFeed(onPriceUpdate, onCandleUpdate = null, onDebugUp
 
   ws.onclose = () => {
     console.log('📡 Price feed disconnected, reconnecting in 3s...');
-    reconnectTimer = setTimeout(() => connectPriceFeed(onPriceUpdate, onCandleUpdate, symbols), 3000);
+    reconnectTimer = setTimeout(() => connectPriceFeed(onPriceUpdate, onCandleUpdate, onDebugUpdate, symbols), 3000);
   };
 
   ws.onerror = () => ws.close();
@@ -280,6 +280,7 @@ export function debugSubscribeWs() {
 
 export function disconnectPriceFeed() {
   if (reconnectTimer) clearTimeout(reconnectTimer);
+  if (staleCheckTimer) clearInterval(staleCheckTimer);
   if (ws) ws.close();
   ws = null;
 }

@@ -32,7 +32,7 @@ export default function Login() {
         <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
           <TrendingUp className="w-6 h-6 text-white" />
         </div>
-        <span className="text-2xl font-black text-text-primary">TradeX</span>
+        <span className="text-2xl font-black text-text-primary">Stocks Lab</span>
       </div>
 
       <div className="w-full max-w-sm bg-surface rounded-2xl shadow-lg border border-border/30 p-6">

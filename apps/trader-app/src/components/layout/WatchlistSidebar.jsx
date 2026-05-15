@@ -1,18 +1,35 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Star, X, Maximize2, Minimize2, GripVertical } from 'lucide-react';
+import { Search, Star, X, Plus, Trash2, Maximize2, Minimize2, GripVertical, Edit3, Check } from 'lucide-react';
 import { useTradeStore } from '../../store/useTradeStore';
 import { cn } from '../../utils/helpers';
 
-const WATCHLIST_TABS = ['MW-1', 'MW-2', 'MW-3', 'MW-4', 'MW-5'];
+// ── Watchlist persistence helpers ──
+function getWatchlistName() {
+  return localStorage.getItem('tradex_watchlist_name') || 'My Watchlist';
+}
+function setWatchlistName(name) {
+  localStorage.setItem('tradex_watchlist_name', name);
+}
+function getWatchlistSymbols() {
+  try { return JSON.parse(localStorage.getItem('tradex_watchlist') || '[]'); } catch { return []; }
+}
+function saveWatchlistSymbols(symbols) {
+  localStorage.setItem('tradex_watchlist', JSON.stringify(symbols));
+}
 
 export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
   const {
-    instruments, setSelectedInstrument, toggleFavorite, isFavorite,
+    instruments, setSelectedInstrument,
   } = useTradeStore();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('MW-1');
+
+  const [watchlistName, setWatchlistNameState] = useState(getWatchlistName);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
   const [sidebarSearch, setSidebarSearch] = useState('');
+  const [watchlistSymbols, setWatchlistSymbolsState] = useState(getWatchlistSymbols);
+  const renameInputRef = useRef(null);
 
   // ═══ Resizable sidebar width ═══
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -43,7 +60,6 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
       document.body.style.userSelect = '';
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-      // Persist width
       localStorage.setItem('tradex_sidebar_width', String(sidebarWidth));
     };
 
@@ -51,27 +67,63 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
     document.addEventListener('mouseup', handleMouseUp);
   }, [sidebarWidth]);
 
-  // Save width on change
   useEffect(() => {
     localStorage.setItem('tradex_sidebar_width', String(sidebarWidth));
   }, [sidebarWidth]);
 
-  const filteredInstruments = useMemo(() => {
+  // ── Watchlist instruments — symbols the user has added ──
+  const watchlistInstruments = useMemo(() => {
+    if (watchlistSymbols.length === 0) return [];
+    return watchlistSymbols
+      .map(sym => instruments.find(i => i.symbol === sym))
+      .filter(Boolean);
+  }, [instruments, watchlistSymbols]);
+
+  // ── Search results — instruments matching search that are NOT in the watchlist ──
+  const searchResults = useMemo(() => {
+    if (!sidebarSearch.trim()) return [];
     const q = sidebarSearch.toLowerCase();
-    let list = instruments;
-    if (activeTab === 'MW-1') {
-      const favs = instruments.filter(i => isFavorite(i.symbol));
-      if (favs.length > 0) list = favs;
-    }
-    if (!q) return list;
-    return list.filter(i =>
-      i.symbol.toLowerCase().includes(q) || i.name.toLowerCase().includes(q)
-    );
-  }, [instruments, sidebarSearch, activeTab]);
+    return instruments.filter(i =>
+      !watchlistSymbols.includes(i.symbol) &&
+      (i.symbol.toLowerCase().includes(q) || i.name.toLowerCase().includes(q))
+    ).slice(0, 15);
+  }, [instruments, sidebarSearch, watchlistSymbols]);
+
+  const isSearchMode = sidebarSearch.trim().length > 0;
+
+  // ── Actions ──
+  const addToWatchlist = (symbol) => {
+    const updated = [...watchlistSymbols, symbol];
+    setWatchlistSymbolsState(updated);
+    saveWatchlistSymbols(updated);
+    setSidebarSearch('');
+  };
+
+  const removeFromWatchlist = (symbol, e) => {
+    e.stopPropagation();
+    const updated = watchlistSymbols.filter(s => s !== symbol);
+    setWatchlistSymbolsState(updated);
+    saveWatchlistSymbols(updated);
+  };
 
   const handleClick = (inst) => {
     setSelectedInstrument(inst);
     navigate('/charts');
+  };
+
+  const startRename = () => {
+    setRenameValue(watchlistName);
+    setIsRenaming(true);
+    setTimeout(() => renameInputRef.current?.focus(), 50);
+  };
+
+  const finishRename = () => {
+    const trimmed = renameValue.trim();
+    if (trimmed) {
+      setWatchlistNameState(trimmed);
+      setWatchlistName(trimmed);
+    }
+    setIsRenaming(false);
   };
 
   const fmtPrice = (p) => {
@@ -85,32 +137,36 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
   if (isExpanded) {
     return (
       <div className="hidden lg:flex flex-col flex-1 bg-surface h-[calc(100vh-84px)] overflow-hidden border-r border-border/40">
-        {/* Top tabs */}
-        <div className="border-b border-border/30 flex items-center">
-          {WATCHLIST_TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                'px-5 py-2.5 text-xs font-bold transition-colors uppercase tracking-wider',
-                activeTab === tab
-                  ? 'text-primary border-b-2 border-primary'
-                  : 'text-text-muted/60 hover:text-text-muted'
-              )}
-            >
-              MARKETWATCH-{tab.split('-')[1]}
+        {/* Top bar — name + search + collapse */}
+        <div className="border-b border-border/30 flex items-center px-3 py-2 gap-2">
+          {isRenaming ? (
+            <div className="flex items-center gap-1">
+              <input
+                ref={renameInputRef}
+                value={renameValue}
+                onChange={e => setRenameValue(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') finishRename(); if (e.key === 'Escape') setIsRenaming(false); }}
+                className="bg-surface-2 border border-primary/40 rounded px-2 py-1 text-xs font-bold text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/30 w-32"
+              />
+              <button onClick={finishRename} className="p-1 text-primary hover:bg-primary/10 rounded">
+                <Check size={12} />
+              </button>
+            </div>
+          ) : (
+            <button onClick={startRename} className="flex items-center gap-1.5 text-xs font-bold text-text-primary uppercase tracking-wider hover:text-primary transition-colors group">
+              {watchlistName}
+              <Edit3 size={10} className="text-text-muted/40 group-hover:text-primary" />
             </button>
-          ))}
+          )}
 
-          {/* Right side — search + collapse */}
-          <div className="ml-auto flex items-center gap-2 px-3">
+          <div className="ml-auto flex items-center gap-2">
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted/60" />
               <input
                 type="text"
                 value={sidebarSearch}
                 onChange={(e) => setSidebarSearch(e.target.value)}
-                placeholder="Search symbols..."
+                placeholder="Search & add scripts..."
                 className="bg-surface-2 border border-border/30 rounded-md pl-7 pr-3 py-1.5 text-xs text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:ring-1 focus:ring-primary/30 w-48"
               />
             </div>
@@ -124,6 +180,32 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
           </div>
         </div>
 
+        {/* Search results dropdown */}
+        {isSearchMode && searchResults.length > 0 && (
+          <div className="border-b border-border/30 bg-surface-2/50 max-h-48 overflow-y-auto">
+            <p className="px-3 py-1.5 text-[10px] font-bold text-text-muted uppercase tracking-wider">Add to watchlist</p>
+            {searchResults.map(inst => (
+              <button
+                key={inst.symbol}
+                onClick={() => addToWatchlist(inst.symbol)}
+                className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors text-left"
+              >
+                <div>
+                  <span className="text-[12px] font-bold text-text-primary">{inst.symbol}</span>
+                  <span className="text-[10px] text-text-muted ml-1.5">{inst.name}</span>
+                </div>
+                <Plus size={14} className="text-primary" />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {isSearchMode && searchResults.length === 0 && (
+          <div className="border-b border-border/30 bg-surface-2/50 px-3 py-4 text-center">
+            <p className="text-[11px] text-text-muted">No matching instruments found</p>
+          </div>
+        )}
+
         {/* Table Header */}
         <div className="flex items-center px-3 py-2 border-b border-border/30 bg-surface-2/50 text-[11px] font-bold text-text-muted uppercase tracking-wider select-none min-w-max">
           <span className="w-[180px] flex-shrink-0">Symbol</span>
@@ -135,89 +217,79 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
           <span className="w-[80px] text-right flex-shrink-0">Day High</span>
           <span className="w-[80px] text-right flex-shrink-0">Day Low</span>
           <span className="w-[90px] text-right flex-shrink-0">Prev Close</span>
-          <span className="w-[80px] text-right flex-shrink-0">Best Bid</span>
-          <span className="w-[60px] text-right flex-shrink-0">Bid Qty</span>
-          <span className="w-[80px] text-right flex-shrink-0">Best Ask</span>
-          <span className="w-[60px] text-right flex-shrink-0">Ask Qty</span>
-          <span className="w-[70px] text-right flex-shrink-0">LTT</span>
+          <span className="w-[50px] text-right flex-shrink-0"></span>
         </div>
 
         {/* Table Body */}
         <div className="flex-1 overflow-y-auto overflow-x-auto scrollbar-hide">
-          {filteredInstruments.map((inst) => {
-            const isUp = (inst.change || 0) >= 0;
-            const spread = inst.price < 100 ? 0.0003 : inst.price * 0.001;
-            const bidPrice = inst.bid_price || (inst.price - spread);
-            const askPrice = inst.ask_price || (inst.price + spread);
-            const bidQty = Math.floor(Math.random() * 500) + 1;
-            const askQty = Math.floor(Math.random() * 500) + 1;
-            const now = new Date();
-            const ltt = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-
-            return (
-              <button
-                key={inst.symbol}
-                onClick={() => handleClick(inst)}
-                className="w-full flex items-center px-3 py-2 text-left border-b border-border/10 hover:bg-surface-2/60 transition-colors min-w-max"
-              >
-                <div className="w-[180px] flex-shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[12px] font-bold text-text-primary">{inst.symbol}</span>
-                    <span className="text-[9px] font-medium px-1 py-0.5 rounded bg-surface-2 text-text-muted/70 uppercase">
-                      {inst.segment === 'nse_equity' ? 'NSE' : inst.segment === 'forex' ? 'FX' : inst.segment === 'mcx' ? 'CDS' : 'BSE'}
-                    </span>
+          {watchlistInstruments.length === 0 && !isSearchMode ? (
+            <div className="py-12 text-center">
+              <Star size={24} className="mx-auto text-text-muted/20 mb-2" />
+              <p className="text-sm font-semibold text-text-muted">Watchlist is empty</p>
+              <p className="text-xs text-text-muted/60 mt-1">Search for scripts above to add them</p>
+            </div>
+          ) : (
+            watchlistInstruments.map((inst) => {
+              const isUp = (inst.change || 0) >= 0;
+              return (
+                <button
+                  key={inst.symbol}
+                  onClick={() => handleClick(inst)}
+                  className="w-full flex items-center px-3 py-2 text-left border-b border-border/10 hover:bg-surface-2/60 transition-colors min-w-max group"
+                >
+                  <div className="w-[180px] flex-shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[12px] font-bold text-text-primary">{inst.symbol}</span>
+                      <span className="text-[9px] font-medium px-1 py-0.5 rounded bg-surface-2 text-text-muted/70 uppercase">
+                        {inst.segment === 'nse_equity' ? 'NSE' : inst.segment === 'forex' ? 'FX' : inst.segment === 'mcx' ? 'CDS' : 'BSE'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-text-muted/60 truncate leading-tight">{inst.name}</p>
                   </div>
-                  <p className="text-[10px] text-text-muted/60 truncate leading-tight">{inst.name}</p>
-                </div>
-                <span className={cn('w-[90px] text-right text-[12px] font-bold tabular-nums flex-shrink-0', isUp ? 'text-text-primary' : 'text-red-500')}
-                  style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                  {fmtPrice(inst.price)}
-                </span>
-                <span className={cn('w-[80px] text-right text-[11px] font-bold tabular-nums flex-shrink-0', isUp ? 'text-emerald-500' : 'text-red-500')}>
-                  {isUp ? '+' : ''}{(inst.change || 0).toFixed(2)}
-                </span>
-                <span className={cn('w-[70px] text-right text-[11px] font-bold tabular-nums flex-shrink-0', isUp ? 'text-emerald-500' : 'text-red-500')}>
-                  {isUp ? '+' : ''}{(inst.changePercent || 0).toFixed(2)}%
-                </span>
-                <span className="w-[90px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
-                  {inst.volume || '0'}
-                </span>
-                <span className="w-[80px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
-                  {fmtPrice(inst.open || 0)}
-                </span>
-                <span className="w-[80px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
-                  {fmtPrice(inst.high || 0)}
-                </span>
-                <span className="w-[80px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
-                  {fmtPrice(inst.low || 0)}
-                </span>
-                <span className="w-[90px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
-                  {fmtPrice(inst.prevClose || 0)}
-                </span>
-                <span className="w-[80px] text-right text-[11px] text-emerald-500 font-medium tabular-nums flex-shrink-0">
-                  {fmtPrice(bidPrice)}
-                </span>
-                <span className="w-[60px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
-                  {bidQty}
-                </span>
-                <span className="w-[80px] text-right text-[11px] text-red-500 font-medium tabular-nums flex-shrink-0">
-                  {fmtPrice(askPrice)}
-                </span>
-                <span className="w-[60px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
-                  {askQty}
-                </span>
-                <span className="w-[70px] text-right text-[10px] text-text-muted/50 tabular-nums flex-shrink-0">
-                  {ltt}
-                </span>
-              </button>
-            );
-          })}
+                  <span className={cn('w-[90px] text-right text-[12px] font-bold tabular-nums flex-shrink-0', isUp ? 'text-text-primary' : 'text-red-500')}
+                    style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    {fmtPrice(inst.price)}
+                  </span>
+                  <span className={cn('w-[80px] text-right text-[11px] font-bold tabular-nums flex-shrink-0', isUp ? 'text-emerald-500' : 'text-red-500')}>
+                    {isUp ? '+' : ''}{(inst.change || 0).toFixed(2)}
+                  </span>
+                  <span className={cn('w-[70px] text-right text-[11px] font-bold tabular-nums flex-shrink-0', isUp ? 'text-emerald-500' : 'text-red-500')}>
+                    {isUp ? '+' : ''}{(inst.changePercent || 0).toFixed(2)}%
+                  </span>
+                  <span className="w-[90px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
+                    {inst.volume || '0'}
+                  </span>
+                  <span className="w-[80px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
+                    {fmtPrice(inst.open || 0)}
+                  </span>
+                  <span className="w-[80px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
+                    {fmtPrice(inst.high || 0)}
+                  </span>
+                  <span className="w-[80px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
+                    {fmtPrice(inst.low || 0)}
+                  </span>
+                  <span className="w-[90px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
+                    {fmtPrice(inst.prevClose || 0)}
+                  </span>
+                  <span className="w-[50px] text-right flex-shrink-0">
+                    <button
+                      onClick={(e) => removeFromWatchlist(inst.symbol, e)}
+                      className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 text-text-muted/40 transition-all"
+                      title="Remove from watchlist"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                </button>
+              );
+            })
+          )}
         </div>
       </div>
     );
   }
 
-  // ═══ NORMAL COMPACT VIEW — Sidebar with resize handle ═══
+  // ═══ NORMAL COMPACT VIEW ═══
   return (
     <aside
       ref={sidebarRef}
@@ -232,7 +304,7 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
             type="text"
             value={sidebarSearch}
             onChange={(e) => setSidebarSearch(e.target.value)}
-            placeholder="Search symbols..."
+            placeholder="Search & add scripts..."
             className="w-full bg-surface-2 border border-border/30 rounded-md pl-7 pr-16 py-1.5 text-xs text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary/30 transition-all"
           />
           <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
@@ -252,71 +324,113 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
         </div>
       </div>
 
-      {/* Instrument List */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
-        {filteredInstruments.map((inst) => (
-          <button
-            key={inst.symbol}
-            onClick={() => handleClick(inst)}
-            className={cn(
-              'w-full flex items-center justify-between px-3 py-[7px] text-left transition-colors group',
-              'hover:bg-surface-2/80 border-b border-border/10'
-            )}
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1">
-                <span className="text-[12px] font-bold text-text-primary truncate">{inst.symbol}</span>
-                {inst.segment && (
-                  <span className="text-[9px] font-medium text-text-muted/50 uppercase">
-                    {inst.segment === 'nse_equity' ? '' : inst.segment === 'forex' ? '.fx' : ''}
-                  </span>
-                )}
-              </div>
-              <p className="text-[10px] text-text-muted/60 truncate leading-tight">{inst.name}</p>
-            </div>
-            <div className="text-right ml-2 flex-shrink-0">
-              <p className="text-[12px] font-bold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                {fmtPrice(inst.price)}
-              </p>
-              <p className={cn(
-                'text-[10px] font-bold tabular-nums',
-                (inst.change || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'
-              )}>
-                {(inst.change || 0) >= 0 ? '+' : ''}{(inst.change || 0).toFixed(2)}
-              </p>
-            </div>
-          </button>
-        ))}
-        {filteredInstruments.length === 0 && (
-          <div className="py-8 text-center">
-            <Search size={16} className="mx-auto text-text-muted/30 mb-1" />
-            <p className="text-[11px] text-text-muted">No instruments found</p>
+      {/* Watchlist Name (renameable) */}
+      <div className="px-3 py-1.5 border-b border-border/20 flex items-center justify-between">
+        {isRenaming ? (
+          <div className="flex items-center gap-1 flex-1">
+            <input
+              ref={renameInputRef}
+              value={renameValue}
+              onChange={e => setRenameValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') finishRename(); if (e.key === 'Escape') setIsRenaming(false); }}
+              className="bg-surface-2 border border-primary/40 rounded px-2 py-0.5 text-[11px] font-bold text-text-primary focus:outline-none w-full"
+            />
+            <button onClick={finishRename} className="p-0.5 text-primary">
+              <Check size={11} />
+            </button>
           </div>
+        ) : (
+          <button onClick={startRename} className="flex items-center gap-1 text-[11px] font-bold text-text-muted uppercase tracking-wider hover:text-primary transition-colors group">
+            {watchlistName}
+            <Edit3 size={9} className="text-text-muted/30 group-hover:text-primary" />
+          </button>
+        )}
+        <span className="text-[10px] text-text-muted/50">{watchlistSymbols.length}</span>
+      </div>
+
+      {/* Search Results — Add to watchlist */}
+      {isSearchMode && (
+        <div className="border-b border-border/30 bg-surface-2/30 max-h-48 overflow-y-auto">
+          {searchResults.length > 0 ? (
+            <>
+              <p className="px-3 py-1 text-[9px] font-bold text-text-muted uppercase tracking-wider">Add to {watchlistName}</p>
+              {searchResults.map(inst => (
+                <button
+                  key={inst.symbol}
+                  onClick={() => addToWatchlist(inst.symbol)}
+                  className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-primary/5 transition-colors text-left"
+                >
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-bold text-text-primary">{inst.symbol}</span>
+                    <span className="text-[9px] text-text-muted/60 ml-1 truncate">{inst.name}</span>
+                  </div>
+                  <Plus size={12} className="text-primary flex-shrink-0" />
+                </button>
+              ))}
+            </>
+          ) : (
+            <p className="px-3 py-3 text-[10px] text-text-muted text-center">No matching instruments</p>
+          )}
+        </div>
+      )}
+
+      {/* Instrument List — Current Watchlist */}
+      <div className="flex-1 overflow-y-auto scrollbar-hide">
+        {!isSearchMode && watchlistInstruments.length === 0 ? (
+          <div className="py-10 text-center px-4">
+            <Star size={20} className="mx-auto text-text-muted/20 mb-2" />
+            <p className="text-[11px] font-semibold text-text-muted">Empty watchlist</p>
+            <p className="text-[10px] text-text-muted/50 mt-1">Type a script name in the search bar above to add it</p>
+          </div>
+        ) : (
+          watchlistInstruments.map((inst) => (
+            <button
+              key={inst.symbol}
+              onClick={() => handleClick(inst)}
+              className={cn(
+                'w-full flex items-center justify-between px-3 py-[7px] text-left transition-colors group',
+                'hover:bg-surface-2/80 border-b border-border/10'
+              )}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-[12px] font-bold text-text-primary truncate">{inst.symbol}</span>
+                  {inst.segment && (
+                    <span className="text-[9px] font-medium text-text-muted/50 uppercase">
+                      {inst.segment === 'nse_equity' ? '' : inst.segment === 'forex' ? '.fx' : ''}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-text-muted/60 truncate leading-tight">{inst.name}</p>
+              </div>
+              <div className="text-right ml-2 flex-shrink-0 flex items-center gap-1.5">
+                <div>
+                  <p className="text-[12px] font-bold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    {fmtPrice(inst.price)}
+                  </p>
+                  <p className={cn(
+                    'text-[10px] font-bold tabular-nums',
+                    (inst.change || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'
+                  )}>
+                    {(inst.change || 0) >= 0 ? '+' : ''}{(inst.change || 0).toFixed(2)}
+                  </p>
+                </div>
+                <button
+                  onClick={(e) => removeFromWatchlist(inst.symbol, e)}
+                  className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 text-text-muted/30 transition-all"
+                  title="Remove"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            </button>
+          ))
         )}
       </div>
 
-      {/* Bottom Tabs */}
-      <div className="border-t border-border/30 flex items-center">
-        {WATCHLIST_TABS.slice(0, 3).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              'flex-1 py-2 text-[11px] font-bold transition-colors text-center',
-              activeTab === tab
-                ? 'text-primary border-t-2 border-primary bg-surface-2/50'
-                : 'text-text-muted/60 hover:text-text-muted'
-            )}
-          >
-            {tab}
-          </button>
-        ))}
-        <button className="px-3 py-2 text-text-muted/40 hover:text-text-muted text-[11px]">
-          ƒx
-        </button>
-        <button className="px-2 py-2 text-text-muted/40 hover:text-text-muted text-[11px]">
-          &gt;
-        </button>
+      {/* Bottom info */}
+      <div className="border-t border-border/30 px-3 py-1.5 flex items-center justify-between">
+        <span className="text-[10px] text-text-muted/50">{watchlistSymbols.length} scripts</span>
       </div>
 
       {/* ═══ Resize Handle ═══ */}

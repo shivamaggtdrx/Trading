@@ -1,198 +1,266 @@
-import { Search, TrendingUp, TrendingDown, Star, SlidersHorizontal } from 'lucide-react';
+import { useState, useMemo, useCallback, useRef } from 'react';
+import { Search, Maximize2, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import Header from '../../components/layout/Header';
-import Tabs from '../../components/ui/Tabs';
-import Card from '../../components/ui/Card';
-import Sparkline from '../../components/ui/Sparkline';
 import { useTradeStore } from '../../store/useTradeStore';
-import { formatPercent, cn } from '../../utils/helpers';
+import { cn } from '../../utils/helpers';
+import ScriptActionSheet from '../../components/ui/ScriptActionSheet';
+import SideDrawer from '../../components/ui/SideDrawer';
 
-const marketTabs = [
-  { key: 'stocks', label: 'Stocks' },
-  { key: 'forex', label: 'Forex' },
-  { key: 'metals', label: 'Metals' },
-];
+// Watchlist persistence
+function getWatchlists() {
+  try {
+    return JSON.parse(localStorage.getItem('tradex_watchlists') || 'null') || {
+      active: 'MW-1',
+      lists: { 'MW-1': [], 'MW-2': [], 'MW-3': [], 'MW-4': [], 'MW-5': [] }
+    };
+  } catch { return { active: 'MW-1', lists: { 'MW-1': [], 'MW-2': [], 'MW-3': [], 'MW-4': [], 'MW-5': [] } }; }
+}
+function saveWatchlists(data) {
+  localStorage.setItem('tradex_watchlists', JSON.stringify(data));
+}
 
-export default function Markets() {
-  const {
-    activeMarketTab,
-    setActiveMarketTab,
-    searchQuery,
-    setSearchQuery,
-    getFilteredInstruments,
-    setSelectedInstrument,
-    showWatchlistOnly,
-    setShowWatchlistOnly,
-    toggleFavorite,
-  } = useTradeStore();
-  const navigate = useNavigate();
-  const instruments = getFilteredInstruments();
+// ── Swipeable Row Component ──
+function SwipeableRow({ children, onDelete }) {
+  const rowRef = useRef(null);
+  const startX = useRef(0);
+  const isSwiping = useRef(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [showDelete, setShowDelete] = useState(false);
+  const THRESHOLD = 70;
 
-  const handleInstrumentClick = (instrument) => {
-    setSelectedInstrument(instrument);
-    navigate('/trade');
+  const handleTouchStart = (e) => {
+    startX.current = e.touches[0].clientX;
+    isSwiping.current = true;
   };
+  const handleTouchMove = (e) => {
+    if (!isSwiping.current) return;
+    const diff = startX.current - e.touches[0].clientX;
+    if (diff > 0) setSwipeOffset(Math.min(diff, 100));
+    else setSwipeOffset(0);
+  };
+  const handleTouchEnd = () => {
+    isSwiping.current = false;
+    if (swipeOffset >= THRESHOLD) { setShowDelete(true); setSwipeOffset(THRESHOLD); }
+    else { setSwipeOffset(0); setShowDelete(false); }
+  };
+  const handleDelete = () => { setSwipeOffset(0); setShowDelete(false); onDelete?.(); };
+  const resetSwipe = () => { setSwipeOffset(0); setShowDelete(false); };
 
   return (
-    <div className="page-enter">
-      <Header title="Markets" compact />
+    <div className="relative overflow-hidden">
+      <div className="absolute right-0 top-0 bottom-0 flex items-center justify-end bg-red-600 w-full">
+        <button onClick={handleDelete} className="flex items-center justify-center w-[70px] h-full">
+          <Trash2 size={20} className="text-white" />
+        </button>
+      </div>
+      <div
+        ref={rowRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={showDelete ? resetSwipe : undefined}
+        style={{ transform: `translateX(-${swipeOffset}px)`, transition: isSwiping.current ? 'none' : 'transform 0.3s ease-out' }}
+        className="relative bg-surface z-10"
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
-      <div className="px-3 space-y-2.5 pb-3">
-        {/* Search Bar */}
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search instruments..."
-            className="w-full bg-surface border border-border/50 rounded-xl pl-9 pr-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
-          />
-        </div>
+export default function Markets() {
+  const { instruments, setSelectedInstrument, user } = useTradeStore();
+  const navigate = useNavigate();
 
-        {/* Tabs + Watchlist toggle */}
-        <div className="flex items-center gap-2">
-          <div className="flex-1">
-            <Tabs tabs={marketTabs} activeTab={activeMarketTab} onChange={setActiveMarketTab} compact />
+  const [searchQuery, setSearchQuery] = useState('');
+  const [watchlistData, setWatchlistData] = useState(getWatchlists);
+  const [actionInstrument, setActionInstrument] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const activeTab = watchlistData.active;
+  const activeSymbols = watchlistData.lists[activeTab] || [];
+  const nifty = instruments.find(i => i.symbol === 'NIFTY50');
+  const bankNifty = instruments.find(i => i.symbol === 'BANKNIFTY');
+  const userName = user?.name || user?.full_name || user?.email?.split('@')[0] || 'S';
+  const userInitial = userName.charAt(0).toUpperCase();
+
+  const displayInstruments = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    if (query) {
+      return instruments.filter(i =>
+        i.symbol.toLowerCase().includes(query) || i.name.toLowerCase().includes(query)
+      ).slice(0, 20);
+    }
+    if (activeSymbols.length === 0) return [];
+    return activeSymbols.map(sym => instruments.find(i => i.symbol === sym)).filter(Boolean);
+  }, [instruments, searchQuery, activeSymbols]);
+
+  const isInWatchlist = useCallback((symbol) => activeSymbols.includes(symbol), [activeSymbols]);
+
+  const addToWatchlist = (symbol) => {
+    const updated = { ...watchlistData };
+    if (!updated.lists[activeTab].includes(symbol)) {
+      updated.lists[activeTab] = [...updated.lists[activeTab], symbol];
+      setWatchlistData(updated); saveWatchlists(updated);
+    }
+    setSearchQuery('');
+  };
+  const removeFromWatchlist = (symbol) => {
+    const updated = { ...watchlistData };
+    updated.lists[activeTab] = updated.lists[activeTab].filter(s => s !== symbol);
+    setWatchlistData(updated); saveWatchlists(updated);
+  };
+  const switchTab = (tab) => {
+    const updated = { ...watchlistData, active: tab };
+    setWatchlistData(updated); saveWatchlists(updated);
+  };
+
+  const fmtPrice = (p) => {
+    if (!p || p === 0) return '0.00';
+    return p >= 100 ? p.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : p.toFixed(p < 1 ? 5 : 3);
+  };
+  const fmtChange = (change, pct) => `${(change || 0).toFixed(2)} (${(pct || 0).toFixed(2)}%)`;
+
+  const handleInstrumentTap = (inst) => setActionInstrument(inst);
+  const handleBuy = (inst) => { setSelectedInstrument(inst); navigate('/charts', { state: { action: 'buy' } }); };
+  const handleSell = (inst) => { setSelectedInstrument(inst); navigate('/charts', { state: { action: 'sell' } }); };
+  const handleChart = (inst) => { setSelectedInstrument(inst); navigate('/charts'); };
+
+  const tickerFmt = (data) => {
+    if (!data) return { price: '0.00', change: '0.00', pct: '(0.00%)' };
+    return {
+      price: fmtPrice(data.price || data.last_price || 0),
+      change: ((data.change || data.change_amount || 0)).toFixed(2),
+      pct: `(${((data.changePercent || data.change_percent || 0)).toFixed(2)}%)`,
+    };
+  };
+  const niftyData = tickerFmt(nifty);
+  const bnData = tickerFmt(bankNifty);
+  const niftyUp = (nifty?.change || 0) >= 0;
+  const bnUp = (bankNifty?.change || 0) >= 0;
+
+  return (
+    <div className="flex flex-col h-full bg-surface min-h-screen">
+      {/* ── Top Ticker Bar ── */}
+      <div className="flex items-center justify-between px-3 py-2 bg-surface-2 border-b border-border lg:hidden">
+        <div className="flex items-center gap-1">
+          <button onClick={() => setDrawerOpen(true)} className="w-7 h-7 rounded bg-surface-3 flex items-center justify-center mr-1">
+            <span className="text-text-primary text-xs font-bold">≡</span>
+          </button>
+          {/* NIFTY 50 */}
+          <div className="bg-surface-3 rounded-lg px-2.5 py-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-text-muted uppercase">NIFTY 50</span>
+              <span className={cn('text-[10px] font-bold', niftyUp ? 'text-emerald-400' : 'text-red-400')}>{niftyData.change}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-bold text-text-primary tabular-nums">{niftyData.price}</span>
+              <span className={cn('text-[9px]', niftyUp ? 'text-emerald-400' : 'text-red-400')}>{niftyData.pct}</span>
+            </div>
           </div>
-          <button
-            onClick={() => setShowWatchlistOnly(!showWatchlistOnly)}
-            className={cn(
-              'p-2 rounded-xl border transition-all touch-active-subtle',
-              showWatchlistOnly
-                ? 'bg-amber-50 border-amber-200 text-amber-600'
-                : 'bg-surface border-border/50 text-text-muted'
-            )}
-          >
-            <Star size={16} className={showWatchlistOnly ? 'fill-amber-500' : ''} strokeWidth={2} />
+          {/* BANK NIFTY */}
+          <div className="bg-surface-3 rounded-lg px-2.5 py-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-text-muted uppercase">NIFTY BANK</span>
+              <span className={cn('text-[10px] font-bold', bnUp ? 'text-emerald-400' : 'text-red-400')}>{bnData.change}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-bold text-text-primary tabular-nums">{bnData.price}</span>
+              <span className={cn('text-[9px]', bnUp ? 'text-emerald-400' : 'text-red-400')}>{bnData.pct}</span>
+            </div>
+          </div>
+        </div>
+        <button onClick={() => setDrawerOpen(true)} className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-cyan-500/20">
+          {userInitial}
+        </button>
+      </div>
+
+      {/* ── Search Bar ── */}
+      <div className="px-3 pt-3 pb-2 bg-surface">
+        <div className="relative flex items-center gap-2">
+          <div className="flex-1 relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search symbols..."
+              className="w-full bg-surface-2 border border-border rounded-lg pl-9 pr-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-primary/50 transition-colors" />
+          </div>
+          <button className="p-2.5 bg-surface-2 border border-border rounded-lg text-text-muted hover:text-text-primary transition-colors">
+            <Maximize2 size={16} />
           </button>
         </div>
+      </div>
 
-        {/* Market Stats */}
-        <div className="flex items-center gap-2 px-0.5">
-          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse-dot" />
-          <span className="text-base text-text-muted font-semibold">
-            {instruments.length} instruments · Live
-          </span>
-          {showWatchlistOnly && (
-            <span className="text-base font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded ml-1">
-              ★ Watchlist
-            </span>
-          )}
-        </div>
-
-        {/* Instrument List */}
-        <Card padding="p-0">
-          {/* Table Header */}
-          <div className="flex items-center justify-between px-3 py-2 bg-surface/80 rounded-t-2xl border-b border-border/20">
-            <span className="text-sm font-bold text-text-muted uppercase tracking-wider">Symbol</span>
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-bold text-text-muted uppercase tracking-wider w-[48px] text-center">Chart</span>
-              <span className="text-sm font-bold text-text-muted uppercase tracking-wider">Price</span>
-              <span className="text-sm font-bold text-text-muted uppercase tracking-wider w-[60px] text-right">Change</span>
-            </div>
-          </div>
-
-          {/* Instruments */}
-          <div className="divide-y divide-border/20">
-            {instruments.map((instrument, i) => (
-              <div
-                key={instrument.symbol}
-                className="flex items-center justify-between hover:bg-surface/30 active:bg-surface/60 transition-colors"
-                style={{ animationDelay: `${i * 0.03}s` }}
-              >
-                {/* Favorite button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleFavorite(instrument.symbol);
-                  }}
-                  className="pl-2 pr-0 py-3 touch-active-subtle"
-                >
-                  <Star
-                    size={14}
-                    className={cn(
-                      'transition-all',
-                      instrument.isFavorite
-                        ? 'text-amber-400 fill-amber-400 star-pop'
-                        : 'text-border hover:text-text-muted'
-                    )}
-                  />
-                </button>
-
-                {/* Main clickable area */}
-                <button
-                  onClick={() => handleInstrumentClick(instrument)}
-                  className="flex-1 flex items-center justify-between pl-2 pr-3 py-2.5 touch-active-subtle"
-                >
-                  <div className="text-left min-w-0">
-                    <p className="text-sm font-bold text-text-primary leading-tight">{instrument.symbol}</p>
-                    <p className="text-sm text-text-muted mt-0.5 truncate max-w-[100px]">{instrument.name}</p>
+      {/* ── Instrument List ── */}
+      <div className="flex-1 overflow-y-auto pb-28">
+        {searchQuery ? (
+          displayInstruments.length > 0 ? (
+            displayInstruments.map((inst) => {
+              const change = inst.change || 0; const pct = inst.changePercent || 0; const isUp = change >= 0;
+              return (
+                <div key={inst.symbol} className="flex items-center justify-between px-4 py-3 border-b border-border/40 hover:bg-surface-2 transition-colors cursor-pointer"
+                  onClick={() => isInWatchlist(inst.symbol) ? handleInstrumentTap(inst) : addToWatchlist(inst.symbol)}>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[14px] font-bold text-text-primary">{inst.symbol}</p>
+                    <p className="text-[12px] text-text-muted truncate">{inst.name}</p>
                   </div>
-
-                  <div className="flex items-center gap-3">
-                    {/* Mini Sparkline */}
-                    <Sparkline
-                      data={instrument.sparkline}
-                      positive={instrument.change >= 0}
-                      width={48}
-                      height={24}
-                    />
-
-                    {/* Price + Volume */}
-                    <div className="text-right min-w-[60px]">
-                      <p className="text-sm font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                        {instrument.price >= 100
-                          ? '₹' + instrument.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })
-                          : '$' + instrument.price.toFixed(4)}
-                      </p>
-                      <p className="text-sm text-text-muted mt-0.5 font-medium">
-                        Vol: {instrument.volume}
-                      </p>
+                  <div className="text-right ml-3">
+                    <p className="text-[14px] font-bold text-text-primary tabular-nums">{fmtPrice(inst.price)}</p>
+                    <p className={cn('text-[12px] font-medium tabular-nums', isUp ? 'text-emerald-400' : 'text-red-400')}>{fmtChange(change, pct)}</p>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-16 text-center"><Search size={32} className="mx-auto text-text-muted/30 mb-3" /><p className="text-sm text-text-muted">No instruments found</p></div>
+          )
+        ) : (
+          displayInstruments.length > 0 ? (
+            displayInstruments.map((inst) => {
+              const change = inst.change || 0; const pct = inst.changePercent || 0; const isUp = change >= 0;
+              return (
+                <SwipeableRow key={inst.symbol} onDelete={() => removeFromWatchlist(inst.symbol)}>
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 cursor-pointer active:bg-surface-2"
+                    onClick={() => handleInstrumentTap(inst)}>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-bold text-text-primary">{inst.symbol}</p>
+                      <p className="text-[12px] text-text-muted truncate">{inst.name}</p>
                     </div>
-
-                    {/* Change Badge */}
-                    <div className={cn(
-                      'flex items-center gap-0.5 px-1.5 py-1 rounded-lg min-w-[56px] justify-center',
-                      instrument.change >= 0 ? 'bg-emerald-500/8' : 'bg-red-500/8'
-                    )}>
-                      {instrument.change >= 0 ? (
-                        <TrendingUp size={10} className="text-emerald-500" />
-                      ) : (
-                        <TrendingDown size={10} className="text-red-500" />
-                      )}
-                      <span className={cn(
-                        'text-base font-bold tabular-nums',
-                        instrument.change >= 0 ? 'text-emerald-500' : 'text-red-500'
-                      )}>
-                        {formatPercent(instrument.changePercent)}
-                      </span>
+                    <div className="text-right ml-3">
+                      <p className="text-[14px] font-bold text-text-primary tabular-nums">{fmtPrice(inst.price)}</p>
+                      <p className={cn('text-[12px] font-medium tabular-nums', isUp ? 'text-emerald-400' : 'text-red-400')}>{fmtChange(change, pct)}</p>
                     </div>
                   </div>
-                </button>
-              </div>
+                </SwipeableRow>
+              );
+            })
+          ) : (
+            <div className="py-16 text-center"><p className="text-sm text-text-muted mb-2">Watchlist is empty</p><p className="text-xs text-text-muted/60">Search for symbols to add them</p></div>
+          )
+        )}
+      </div>
+
+      {/* ── Bottom Watchlist Tabs ── */}
+      <div className="fixed bottom-14 left-0 right-0 bg-surface border-t border-border z-30 max-w-lg mx-auto lg:hidden">
+        <div className="flex items-center px-1">
+          <button className="p-2 text-text-muted"><span className="text-lg">‹</span></button>
+          <div className="flex-1 flex items-center gap-0 overflow-x-auto scrollbar-hide">
+            {Object.keys(watchlistData.lists).map((tab) => (
+              <button key={tab} onClick={() => switchTab(tab)}
+                className={cn('px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors relative', activeTab === tab ? 'text-blue-500' : 'text-text-muted hover:text-text-secondary')}>
+                {tab}
+                {activeTab === tab && <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-blue-500 rounded-full" />}
+              </button>
             ))}
           </div>
-
-          {instruments.length === 0 && (
-            <div className="py-10 text-center">
-              {showWatchlistOnly ? (
-                <>
-                  <Star size={28} className="mx-auto text-text-muted/40 mb-2" />
-                  <p className="text-sm font-medium text-text-muted">No favorites yet</p>
-                  <p className="text-base text-text-muted/60 mt-0.5">Tap ★ to add instruments</p>
-                </>
-              ) : (
-                <>
-                  <Search size={28} className="mx-auto text-text-muted/40 mb-2" />
-                  <p className="text-sm font-medium text-text-muted">No instruments found</p>
-                  <p className="text-base text-text-muted/60 mt-0.5">Try a different search term</p>
-                </>
-              )}
-            </div>
-          )}
-        </Card>
+          <button className="p-2 text-text-muted"><span className="text-lg">›</span></button>
+        </div>
       </div>
+
+      {actionInstrument && (
+        <ScriptActionSheet instrument={actionInstrument} onClose={() => setActionInstrument(null)}
+          onBuy={handleBuy} onSell={handleSell} onChart={handleChart}
+          onDelete={(inst) => removeFromWatchlist(inst.symbol)} />
+      )}
+      <SideDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>
   );
 }

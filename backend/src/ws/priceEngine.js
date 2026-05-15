@@ -1,10 +1,12 @@
 const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
 const angelOneFeed = require('./angelOneFeed');
+const yahooFeed = require('./yahooFeed');
 const candleAggregator = require('./candleAggregator');
 const executionEngine = require('./executionEngine');
 
 let wss;
+let activeFeed = null; // 'angel' or 'yahoo'
 
 // Keep track of total needed subscriptions across all clients
 function updateGlobalSubscriptions() {
@@ -16,11 +18,25 @@ function updateGlobalSubscriptions() {
     }
   });
   
-  // Forward to Angel One Feed
+  // Forward to active feed
   const tokens = Array.from(globalSymbols);
-  if (tokens.length > 0) {
+  if (tokens.length > 0 && activeFeed === 'angel') {
     angelOneFeed.subscribeTokens([{ exchangeType: 1, tokens }]);
   }
+}
+
+/**
+ * Handle incoming ticks from either feed source
+ */
+function handleTick(tick) {
+  // 1. Process for server-side candles
+  candleAggregator.processTickForCandles(tick);
+
+  // 2. Evaluate simulated execution (SL/TGT)
+  executionEngine.evaluateTick(tick);
+
+  // 3. Broadcast to frontend clients
+  broadcastToClients(tick);
 }
 
 function initWebSocket(server) {
@@ -39,24 +55,31 @@ function initWebSocket(server) {
   });
   console.log('📡 WebSocket realtime trading engine initialized on /ws/prices');
 
-  // Initialize Angel One Feed
-  angelOneFeed.initAngelOneFeed();
+  // ── Decide which feed to use ──
+  const hasAngelCreds = process.env.ANGEL_ONE_CLIENT_CODE 
+    && process.env.ANGEL_ONE_PASSWORD 
+    && process.env.ANGEL_ONE_TOTP_SECRET;
 
-  // Handle incoming ticks
-  angelOneFeed.onTick((tick) => {
-    // 1. Process for server-side candles
-    candleAggregator.processTickForCandles(tick);
+  if (hasAngelCreds) {
+    // Use Angel One for real-time tick-by-tick data
+    activeFeed = 'angel';
+    angelOneFeed.initAngelOneFeed();
+    angelOneFeed.onTick(handleTick);
+    console.log('📊 Price source: Angel One SmartAPI (live tick)');
+  } else {
+    // Use Yahoo Finance for real-time polling (5s interval)
+    activeFeed = 'yahoo';
+    yahooFeed.initYahooFeed();
+    yahooFeed.onTick(handleTick);
+    console.log('📊 Price source: Yahoo Finance (5s polling)');
+  }
 
-    // 2. Evaluate simulated Execution (SL/TGT)
-    executionEngine.evaluateTick(tick);
-
-    // 3. Broadcast to frontend clients
-    broadcastToClients(tick);
-  });
+  // Get debug stats from whichever feed is active
+  const getStats = activeFeed === 'angel' ? angelOneFeed.getDebugStats : yahooFeed.getDebugStats;
 
   // Broadcast debug stats every second
   setInterval(() => {
-    const stats = angelOneFeed.getDebugStats();
+    const stats = getStats();
     if (wss) {
       wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN && client.wantsDebug) {
@@ -102,7 +125,6 @@ function initWebSocket(server) {
           }));
         }
         else if (data.type === 'update_sl_tgt') {
-          // Handle drag-and-drop SL/TGT updates from chart
           if (!ws.userId) {
             console.error('Unauthorized SL/TGT update attempt');
             return;
@@ -132,7 +154,6 @@ function initWebSocket(server) {
 function broadcastToClients(tick) {
   if (!wss) return;
   
-  // Format matching the requirement
   const payload = JSON.stringify({
     type: 'live_tick',
     data: tick
@@ -148,7 +169,7 @@ function broadcastToClients(tick) {
 }
 
 function stopPriceSimulation() {
-  // Not strictly needed for real feed, but kept for interface compatibility
+  if (activeFeed === 'yahoo') yahooFeed.stopYahooFeed();
 }
 
 module.exports = { initWebSocket, stopPriceSimulation };

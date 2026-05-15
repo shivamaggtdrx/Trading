@@ -39,7 +39,8 @@ export default function Referral() {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const referralLink = `https://tradex.com/register?ref=${user.referralCode}`;
+  const referralCode = user?.referralCode || user?.referral_code || '';
+  const referralLink = `https://stockslab.com/register?ref=${referralCode}`;
 
   return (
     <div className="page-enter">
@@ -66,10 +67,10 @@ export default function Referral() {
               </div>
               <div className="flex items-center gap-2 mb-3">
                 <p className="text-xl font-extrabold tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                  {user.referralCode}
+                  {referralCode}
                 </p>
                 <button
-                  onClick={() => handleCopy(user.referralCode, 'code')}
+                  onClick={() => handleCopy(referralCode, 'code')}
                   className="p-1.5 bg-white/15 rounded-lg hover:bg-white/25 transition-colors"
                 >
                   {copiedField === 'code' ? <Check size={14} /> : <Copy size={14} />}
