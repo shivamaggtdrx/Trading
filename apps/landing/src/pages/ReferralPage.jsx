@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Share2, Wallet, Gift, ArrowRight, CheckCircle2, Copy } from 'lucide-react';
+import { Users, Share2, Wallet, Gift, ArrowRight, CheckCircle2, Copy, LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function ReferralPage() {
@@ -65,7 +65,7 @@ export default function ReferralPage() {
             <div className="bg-white/10 backdrop-blur-md border border-white/20 p-2 rounded-2xl max-w-2xl mx-auto flex flex-col sm:flex-row items-center">
               <div className="flex-1 w-full px-4 py-3 text-left">
                 <p className="text-xs text-blue-300 uppercase font-bold tracking-wider mb-1">Your Referral Link</p>
-                <p className="text-white font-mono truncate">https://tradex.live/ref/LOGIN_TO_VIEW</p>
+                <p className="text-white font-mono truncate">https://stockslab.live/ref/LOGIN_TO_VIEW</p>
               </div>
               <Link to="/register" className="w-full sm:w-auto bg-primary hover:bg-blue-600 text-white px-8 py-4 rounded-xl font-bold shadow-xl transition-all flex items-center justify-center space-x-2 mt-2 sm:mt-0">
                 <Copy size={18} />
@@ -163,9 +163,10 @@ export default function ReferralPage() {
               <span>Create Account</span>
               <ArrowRight size={18} />
             </Link>
-            <Link to="/login" className="w-full sm:w-auto bg-white text-slate-700 border border-slate-200 px-8 py-4 rounded-xl font-bold shadow-sm hover:shadow-md hover:-translate-y-1 transition-all">
-              Log In to Dashboard
-            </Link>
+            <a href="https://tradex-app.onrender.com/login" className="w-full sm:w-auto bg-white text-slate-700 border border-slate-200 px-8 py-4 rounded-xl font-bold shadow-sm hover:shadow-md hover:-translate-y-1 transition-all flex items-center justify-center space-x-2">
+              <LogOut size={18} />
+              <span>Log In to Dashboard</span>
+            </a>
           </div>
         </div>
       </section>

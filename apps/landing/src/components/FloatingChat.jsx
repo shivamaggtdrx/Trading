@@ -35,7 +35,7 @@ export default function FloatingChat() {
             {/* Header */}
             <div className="bg-primary text-white p-4 flex justify-between items-center">
               <div>
-                <h3 className="font-bold text-lg">TradeX Support</h3>
+                <h3 className="font-bold text-lg">Stocks Lab Support</h3>
                 <p className="text-blue-100 text-xs">We typically reply in under 2 minutes.</p>
               </div>
               <button 
@@ -56,7 +56,7 @@ export default function FloatingChat() {
                   <Bot size={16} className="text-primary" />
                 </div>
                 <div className="bg-white border border-slate-200 p-3 rounded-2xl rounded-tl-none shadow-sm text-sm text-slate-700">
-                  Hi there! 👋 Welcome to TradeX. How can we help you with your trading journey today?
+                  Hi there! 👋 Welcome to Stocks Lab. How can we help you with your trading journey today?
                 </div>
               </div>
             </div>

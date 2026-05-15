@@ -37,7 +37,7 @@ export default function AffiliatePage() {
               <span>Partner Program</span>
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-7xl font-bold mb-6 leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-purple-100 to-primary">
-              Become a TradeX Affiliate
+              Become a Stocks Lab Affiliate
             </h1>
             <p className="text-xl md:text-2xl text-slate-300 leading-relaxed max-w-3xl mx-auto font-light mb-10">
               Passionate traders in your audience? Submit your details below and discover best-in-class benefits & commissions. Join our thriving network & start earning today!

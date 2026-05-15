@@ -89,7 +89,7 @@ export default function CareersPage() {
           >
             <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-md border border-white/20 text-blue-300 px-4 py-1.5 rounded-full text-sm font-bold tracking-wide uppercase mb-8">
               <Briefcase size={16} />
-              <span>Join TradeX</span>
+              <span>Join Stocks Lab</span>
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-7xl font-bold mb-6 leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-blue-100 to-primary">
               Build the Future of Finance
@@ -112,7 +112,7 @@ export default function CareersPage() {
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4 md:px-6 max-w-5xl">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Life at TradeX</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Life at Stocks Lab</h2>
             <p className="text-lg text-slate-600">We take care of our team so they can take care of our traders.</p>
           </div>
 

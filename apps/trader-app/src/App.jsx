@@ -16,6 +16,7 @@ import Help from './pages/Help/Help';
 import Preferences from './pages/Preferences/Preferences';
 import History from './pages/History/History';
 import Markets from './pages/Markets/Markets';
+import Trade from './pages/Trade/Trade';
 import { useEffect } from 'react';
 
 function ProtectedRoute({ children }) {
@@ -51,6 +52,7 @@ export default function App() {
             <Route path="/dashboard" element={<Home />} />
             <Route path="/positions" element={<Positions />} />
             <Route path="/charts" element={<Charts />} />
+            <Route path="/trade" element={<Trade />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/history" element={<History />} />

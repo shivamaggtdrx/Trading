@@ -64,7 +64,7 @@ export default function Register() {
 
       setSuccess('Account created successfully! Redirecting to login...');
       setTimeout(() => {
-        window.location.href = 'http://localhost:5173/login'; // Redirect to Trader App login
+        window.location.href = 'https://tradex-app.onrender.com/login'; // Redirect to Trader App login
       }, 2000);
     } catch (err) {
       setError(err.message);
@@ -89,9 +89,9 @@ export default function Register() {
         <div className="relative z-10">
           <Link to="/" className="flex items-center space-x-2 mb-16 inline-block">
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/30">
-              <span className="text-white font-bold text-2xl">T</span>
+              <span className="text-white font-bold text-2xl">S</span>
             </div>
-            <span className="text-3xl font-bold text-white tracking-tight">Trade<span className="text-primary">X</span></span>
+            <span className="text-3xl font-bold text-white tracking-tight">Stocks <span className="text-primary">Lab</span></span>
           </Link>
 
           <motion.div
@@ -139,7 +139,7 @@ export default function Register() {
         </div>
 
         <div className="relative z-10 text-sm text-slate-500 font-medium">
-          © {new Date().getFullYear()} TradeX Securities Pvt. Ltd.
+          © {new Date().getFullYear()} Stocks Lab Securities Pvt. Ltd.
         </div>
       </div>
 
@@ -150,9 +150,9 @@ export default function Register() {
           <span>Back</span>
         </Link>
         
-        <div className="absolute top-6 right-6 lg:top-12 lg:right-12">
-          <span className="text-slate-500 font-medium">Already have an account? </span>
-          <Link to="/login" className="text-primary font-bold hover:underline">Log in</Link>
+        <div className="absolute top-6 right-6 lg:top-12 lg:right-12 text-sm sm:text-base z-10 bg-slate-50/80 sm:bg-transparent px-2 py-1 rounded">
+          <span className="text-slate-500 font-medium hidden sm:inline">Already have an account? </span>
+          <a href="https://tradex-app.onrender.com/login" className="text-primary font-bold hover:underline">Log in</a>
         </div>
 
         <motion.div 

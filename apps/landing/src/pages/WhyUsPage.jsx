@@ -129,7 +129,7 @@ export default function WhyUsPage() {
               <span>India's Most Trusted Trading Platform</span>
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-7xl font-bold mb-6 leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-blue-100 to-primary">
-              Why Choose TradeX?
+              Why Choose Stocks Lab?
             </h1>
             <p className="text-xl md:text-2xl text-slate-300 leading-relaxed max-w-3xl mx-auto font-light mb-10">
               Discover why thousands of traders prefer our platform. Enjoy zero brokerage, lightning-fast execution, advanced charting tools, and a seamless trading experience across 500+ global assets.
@@ -152,7 +152,7 @@ export default function WhyUsPage() {
               <h2 className="text-sm font-bold text-primary uppercase tracking-widest mb-2">Our Story</h2>
               <h3 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6">Built for Traders, by Traders</h3>
               <p className="text-slate-600 text-lg leading-relaxed mb-6">
-                Founded in 2018, TradeX was established with a clear vision: to provide traders of all levels with unparalleled access to financial markets, accompanied by state-of-the-art trading solutions.
+                Founded in 2018, Stocks Lab was established with a clear vision: to provide traders of all levels with unparalleled access to financial markets, accompanied by state-of-the-art trading solutions.
               </p>
               <p className="text-slate-600 text-lg leading-relaxed">
                 We believe in creating a professional and supportive environment designed to maximize your potential for success. That means stripping away exorbitant broker fees, providing massive margins, and ensuring your transactions are always secure and instant.
@@ -164,7 +164,7 @@ export default function WhyUsPage() {
                 <Briefcase size={48} className="text-primary mb-6" />
                 <h4 className="text-2xl font-bold text-slate-900 mb-4">Secure Earnings: Brokerage + Salary Plans!</h4>
                 <p className="text-slate-600 leading-relaxed">
-                  Join TradeX and take advantage of our highly competitive brokerage plans combined with a <strong>guaranteed salary structure</strong>. Whether you’re an experienced trader or just starting out, we provide the perfect platform to grow your earnings and achieve true financial stability.
+                  Join Stocks Lab and take advantage of our highly competitive brokerage plans combined with a <strong>guaranteed salary structure</strong>. Whether you’re an experienced trader or just starting out, we provide the perfect platform to grow your earnings and achieve true financial stability.
                 </p>
               </div>
             </div>
@@ -206,7 +206,7 @@ export default function WhyUsPage() {
             <div className="flex-1 p-10 bg-white relative">
               <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-bl-full"></div>
               <h3 className="text-2xl font-bold text-primary mb-6 text-center flex items-center justify-center space-x-2">
-                <span>TradeX</span>
+                <span>Stocks Lab</span>
                 <ShieldCheck className="text-emerald-500" size={24} />
               </h3>
               <ul className="space-y-4">
@@ -249,7 +249,7 @@ export default function WhyUsPage() {
                 <tr>
                   <th className="py-5 px-6 bg-slate-50 border border-slate-200 text-slate-800 font-bold text-lg rounded-tl-xl">Script</th>
                   <th className="py-5 px-6 bg-slate-50 border border-slate-200 text-slate-800 font-bold text-lg">Per Lot Margin - Ordinary Platform</th>
-                  <th className="py-5 px-6 bg-blue-50/50 border border-slate-200 text-primary font-bold text-lg rounded-tr-xl">Per lot Margin - TradeX</th>
+                  <th className="py-5 px-6 bg-blue-50/50 border border-slate-200 text-primary font-bold text-lg rounded-tr-xl">Per lot Margin - Stocks Lab</th>
                 </tr>
               </thead>
               <tbody>

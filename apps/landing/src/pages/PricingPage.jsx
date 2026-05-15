@@ -122,7 +122,7 @@ export default function PricingPage() {
         <div className="container mx-auto px-4 md:px-6">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">TradeX vs Traditional Brokers</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Stocks Lab vs Traditional Brokers</h2>
               <p className="text-xl text-slate-600 max-w-2xl mx-auto">
                 See how much you save on every trade when you switch to India's most transparent brokerage.
               </p>
@@ -134,7 +134,7 @@ export default function PricingPage() {
                   <thead>
                     <tr className="bg-slate-50">
                       <th className="p-6 text-slate-500 font-bold uppercase tracking-wider text-sm border-b border-slate-200">Charges & Fees</th>
-                      <th className="p-6 text-primary font-black text-xl border-b border-slate-200 bg-blue-50/50 w-1/3 text-center">TradeX</th>
+                      <th className="p-6 text-primary font-black text-xl border-b border-slate-200 bg-blue-50/50 w-1/3 text-center">Stocks Lab</th>
                       <th className="p-6 text-slate-500 font-bold uppercase tracking-wider text-sm border-b border-slate-200 text-center">Traditional Brokers</th>
                     </tr>
                   </thead>

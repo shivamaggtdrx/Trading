@@ -12,24 +12,24 @@ export default function Footer() {
           <div className="lg:col-span-2">
             <Link to="/" className="flex items-center space-x-2 mb-6">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">T</span>
+                <span className="text-white font-bold text-xl">S</span>
               </div>
-              <span className="text-2xl font-bold text-white">Trade<span className="text-primary">X</span></span>
+              <span className="text-2xl font-bold text-white">Stocks <span className="text-primary">Lab</span></span>
             </Link>
             <p className="text-slate-400 mb-8 max-w-sm leading-relaxed">
               Empowering traders with advanced tools, fast execution, and access to global markets. Trade smarter, not harder.
             </p>
             <div className="flex space-x-4 mb-8">
-              <a href="https://twitter.com/tradex" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-colors">
+              <a href="https://twitter.com/stockslab" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-colors">
                 <MessageCircle size={18} />
               </a>
-              <a href="https://linkedin.com/company/tradex" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-colors">
+              <a href="https://linkedin.com/company/stockslab" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-colors">
                 <Globe size={18} />
               </a>
-              <a href="https://youtube.com/tradex" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-colors">
+              <a href="https://youtube.com/stockslab" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-colors">
                 <Play size={18} />
               </a>
-              <a href="https://instagram.com/tradex" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-colors">
+              <a href="https://instagram.com/stockslab" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-colors">
                 <Camera size={18} />
               </a>
             </div>
@@ -74,7 +74,7 @@ export default function Footer() {
             <ul className="space-y-4 text-sm">
               <li className="flex items-start space-x-3">
                 <Mail size={18} className="text-primary mt-0.5" />
-                <span>support@tradex.com</span>
+                <span>support@stockslab.com</span>
               </li>
               <li className="flex items-start space-x-3">
                 <Phone size={18} className="text-primary mt-0.5" />
@@ -91,7 +91,7 @@ export default function Footer() {
         
         {/* Footer Bottom */}
         <div className="pt-8 border-t border-slate-800 text-xs text-slate-500 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-          <p>© {new Date().getFullYear()} TradeX Securities Pvt. Ltd. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Stocks Lab Securities Pvt. Ltd. All rights reserved.</p>
           <div className="flex space-x-6">
             <Link to="/legal/terms-conditions" className="hover:text-white transition-colors">Terms</Link>
             <Link to="/legal/privacy-policy" className="hover:text-white transition-colors">Privacy</Link>

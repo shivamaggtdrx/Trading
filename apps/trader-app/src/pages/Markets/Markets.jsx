@@ -69,7 +69,7 @@ function SwipeableRow({ children, onDelete }) {
 }
 
 export default function Markets() {
-  const { instruments, setSelectedInstrument, user } = useTradeStore();
+  const { instruments, setSelectedInstrument, user, setOrderSide } = useTradeStore();
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -122,8 +122,8 @@ export default function Markets() {
   const fmtChange = (change, pct) => `${(change || 0).toFixed(2)} (${(pct || 0).toFixed(2)}%)`;
 
   const handleInstrumentTap = (inst) => setActionInstrument(inst);
-  const handleBuy = (inst) => { setSelectedInstrument(inst); navigate('/charts', { state: { action: 'buy' } }); };
-  const handleSell = (inst) => { setSelectedInstrument(inst); navigate('/charts', { state: { action: 'sell' } }); };
+  const handleBuy = (inst) => { setSelectedInstrument(inst); setOrderSide('buy'); navigate('/trade'); };
+  const handleSell = (inst) => { setSelectedInstrument(inst); setOrderSide('sell'); navigate('/trade'); };
   const handleChart = (inst) => { setSelectedInstrument(inst); navigate('/charts'); };
 
   const tickerFmt = (data) => {

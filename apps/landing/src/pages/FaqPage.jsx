@@ -71,7 +71,7 @@ export default function FaqPage() {
         },
         {
           q: "Are there any hidden account maintenance fees?",
-          a: "Absolutely not. TradeX has no hidden account opening fees, no annual maintenance charges (AMC), and no software usage fees."
+          a: "Absolutely not. Stocks Lab has no hidden account opening fees, no annual maintenance charges (AMC), and no software usage fees."
         }
       ]
     },
@@ -84,7 +84,7 @@ export default function FaqPage() {
         },
         {
           q: "Which markets can I trade on?",
-          a: "TradeX is a unified multi-market platform. From a single dashboard, you can trade Indian Equities (NSE), F&O, Commodities (MCX), Global Forex, Cryptocurrencies, and major US Stocks & Indices."
+          a: "Stocks Lab is a unified multi-market platform. From a single dashboard, you can trade Indian Equities (NSE), F&O, Commodities (MCX), Global Forex, Cryptocurrencies, and major US Stocks & Indices."
         }
       ]
     },
@@ -146,7 +146,7 @@ export default function FaqPage() {
               Frequently Asked Questions
             </h1>
             <p className="text-xl text-slate-300 leading-relaxed mb-10">
-              Everything you need to know about trading with TradeX. Find answers to common questions about accounts, margins, and more.
+              Everything you need to know about trading with Stocks Lab. Find answers to common questions about accounts, margins, and more.
             </p>
 
             {/* Search Bar */}
@@ -225,7 +225,7 @@ export default function FaqPage() {
               <Link to="/contact" className="bg-white text-primary hover:bg-slate-50 px-8 py-3.5 rounded-xl font-bold shadow-lg transition-all w-full sm:w-auto">
                 Contact Support
               </Link>
-              <a href="mailto:support@tradex.com" className="bg-blue-800/50 hover:bg-blue-700/50 backdrop-blur-sm border border-blue-400/30 text-white px-8 py-3.5 rounded-xl font-bold transition-all w-full sm:w-auto">
+              <a href="mailto:support@stockslab.com" className="bg-blue-800/50 hover:bg-blue-700/50 backdrop-blur-sm border border-blue-400/30 text-white px-8 py-3.5 rounded-xl font-bold transition-all w-full sm:w-auto">
                 Email Us
               </a>
             </div>
