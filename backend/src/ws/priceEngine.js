@@ -172,4 +172,16 @@ function stopPriceSimulation() {
   if (activeFeed === 'yahoo') yahooFeed.stopYahooFeed();
 }
 
-module.exports = { initWebSocket, stopPriceSimulation };
+/**
+ * Get current WebSocket client count (for system health reporting)
+ */
+function getWssClientCount() {
+  if (!wss) return 0;
+  let count = 0;
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) count++;
+  });
+  return count;
+}
+
+module.exports = { initWebSocket, stopPriceSimulation, getWssClientCount };

@@ -36,13 +36,20 @@ async function tryRefreshToken() {
   try {
     const refreshToken = getRefreshToken();
     if (!refreshToken) return false;
-    await fetch(`${API_BASE}/auth/login`, {
+    
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
-    // Supabase approach: use the supabase client directly if available
-    // For now, if refresh fails, we force re-login
+    
+    if (!res.ok) return false;
+    
+    const data = await res.json();
+    if (data.session) {
+      setSession(data.session);
+      return true;
+    }
     return false;
   } catch {
     return false;
@@ -187,6 +194,24 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
+  },
+
+  // ── Password ──
+  async changePassword(currentPassword, newPassword) {
+    return request('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
+
+  // ── Referrals ──
+  async getReferrals() {
+    return request('/auth/referrals');
+  },
+
+  // ── Notifications ──
+  async getNotifications() {
+    return request('/auth/notifications');
   },
 };
 

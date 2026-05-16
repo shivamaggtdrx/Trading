@@ -133,9 +133,13 @@ export const useTradeStore = create((set, get) => ({
   logout: async () => {
     await api.logout();
     disconnectPriceFeed();
+    if (get()._notificationInterval) {
+      clearInterval(get()._notificationInterval);
+    }
     set({
       isAuthenticated: false, user: null, wallet: null,
       instruments: [], positions: [], orders: [], tradeHistory: [],
+      _notificationInterval: null
     });
   },
 
@@ -366,9 +370,27 @@ export const useTradeStore = create((set, get) => ({
     return history;
   },
 
-  // ── Notifications (local for now) ──
+  // ── Notifications (from backend) ──
   notifications: [],
   unreadCount: 0,
+  notificationsLoading: false,
+
+  fetchNotifications: async () => {
+    set({ notificationsLoading: true });
+    try {
+      const data = await api.getNotifications();
+      const notifs = data.notifications || [];
+      set({
+        notifications: notifs,
+        unreadCount: notifs.filter(n => !n.read).length,
+        notificationsLoading: false,
+      });
+    } catch (err) {
+      console.error('Notifications fetch error:', err);
+      set({ notificationsLoading: false });
+    }
+  },
+
   markAsRead: (id) => set((state) => ({
     notifications: state.notifications.map(n => n.id === id ? { ...n, read: true } : n),
     unreadCount: state.notifications.filter(n => !n.read && n.id !== id).length,
@@ -514,9 +536,21 @@ export const useTradeStore = create((set, get) => ({
       get().fetchPositions(),
       get().fetchOrders(),
       get().fetchHistory(),
+      get().fetchNotifications(),
     ]);
     get().startPriceFeed();
     get().updateSubscriptions();
+    
+    // Start notifications poll system (every 30 seconds)
+    if (!get()._notificationInterval) {
+      const interval = setInterval(() => {
+        if (get().isAuthenticated) {
+          get().fetchNotifications();
+        }
+      }, 30000);
+      set({ _notificationInterval: interval });
+    }
+    
     set({ isLoading: false });
   },
 }));

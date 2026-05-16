@@ -1,13 +1,20 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const { supabaseAdmin } = require('../config/supabase');
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 login requests per `window`
+  message: { error: 'Too many login attempts, please try again after 15 minutes' },
+});
 
 /**
  * POST /api/admin/auth/login
  * Admin panel login
  */
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -25,6 +32,22 @@ router.post('/login', async (req, res) => {
 
     if (error || !admin) {
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // IP Whitelist check
+    try {
+      const { data: whitelist } = await supabaseAdmin.from('ip_whitelist').select('ip_address').eq('status', 'active');
+      if (whitelist && whitelist.length > 0) {
+        const allowedIps = whitelist.map(w => w.ip_address);
+        // Also allow standard local IPs for dev testing
+        const isLocal = req.ip === '::1' || req.ip === '127.0.0.1' || req.ip === '::ffff:127.0.0.1';
+        if (!allowedIps.includes(req.ip) && !isLocal) {
+          console.warn(`Blocked admin login from non-whitelisted IP: ${req.ip}`);
+          return res.status(403).json({ error: 'Access denied: IP not whitelisted' });
+        }
+      }
+    } catch (ipErr) {
+      // If table doesn't exist yet, just continue safely
     }
 
     // Verify password

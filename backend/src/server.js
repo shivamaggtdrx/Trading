@@ -6,6 +6,9 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const { createServer } = require('http');
 
+const Sentry = require('@sentry/node');
+const { nodeProfilingIntegration } = require('@sentry/profiling-node');
+
 // Import routes
 const authRoutes = require('./routes/auth');
 const adminAuthRoutes = require('./routes/adminAuth');
@@ -24,6 +27,19 @@ const { initWebSocket } = require('./ws/priceEngine');
 const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT || 4000;
+
+// ── Sentry Initialization ──
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  integrations: [
+    nodeProfilingIntegration(),
+  ],
+  tracesSampleRate: 1.0, 
+  profilesSampleRate: 1.0,
+});
+
+// The request handler must be the first middleware on the app
+Sentry.setupExpressErrorHandler(app);
 
 // ── Security Middleware ──
 app.use(helmet());
@@ -72,6 +88,11 @@ app.use('/api/deposits', depositRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Optional fallback route for testing Sentry
+app.get('/debug-sentry', function mainHandler(req, res) {
+  throw new Error('Sentry Testing Error!');
+});
+
 // ── 404 Handler ──
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
@@ -82,6 +103,7 @@ app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   res.status(err.status || 500).json({
     error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+    sentryId: res.sentry,
   });
 });
 
