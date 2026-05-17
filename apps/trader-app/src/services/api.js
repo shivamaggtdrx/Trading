@@ -1,3 +1,5 @@
+import { io } from 'socket.io-client';
+
 // ══════════════════════════════════════════════════════════════
 // TradeX Trader App — API Service Layer
 // Connects to Express backend at localhost:4000
@@ -216,98 +218,154 @@ export const api = {
 };
 
 // ══════════════════════════════════════════════════════════════
-// WebSocket Price Feed
+// Socket.IO Price Feed (/market namespace)
 // ══════════════════════════════════════════════════════════════
-let ws = null;
-let reconnectTimer = null;
+let marketSocket = null;
 let staleCheckTimer = null;
 let lastMessageTime = Date.now();
 
 export function connectPriceFeed(onPriceUpdate, onCandleUpdate = null, onDebugUpdate = null, symbols = []) {
-  if (ws && ws.readyState === WebSocket.OPEN) return;
+  if (marketSocket && marketSocket.connected) return;
 
-  const token = getToken();
-  const wsUrl = token ? `${WS_BASE}?token=${token}` : WS_BASE;
-  ws = new WebSocket(wsUrl);
+  const API_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:4000';
+  
+  // Connect to the public /market namespace
+  marketSocket = io(`${API_URL}/market`, {
+    transports: ['websocket'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+  });
 
-  ws.onerror = (error) => {
-    console.error('WS Error:', error);
-  };
+  marketSocket.on('connect', () => {
+    console.log('📡 Socket.IO Price feed connected');
+    if (symbols.length > 0) {
+      marketSocket.emit('MARKET:SUBSCRIBE_TICKERS', symbols);
+    }
+  });
 
-  // Stale feed detection (15 seconds)
+  marketSocket.on('MARKET:TICK', (tick) => {
+    lastMessageTime = Date.now();
+    if (onPriceUpdate) {
+      onPriceUpdate([tick]); // Pass as array for backward compatibility
+    }
+  });
+
+  marketSocket.on('disconnect', (reason) => {
+    console.log('📡 Socket.IO Price feed disconnected:', reason);
+    if (reason === 'io server disconnect') {
+      marketSocket.connect();
+    }
+  });
+
+  marketSocket.on('connect_error', (error) => {
+    console.error('Socket.IO Market Error:', error);
+  });
+
+  // Stale feed detection
   if (staleCheckTimer) clearInterval(staleCheckTimer);
   staleCheckTimer = setInterval(() => {
     if (Date.now() - lastMessageTime > 15000) {
       if (onDebugUpdate) {
-        onDebugUpdate({ connected: false, staleWarning: true });
+        onDebugUpdate({ connected: marketSocket.connected, staleWarning: true });
       }
     }
   }, 2000);
-
-  ws.onopen = () => {
-    console.log('📡 Price feed connected');
-    if (symbols.length > 0) {
-      ws.send(JSON.stringify({ type: 'subscribe', symbols }));
-    }
-  };
-
-  ws.onmessage = (event) => {
-    lastMessageTime = Date.now();
-    try {
-      const msg = JSON.parse(event.data);
-      if (msg.type === 'live_tick' && onPriceUpdate) {
-        onPriceUpdate([msg.data]); // Pass as array for backward compatibility
-      } else if (msg.type === 'price_update' && onPriceUpdate) {
-        onPriceUpdate(msg.data);
-      } else if (msg.type === 'historical_candles' && onCandleUpdate) {
-        onCandleUpdate(msg.data);
-      } else if (msg.type === 'debug_stats' && onDebugUpdate) {
-        onDebugUpdate(msg.data);
-      } else if (msg.type === 'position_updated') {
-        // Trigger position refresh via event or direct state update (handled elsewhere if needed)
-      }
-    } catch (e) {
-      console.warn('WS parse error', e);
-    }
-  };
-
-  ws.onclose = () => {
-    console.log('📡 Price feed disconnected, reconnecting in 3s...');
-    reconnectTimer = setTimeout(() => connectPriceFeed(onPriceUpdate, onCandleUpdate, onDebugUpdate, symbols), 3000);
-  };
-
-  ws.onerror = () => ws.close();
 }
 
 export function requestHistoricalCandles(symbol, timeframe) {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'get_candles', data: { symbol, timeframe } }));
+  if (marketSocket && marketSocket.connected) {
+    marketSocket.emit('MARKET:GET_CANDLES', { symbol, timeframe });
   }
 }
 
 export function updatePositionSlTgtWs(positionId, stopLoss, target) {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'update_sl_tgt', data: { positionId, stopLoss, target } }));
-  }
+  // SL/TGT updates go via REST API now (safer than WS for mutations)
 }
 
 export function subscribeWsSymbols(symbols) {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'subscribe', symbols }));
+  if (marketSocket && marketSocket.connected) {
+    marketSocket.emit('MARKET:SUBSCRIBE_TICKERS', symbols);
   }
 }
 
 export function debugSubscribeWs() {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'debug_subscribe' }));
+  if (marketSocket && marketSocket.connected) {
+    marketSocket.emit('MARKET:DEBUG_SUBSCRIBE');
   }
 }
 
 export function disconnectPriceFeed() {
-  if (reconnectTimer) clearTimeout(reconnectTimer);
   if (staleCheckTimer) clearInterval(staleCheckTimer);
-  if (ws) ws.close();
-  ws = null;
+  if (marketSocket) {
+    marketSocket.disconnect();
+    marketSocket = null;
+  }
+  disconnectUserSocket();
+}
+
+// ══════════════════════════════════════════════════════════════
+// Socket.IO User Events (/user namespace)
+// Private channel for: order fills, PNL updates, notifications
+// ══════════════════════════════════════════════════════════════
+let userSocket = null;
+let _onOrderFilled = null;
+let _onPnlUpdate = null;
+
+/**
+ * Connect to the /user namespace for private realtime events.
+ * Call this after login with the user's ID.
+ */
+export function connectUserSocket(userId, { onOrderFilled, onPnlUpdate } = {}) {
+  if (userSocket && userSocket.connected) return;
+
+  _onOrderFilled = onOrderFilled;
+  _onPnlUpdate = onPnlUpdate;
+
+  const API_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:4000';
+
+  userSocket = io(`${API_URL}/user`, {
+    transports: ['websocket'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+  });
+
+  userSocket.on('connect', () => {
+    console.log('🔐 Socket.IO User channel connected');
+    // Join private room
+    userSocket.emit('USER:JOIN_PRIVATE', userId);
+  });
+
+  // ── Order filled notification from BullMQ worker ──
+  userSocket.on('USER:ORDER_FILLED', (data) => {
+    console.log('✅ Order filled via Socket.IO:', data);
+    if (_onOrderFilled) _onOrderFilled(data);
+  });
+
+  // ── Realtime PNL updates from MTM calculator ──
+  userSocket.on('USER:PNL_UPDATE', (data) => {
+    if (_onPnlUpdate) _onPnlUpdate(data);
+  });
+
+  userSocket.on('disconnect', (reason) => {
+    console.log('🔐 User channel disconnected:', reason);
+  });
+
+  userSocket.on('connect_error', (error) => {
+    console.error('Socket.IO User Error:', error);
+  });
+}
+
+export function disconnectUserSocket() {
+  if (userSocket) {
+    userSocket.disconnect();
+    userSocket = null;
+  }
+  _onOrderFilled = null;
+  _onPnlUpdate = null;
 }
 
 // ── Auth helpers ──

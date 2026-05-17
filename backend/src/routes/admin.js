@@ -1282,4 +1282,56 @@ router.delete('/crm/:module/:id', requireRole('super_admin'), async (req, res) =
   }
 });
 
+// ═══════════════════════════════════════════
+// RISK ENGINE EMERGENCY CONTROLS
+// ═══════════════════════════════════════════
+const riskValidator = require('../core/risk/validator');
+
+// Kill switch
+router.post('/risk/kill-switch/activate', requireRole('super_admin'), async (req, res) => {
+  await riskValidator.activateKillSwitch();
+  res.json({ message: 'Kill switch activated. All trading halted.' });
+});
+
+router.post('/risk/kill-switch/deactivate', requireRole('super_admin'), async (req, res) => {
+  await riskValidator.deactivateKillSwitch();
+  res.json({ message: 'Kill switch deactivated. Trading resumed.' });
+});
+
+// Freeze/unfreeze user
+router.post('/risk/freeze-user/:userId', async (req, res) => {
+  await riskValidator.freezeUser(req.params.userId);
+  res.json({ message: `User ${req.params.userId} frozen.` });
+});
+
+router.post('/risk/unfreeze-user/:userId', async (req, res) => {
+  await riskValidator.unfreezeUser(req.params.userId);
+  res.json({ message: `User ${req.params.userId} unfrozen.` });
+});
+
+// Disable/enable symbol
+router.post('/risk/disable-symbol/:symbol', async (req, res) => {
+  await riskValidator.disableSymbol(req.params.symbol.toUpperCase());
+  res.json({ message: `Symbol ${req.params.symbol.toUpperCase()} disabled.` });
+});
+
+router.post('/risk/enable-symbol/:symbol', async (req, res) => {
+  await riskValidator.enableSymbol(req.params.symbol.toUpperCase());
+  res.json({ message: `Symbol ${req.params.symbol.toUpperCase()} enabled.` });
+});
+
+// Set max exposure for a symbol
+router.post('/risk/max-exposure/:symbol', async (req, res) => {
+  const { maxQty } = req.body;
+  if (!maxQty || maxQty <= 0) return res.status(400).json({ error: 'maxQty must be a positive number' });
+  await riskValidator.setMaxExposure(req.params.symbol.toUpperCase(), maxQty);
+  res.json({ message: `Max exposure for ${req.params.symbol.toUpperCase()} set to ${maxQty}.` });
+});
+
+// Get current exposure for a symbol
+router.get('/risk/exposure/:symbol', async (req, res) => {
+  const exposure = await riskValidator.getSymbolExposure(req.params.symbol.toUpperCase());
+  res.json({ symbol: req.params.symbol.toUpperCase(), netExposure: exposure });
+});
+
 module.exports = router;

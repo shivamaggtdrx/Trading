@@ -41,7 +41,8 @@ async function initAngelOneFeed() {
   }
 
   try {
-    const totp = require('totp-generator')(TOTP_SECRET);
+    const { TOTP } = require('totp-generator');
+    const totp = TOTP.generate(TOTP_SECRET).otp;
     const session = await smartApi.generateSession(CLIENT_CODE, PASSWORD, totp);
     
     if (session.status) {

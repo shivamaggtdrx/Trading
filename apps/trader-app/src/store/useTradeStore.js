@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, connectPriceFeed, disconnectPriceFeed, isLoggedIn, getStoredUser, requestHistoricalCandles, updatePositionSlTgtWs, subscribeWsSymbols, debugSubscribeWs } from '../services/api';
+import { api, connectPriceFeed, disconnectPriceFeed, connectUserSocket, disconnectUserSocket, isLoggedIn, getStoredUser, requestHistoricalCandles, updatePositionSlTgtWs, subscribeWsSymbols, debugSubscribeWs } from '../services/api';
 
 // ── Normalization helpers ──
 function normalizeUser(raw) {
@@ -133,6 +133,7 @@ export const useTradeStore = create((set, get) => ({
   logout: async () => {
     await api.logout();
     disconnectPriceFeed();
+    disconnectUserSocket();
     if (get()._notificationInterval) {
       clearInterval(get()._notificationInterval);
     }
@@ -254,11 +255,25 @@ export const useTradeStore = create((set, get) => ({
     set({ orderLoading: true });
     try {
       const data = await api.placeOrder(orderData);
-      // Refresh positions and wallet after trade
+      set({ orderLoading: false });
+      
+      // Backend now returns 202 (queued) for market orders.
+      // The actual fill will arrive via Socket.IO USER:ORDER_FILLED event.
+      // We still do a quick refresh to pick up pending state.
+      if (data.status === 'queued') {
+        // Order is queued — UI will update when USER:ORDER_FILLED fires
+        setTimeout(() => {
+          get().fetchPositions();
+          get().fetchOrders();
+          get().fetchWallet();
+        }, 1500); // Give the worker 1.5s to process
+        return { success: true, message: data.message || 'Order accepted for execution', ...data };
+      }
+      
+      // Fallback for non-queued responses (limit orders, etc.)
       get().fetchPositions();
       get().fetchWallet();
       get().fetchOrders();
-      set({ orderLoading: false });
       return { success: true, ...data };
     } catch (err) {
       set({ orderLoading: false });
@@ -528,6 +543,38 @@ export const useTradeStore = create((set, get) => ({
     }
   },
 
+  // ── Handle realtime order fill from BullMQ worker ──
+  handleOrderFilled: (data) => {
+    console.log('🔔 Order filled event received:', data);
+    // Refresh all trading data
+    get().fetchPositions();
+    get().fetchOrders();
+    get().fetchWallet();
+  },
+
+  // ── Handle realtime PNL update from MTM calculator ──
+  handlePnlUpdate: (pnlData) => {
+    if (!pnlData || !pnlData.positions) return;
+    
+    set((state) => {
+      const updatedPositions = state.positions.map(pos => {
+        const livePos = pnlData.positions.find(p => p.id === pos.id);
+        if (livePos) {
+          return {
+            ...pos,
+            currentPrice: livePos.currentPrice,
+            current_price: livePos.currentPrice,
+            pnl: livePos.unrealizedPnl,
+            pnlPercent: pos.margin > 0 ? (livePos.unrealizedPnl / pos.margin) * 100 : 0,
+          };
+        }
+        return pos;
+      });
+
+      return { positions: updatedPositions };
+    });
+  },
+
   loadInitialData: async () => {
     set({ isLoading: true });
     await Promise.all([
@@ -540,6 +587,15 @@ export const useTradeStore = create((set, get) => ({
     ]);
     get().startPriceFeed();
     get().updateSubscriptions();
+    
+    // Connect to the /user namespace for private events
+    const user = get().user;
+    if (user && user.id) {
+      connectUserSocket(user.id, {
+        onOrderFilled: (data) => get().handleOrderFilled(data),
+        onPnlUpdate: (data) => get().handlePnlUpdate(data),
+      });
+    }
     
     // Start notifications poll system (every 30 seconds)
     if (!get()._notificationInterval) {

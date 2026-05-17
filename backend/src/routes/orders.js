@@ -2,12 +2,16 @@ const router = require('express').Router();
 const { supabaseAdmin } = require('../config/supabase');
 const { authenticateUser } = require('../middleware/auth');
 const angelOneFeed = require('../ws/angelOneFeed');
+const { enqueueOrder } = require('../core/queues/orderQueue');
+const { validateOrder } = require('../core/risk/validator');
+const { v4: uuidv4 } = require('uuid');
 
 router.use(authenticateUser);
 
 /**
  * POST /api/orders
  * Place a new order (THE CORE DABBA LOGIC)
+ * Now queues to BullMQ for async execution instead of blocking the API.
  */
 router.post('/', async (req, res) => {
   try {
@@ -25,15 +29,15 @@ router.post('/', async (req, res) => {
       return res.status(403).json({ error: 'Trading is disabled for your account. Contact support.' });
     }
 
-    // Check global kill switch
-    const { data: killSwitch } = await supabaseAdmin
-      .from('system_settings')
-      .select('value')
-      .eq('key', 'global_kill_switch')
-      .single();
-
-    if (killSwitch && killSwitch.value === 'true') {
-      return res.status(503).json({ error: 'Trading is temporarily halted. Please try again later.' });
+    // ── Risk Engine Pre-Trade Validation (Redis-first) ──
+    const riskCheck = await validateOrder({
+      userId,
+      symbol: (symbol || '').toUpperCase(),
+      side,
+      quantity,
+    });
+    if (!riskCheck.allowed) {
+      return res.status(403).json({ error: riskCheck.reason });
     }
 
     // Get instrument
@@ -120,100 +124,54 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // ── Create Order ──
+    // ── Execution Delay ──
     const executionDelay = sp.execution_delay_min_ms + Math.floor(Math.random() * (sp.execution_delay_max_ms - sp.execution_delay_min_ms));
 
-    const orderData = {
-      user_id: userId,
-      instrument_id: instrument.id,
+    // ── Generate idempotency key ──
+    const idempotencyKey = uuidv4();
+
+    // ── Queue the order for async execution ──
+    const jobName = order_type === 'market' ? 'execute_market_order' : 'execute_limit_order';
+    const priority = order_type === 'market' ? 3 : 5; // Market orders get higher priority
+
+    const job = await enqueueOrder(jobName, {
+      idempotencyKey,
+      userId,
       symbol: instrument.symbol,
       side,
-      order_type,
+      orderType: order_type,
       quantity,
       price: order_type === 'limit' ? price : null,
-      trigger_price: order_type === 'stop_loss' ? trigger_price : null,
-      requested_price: referencePrice,
-      executed_price: order_type === 'market' ? executionPrice : null,
-      filled_quantity: order_type === 'market' ? quantity : 0,
-      avg_fill_price: order_type === 'market' ? executionPrice : null,
-      slippage_amount: Math.abs(executionPrice - (side === 'buy' ? askPrice : bidPrice)),
-      spread_markup: spreadAmount,
-      execution_delay_ms: executionDelay,
-      margin_required: marginRequired,
-      margin_blocked: marginRequired,
-      status: order_type === 'market' ? 'filled' : 'pending',
-      filled_at: order_type === 'market' ? new Date().toISOString() : null,
-    };
+      triggerPrice: order_type === 'stop_loss' ? trigger_price : null,
+      instrumentId: instrument.id,
+      instrument: {
+        margin_required: instrument.margin_required,
+        segment: instrument.segment,
+      },
+      marginRequired,
+      executionPrice,
+      referencePrice,
+      spreadAmount,
+      executionDelay,
+      stopLoss: stop_loss || null,
+      takeProfit: take_profit || null,
+      bidPrice,
+      askPrice,
+    }, { priority });
 
-    const { data: order, error: orderErr } = await supabaseAdmin
-      .from('orders')
-      .insert(orderData)
-      .select()
-      .single();
+    // Return immediately — the worker will process and notify via Socket.IO
+    return res.status(202).json({
+      message: 'Order accepted for execution',
+      jobId: job.id,
+      idempotencyKey,
+      status: 'queued',
+      estimatedExecution: {
+        price: executionPrice,
+        spread: spreadAmount,
+        delay_ms: executionDelay,
+      },
+    });
 
-    if (orderErr) return res.status(500).json({ error: 'Failed to create order: ' + orderErr.message });
-
-    // ── For MARKET orders: create position immediately ──
-    if (order_type === 'market') {
-      // Create position
-      const positionData = {
-        user_id: userId,
-        instrument_id: instrument.id,
-        symbol: instrument.symbol,
-        order_id: order.id,
-        side: side === 'buy' ? 'long' : 'short',
-        quantity,
-        entry_price: executionPrice,
-        current_price: referencePrice,
-        margin_used: marginRequired,
-        leverage: 100 / instrument.margin_required,
-        stop_loss: stop_loss || null,
-        take_profit: take_profit || null,
-        routing: 'b_book', // ALL trades go B-Book by default (dabba)
-      };
-
-      const { data: position, error: posErr } = await supabaseAdmin
-        .from('positions')
-        .insert(positionData)
-        .select()
-        .single();
-
-      if (posErr) return res.status(500).json({ error: 'Order filled but position creation failed: ' + posErr.message });
-
-      // Atomic margin block (prevents race conditions)
-      const { error: marginErr } = await supabaseAdmin.rpc('block_margin', {
-        p_user_id: userId,
-        p_margin_amount: marginRequired,
-      });
-      if (marginErr) console.error('Margin block RPC error:', marginErr);
-
-      // Log transaction
-      await supabaseAdmin.from('wallet_transactions').insert({
-        user_id: userId,
-        type: 'commission',
-        amount: -(spreadAmount * quantity * 0.01),
-        balance_after: wallet.balance,
-        reference_id: order.id,
-        reference_type: 'order',
-        description: `Order ${side.toUpperCase()} ${quantity} ${symbol} @ ${executionPrice}`,
-      });
-
-      return res.status(201).json({
-        message: 'Order executed successfully',
-        order,
-        position,
-        execution: {
-          requested_price: referencePrice,
-          executed_price: executionPrice,
-          spread: spreadAmount,
-          slippage: Math.abs(executionPrice - (side === 'buy' ? askPrice : bidPrice)),
-          delay_ms: executionDelay,
-        },
-      });
-    }
-
-    // For LIMIT/SL orders — just return the pending order
-    res.status(201).json({ message: 'Order placed successfully', order });
   } catch (err) {
     console.error('Order error:', err);
     res.status(500).json({ error: 'Failed to place order' });

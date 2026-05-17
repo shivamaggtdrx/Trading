@@ -21,8 +21,12 @@ const depositRoutes = require('./routes/deposits');
 const withdrawalRoutes = require('./routes/withdrawals');
 const adminRoutes = require('./routes/admin');
 
-// Import WebSocket
-const { initWebSocket } = require('./ws/priceEngine');
+// ── Import WebSocket ──
+// Old raw ws implementation (Deprecated in Phase 1):
+// const { initWebSocket } = require('./ws/priceEngine'); 
+// New Socket.IO implementation:
+const { initSocketServer } = require('./ws/socketServer');
+const { initPriceEngine } = require('./ws/priceEngine');
 
 const app = express();
 const server = createServer(app);
@@ -114,7 +118,17 @@ server.listen(PORT, () => {
   console.log(`🔗 Health: http://localhost:${PORT}/health\n`);
 });
 
-// ── Init WebSocket for live price feed ──
-initWebSocket(server);
+// ── Init Socket.IO Server ──
+// Old raw WS call: initWebSocket(server);
+initSocketServer(server);
+initPriceEngine();
+
+// ── Init BullMQ Worker & MTM Calculator ──
+const { executionWorker } = require('./core/workers/executionWorker');
+const { startMTMCalculator } = require('./core/pnl/mtmCalculator');
+const { initOHLCAggregator } = require('./ws/feed/ohlcAggregator');
+startMTMCalculator();
+initOHLCAggregator();
+console.log('⚡ Execution Worker online | 📊 MTM Calculator running | 📊 OHLC Aggregator active');
 
 module.exports = { app, server };
