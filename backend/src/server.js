@@ -70,14 +70,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-// ── Health Check ──
+// ── Health Check (minimal for cron-job.org) ──
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development',
-  });
+  res.status(200).json({ status: 'ok' });
 });
 
 // ── API Routes ──

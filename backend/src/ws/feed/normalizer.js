@@ -12,6 +12,7 @@ let tickSequence = 0;
 /**
  * Normalize a raw tick into the standard internal format.
  * Rejects corrupted/invalid ticks.
+ * Preserves extra fields (change, high, low, open, volume) for frontend display.
  * 
  * @param {object} rawTick - Raw tick from any feed source
  * @returns {object|null} - Normalized tick, or null if rejected
@@ -40,17 +41,27 @@ function normalizeTick(rawTick) {
   tickSequence++;
 
   return {
+    // Core normalized fields
     symbol: symbol.toUpperCase().trim(),
-    ltp: Math.round(ltp * 10000) / 10000, // 4 decimal precision
+    ltp: Math.round(ltp * 10000) / 10000,
+    price: Math.round(ltp * 10000) / 10000, // Alias for frontend compat
     bid: (bid && bid > 0) ? Math.round(bid * 10000) / 10000 : ltp,
     ask: (ask && ask > 0) ? Math.round(ask * 10000) / 10000 : ltp,
     spread: (ask && bid && ask > 0 && bid > 0)
       ? Math.round((ask - bid) * 10000) / 10000
       : 0,
-    timestamp: serverTimestamp,        // Server-authoritative timestamp
-    feedTimestamp: feedTimestamp,       // Original feed timestamp (for debugging)
-    feedLatencyMs: feedLatencyMs,      // Feed delivery latency
-    sequence: tickSequence,            // Monotonic sequence number
+    timestamp: serverTimestamp,
+    feedTimestamp: feedTimestamp,
+    feedLatencyMs: feedLatencyMs,
+    sequence: tickSequence,
+    // Pass-through fields for frontend display (from Yahoo/Angel feed)
+    change: rawTick.change || 0,
+    change_percent: rawTick.change_percent || 0,
+    high: rawTick.high || 0,
+    low: rawTick.low || 0,
+    open: rawTick.open || 0,
+    prev_close: rawTick.prev_close || 0,
+    volume: rawTick.volume || 0,
   };
 }
 
