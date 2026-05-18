@@ -1,5 +1,5 @@
 const { Worker } = require('bullmq');
-const { redisClient } = require('../../redis/client');
+const { redisOpts } = require('../../redis/client');
 const { supabaseAdmin } = require('../../config/supabase');
 const { getIO } = require('../../ws/socketServer');
 const { updateExposure } = require('../risk/validator');
@@ -26,7 +26,7 @@ const executionWorker = new Worker(
     }
   },
   {
-    connection: redisClient,
+    connection: redisOpts,
     concurrency: 5, // Process up to 5 orders simultaneously
     limiter: {
       max: 50,

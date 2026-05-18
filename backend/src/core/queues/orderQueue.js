@@ -1,10 +1,10 @@
 const { Queue } = require('bullmq');
-const { redisClient } = require('../../redis/client');
+const { redisOpts } = require('../../redis/client');
 
 // ── Order Execution Queue ──
 // All trade orders flow through this queue for async, idempotent processing.
 const orderQueue = new Queue('order-execution', {
-  connection: redisClient,
+  connection: redisOpts,
   defaultJobOptions: {
     attempts: 3,
     backoff: { type: 'exponential', delay: 1000 },

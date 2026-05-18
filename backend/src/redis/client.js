@@ -4,21 +4,50 @@ const Redis = require('ioredis');
 // In production, configure REDIS_URL in Render or .env
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
+console.log(`🔗 Redis connecting to: ${REDIS_URL.replace(/\/\/.*@/, '//***@')}`); // Log URL (masked)
+
+/**
+ * Parse REDIS_URL into a connection options object.
+ * BullMQ needs raw options (not an ioredis client instance) so it can
+ * create its own internal duplicate connections with maxRetriesPerRequest: null.
+ */
+function parseRedisUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const opts = {
+      host: parsed.hostname,
+      port: parseInt(parsed.port) || 6379,
+      maxRetriesPerRequest: null, // Required by BullMQ
+      retryStrategy: (times) => {
+        if (times > 50) return null; // Stop retrying after 50 attempts
+        return Math.min(times * 200, 5000);
+      },
+    };
+    if (parsed.password) opts.password = decodeURIComponent(parsed.password);
+    if (parsed.username && parsed.username !== 'default') opts.username = parsed.username;
+    if (parsed.protocol === 'rediss:') opts.tls = {};
+    return opts;
+  } catch (err) {
+    console.error('Failed to parse REDIS_URL:', err.message);
+    return { host: 'localhost', port: 6379, maxRetriesPerRequest: null };
+  }
+}
+
+const redisOpts = parseRedisUrl(REDIS_URL);
+
 // Primary client for caching, hashes, rate limiting
-const redisClient = new Redis(REDIS_URL, {
-  maxRetriesPerRequest: null, // Required by BullMQ later
-});
+const redisClient = new Redis(redisOpts);
 
 // Pub/Sub requires dedicated connections in ioredis
-const pubClient = new Redis(REDIS_URL);
-const subClient = pubClient.duplicate();
+const pubClient = new Redis(redisOpts);
+const subClient = new Redis(redisOpts);
 
-// Basic error logging
+// Basic error logging (non-crashing)
 redisClient.on('error', (err) => {
   if (err.code === 'ECONNREFUSED') {
-    console.error(`❌ Redis connection refused at ${REDIS_URL}. Make sure Redis is running!`);
+    console.error(`❌ Redis connection refused. Make sure REDIS_URL is set correctly!`);
   } else {
-    console.error('Redis Client Error:', err);
+    console.error('Redis Client Error:', err.message);
   }
 });
 
@@ -26,6 +55,7 @@ redisClient.on('connect', () => console.log('✅ Connected to Redis (Primary)'))
 
 module.exports = {
   redisClient,
+  redisOpts, // Export raw options for BullMQ
   pubClient,
   subClient
 };

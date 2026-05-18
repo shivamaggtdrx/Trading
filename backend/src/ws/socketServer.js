@@ -11,8 +11,10 @@ function initSocketServer(httpServer) {
       origin: [
         process.env.FRONTEND_URL || 'http://localhost:5173',
         process.env.ADMIN_URL || 'http://localhost:5174',
-        'http://localhost:3000'
-      ],
+        'http://localhost:3000',
+        'https://stockslab.onrender.com',
+        'https://stockslab-admin.onrender.com',
+      ].filter(Boolean),
       credentials: true
     },
     pingInterval: 25000,
@@ -20,9 +22,12 @@ function initSocketServer(httpServer) {
   });
 
   // Attach Redis adapter for horizontal scaling across multiple instances
-  io.adapter(createAdapter(pubClient, subClient));
-
-  console.log('✅ Socket.IO Server initialized with Redis Adapter');
+  try {
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log('✅ Socket.IO Server initialized with Redis Adapter');
+  } catch (err) {
+    console.warn('⚠️ Redis adapter failed — Socket.IO running in single-instance mode:', err.message);
+  }
 
   // ── MARKET NAMESPACE ──
   // Dedicated to public, stateless price ticks (no authentication needed here)
