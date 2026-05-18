@@ -238,6 +238,7 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
           ) : (
             watchlistInstruments.map((inst) => {
               const isUp = (inst.change || 0) >= 0;
+              const isFreshTick = Date.now() - (inst.lastTickTime || 0) < 350;
               return (
                 <button
                   key={inst.symbol}
@@ -253,8 +254,15 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
                     </div>
                     <p className="text-[10px] text-text-muted/60 truncate leading-tight">{inst.name}</p>
                   </div>
-                  <span className={cn('w-[90px] text-right text-[12px] font-bold tabular-nums flex-shrink-0', isUp ? 'text-text-primary' : 'text-red-500')}
-                    style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  <span
+                    className={cn(
+                      'w-[90px] text-right text-[12px] font-bold tabular-nums flex-shrink-0 transition-all duration-300 ease-out',
+                      isFreshTick && inst.tickDirection === 'up' && 'text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded scale-[1.03] duration-75',
+                      isFreshTick && inst.tickDirection === 'down' && 'text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded scale-[1.03] duration-75',
+                      (!isFreshTick || inst.tickDirection === 'none') && (isUp ? 'text-text-primary' : 'text-red-500')
+                    )}
+                    style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                  >
                     {fmtPrice(inst.price)}
                   </span>
                   <span className={cn('w-[80px] text-right text-[11px] font-bold tabular-nums flex-shrink-0', isUp ? 'text-emerald-500' : 'text-red-500')}>
@@ -390,48 +398,58 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
             <p className="text-[10px] text-text-muted/50 mt-1">Type a script name in the search bar above to add it</p>
           </div>
         ) : (
-          watchlistInstruments.map((inst) => (
-            <button
-              key={inst.symbol}
-              onClick={() => handleClick(inst)}
-              className={cn(
-                'w-full flex items-center justify-between px-3 py-[7px] text-left transition-colors group',
-                'hover:bg-surface-2/80 border-b border-border/10'
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1">
-                  <span className="text-[12px] font-bold text-text-primary truncate">{inst.symbol}</span>
-                  {inst.segment && (
-                    <span className="text-[9px] font-medium text-text-muted/50 uppercase">
-                      {inst.segment === 'nse_equity' ? '' : inst.segment === 'forex' ? '.fx' : ''}
-                    </span>
-                  )}
+          watchlistInstruments.map((inst) => {
+            const isFreshTick = Date.now() - (inst.lastTickTime || 0) < 350;
+            return (
+              <button
+                key={inst.symbol}
+                onClick={() => handleClick(inst)}
+                className={cn(
+                  'w-full flex items-center justify-between px-3 py-[7px] text-left transition-colors group',
+                  'hover:bg-surface-2/80 border-b border-border/10'
+                )}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[12px] font-bold text-text-primary truncate">{inst.symbol}</span>
+                    {inst.segment && (
+                      <span className="text-[9px] font-medium text-text-muted/50 uppercase">
+                        {inst.segment === 'nse_equity' ? '' : inst.segment === 'forex' ? '.fx' : ''}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-text-muted/60 truncate leading-tight">{inst.name}</p>
                 </div>
-                <p className="text-[10px] text-text-muted/60 truncate leading-tight">{inst.name}</p>
-              </div>
-              <div className="text-right ml-2 flex-shrink-0 flex items-center gap-1.5">
-                <div>
-                  <p className="text-[12px] font-bold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                    {fmtPrice(inst.price)}
-                  </p>
-                  <p className={cn(
-                    'text-[10px] font-bold tabular-nums',
-                    (inst.change || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'
-                  )}>
-                    {(inst.change || 0) >= 0 ? '+' : ''}{(inst.change || 0).toFixed(2)}
-                  </p>
+                <div className="text-right ml-2 flex-shrink-0 flex items-center gap-1.5">
+                  <div>
+                    <p
+                      className={cn(
+                        "text-[12px] font-bold tabular-nums text-text-primary transition-all duration-300 ease-out",
+                        isFreshTick && inst.tickDirection === 'up' && 'text-emerald-400 bg-emerald-500/20 px-1 py-0.5 rounded scale-[1.03] duration-75',
+                        isFreshTick && inst.tickDirection === 'down' && 'text-red-400 bg-red-500/20 px-1 py-0.5 rounded scale-[1.03] duration-75'
+                      )}
+                      style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                    >
+                      {fmtPrice(inst.price)}
+                    </p>
+                    <p className={cn(
+                      'text-[10px] font-bold tabular-nums',
+                      (inst.change || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'
+                    )}>
+                      {(inst.change || 0) >= 0 ? '+' : ''}{(inst.change || 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => removeFromWatchlist(inst.symbol, e)}
+                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 text-text-muted/30 transition-all"
+                    title="Remove"
+                  >
+                    <X size={10} />
+                  </button>
                 </div>
-                <button
-                  onClick={(e) => removeFromWatchlist(inst.symbol, e)}
-                  className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 text-text-muted/30 transition-all"
-                  title="Remove"
-                >
-                  <X size={10} />
-                </button>
-              </div>
-            </button>
-          ))
+              </button>
+            );
+          })
         )}
       </div>
 

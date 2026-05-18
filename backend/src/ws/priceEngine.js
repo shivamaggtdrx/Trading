@@ -14,25 +14,26 @@ function handleTick(rawTick) {
   const tick = normalizeTick(rawTick);
   if (!tick) return; // Corrupted tick rejected
 
-  // 1. Process for server-side in-memory candles (multi-timeframe)
-  candleAggregator.processTickForCandles(tick);
-
-  // 2. Process for persistent 1m OHLC (Redis + Postgres)
-  processOHLC(tick);
-
-  // 3. Evaluate simulated execution (SL/TGT)
-  executionEngine.evaluateTick(tick);
-
-  // 4. Cache tick in Redis for PNL calculator
-  cacheTickPrice(tick.symbol, tick.ltp, tick.bid, tick.ask);
-
-  // 5. Broadcast to Socket.IO clients in the specific symbol room
+  // 1. Broadcast to Socket.IO clients INSTANTLY (sub-millisecond direct broadcast path)
   try {
     const io = getIO();
     io.of('/market').to(`feed:${tick.symbol}`).emit('MARKET:TICK', tick);
   } catch (err) {
     // If Socket.io isn't initialized yet, ignore
   }
+
+  // 2. Process other heavy pipeline steps asynchronously using setImmediate
+  // to avoid blocking the event loop and ensure zero latency for price delivery.
+  setImmediate(() => {
+    try {
+      candleAggregator.processTickForCandles(tick);
+      processOHLC(tick);
+      executionEngine.evaluateTick(tick);
+      cacheTickPrice(tick.symbol, tick.ltp, tick.bid, tick.ask);
+    } catch (err) {
+      console.error('❌ Async pipeline error:', err.message);
+    }
+  });
 }
 
 // Poll for room updates every 5 seconds since users can join/leave dynamically.
@@ -74,13 +75,13 @@ async function startMockFeed() {
       prices[i.symbol] = parseFloat(i.last_price) || 100;
     });
 
-    console.log(`✅ Local Mock Simulator started: simulating ${instruments.length} active instruments.`);
+    console.log(`✅ Local Mock Simulator started: simulating ${instruments.length} active instruments at ultra-smooth 100ms intervals.`);
 
     mockInterval = setInterval(() => {
       instruments.forEach(inst => {
         const currentPrice = prices[inst.symbol];
-        // Random walk price fluctuation (-0.15% to +0.15%)
-        const changePct = (Math.random() - 0.5) * 0.003;
+        // Micro-price fluctuations for ultra-realistic rendering (-0.02% to +0.02% per 100ms)
+        const changePct = (Math.random() - 0.5) * 0.0004;
         const changeAmount = currentPrice * changePct;
         const newPrice = Math.max(0.1, +(currentPrice + changeAmount).toFixed(2));
         prices[inst.symbol] = newPrice;
@@ -104,7 +105,7 @@ async function startMockFeed() {
 
         handleTick(tick);
       });
-    }, 1000);
+    }, 100); // 100ms update rate for continuousZerodha-like ticks
   } catch (err) {
     console.error('❌ Failed to start local mock simulator:', err.message);
   }

@@ -190,7 +190,7 @@ function connectWebSocket(sessionData) {
       wsClient.fetchData({
         correlationID: "tradex_reconnect_sub",
         action: 1, // subscribe
-        mode: 3, // Snap Quote
+        mode: 2, // 2 for Quote Mode (fast, includes LTP and Best Bid/Ask)
         exchangeType: 1, // NSE
         tokens: tokens
       });
@@ -365,7 +365,7 @@ function subscribeTokens(tokenObjects) {
     wsClient.fetchData({
       correlationID: "tradex_sub",
       action: 1, // 1 for subscribe
-      mode: 3, // 3 for Full Snap Quote
+      mode: 2, // 2 for Quote Mode (fast, includes LTP and Best Bid/Ask)
       exchangeType: 1, // 1 for NSE
       tokens: tokensToSub
     });
@@ -395,7 +395,7 @@ function unsubscribeTokens(tokenObjects) {
     wsClient.fetchData({
       correlationID: "tradex_unsub",
       action: 0, // 0 for unsubscribe
-      mode: 3,
+      mode: 2,
       exchangeType: 1,
       tokens: tokensToUnsub
     });

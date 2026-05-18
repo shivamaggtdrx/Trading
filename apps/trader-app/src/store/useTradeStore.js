@@ -414,62 +414,100 @@ export const useTradeStore = create((set, get) => ({
   // ── Live Price Updates ──
   debugStats: null,
   startPriceFeed: () => {
-    connectPriceFeed((updates) => {
-      set((state) => {
-        const newInstruments = [...state.instruments];
-        for (const update of updates) {
-          const idx = newInstruments.findIndex(i => i.symbol === update.symbol);
-          if (idx !== -1) {
-            newInstruments[idx] = {
-              ...newInstruments[idx],
-              // Handle both legacy format and AngelOne/Yahoo format
-              last_price: update.ltp || update.price,
-              price: update.ltp || update.price,
-              change_amount: update.change || 0,
-              change: update.change || 0,
-              change_percent: update.change_percent || 0,
-              changePercent: update.change_percent || 0,
-              day_high: update.high || newInstruments[idx].high || 0,
-              high: update.high || newInstruments[idx].high || 0,
-              day_low: update.low || newInstruments[idx].low || 0,
-              low: update.low || newInstruments[idx].low || 0,
-              day_open: update.open || newInstruments[idx].open || 0,
-              open: update.open || newInstruments[idx].open || 0,
-              prev_close: update.prev_close || newInstruments[idx].prevClose || 0,
-              prevClose: update.prev_close || newInstruments[idx].prevClose || 0,
-              volume: update.volume || newInstruments[idx].volume || 0,
-              bid_price: update.bid,
-              ask_price: update.ask,
-              spread: update.spread,
-            };
-          }
-        }
+    let tickBuffer = [];
+    let frameId = null;
 
-        // Also update open positions with live prices
-        const newPositions = state.positions.map(pos => {
-          const priceUpdate = updates.find(u => u.symbol === pos.symbol);
-          if (priceUpdate) {
-            const currentPrice = priceUpdate.price;
-            const exitPrice = pos.type === 'BUY' ? priceUpdate.bid : priceUpdate.ask;
-            const evalPrice = exitPrice > 0 ? exitPrice : currentPrice; // Fallback if bid/ask is 0
-            
-            const unrealizedPnl = pos.type === 'BUY'
-              ? (evalPrice - pos.entryPrice) * pos.quantity
-              : (pos.entryPrice - evalPrice) * pos.quantity;
+    const processBatch = () => {
+      if (tickBuffer.length > 0) {
+        const batch = [...tickBuffer];
+        tickBuffer = [];
+
+        set((state) => {
+          const newInstruments = [...state.instruments];
+          const updatedSymbols = new Set(batch.map(b => b.symbol));
+
+          // To optimize lookup, map the latest ticks by symbol
+          const latestTicks = {};
+          batch.forEach(tick => {
+            latestTicks[tick.symbol] = tick;
+          });
+
+          for (const symbol in latestTicks) {
+            const update = latestTicks[symbol];
+            const idx = newInstruments.findIndex(i => i.symbol === symbol);
+            if (idx !== -1) {
+              const previousPrice = newInstruments[idx].price || newInstruments[idx].last_price || 0;
+              const newPrice = update.ltp || update.price || previousPrice;
               
-            return {
-              ...pos,
-              current_price: evalPrice,
-              currentPrice: evalPrice,
-              pnl: unrealizedPnl,
-              pnlPercent: pos.margin > 0 ? (unrealizedPnl / pos.margin) * 100 : 0,
-            };
-          }
-          return pos;
-        });
+              // Only flash if the price actually changed
+              let tickDirection = newInstruments[idx].tickDirection || 'none';
+              if (newPrice > previousPrice) {
+                tickDirection = 'up';
+              } else if (newPrice < previousPrice) {
+                tickDirection = 'down';
+              }
 
-        return { instruments: newInstruments, positions: newPositions };
-      });
+              newInstruments[idx] = {
+                ...newInstruments[idx],
+                last_price: newPrice,
+                price: newPrice,
+                change_amount: update.change !== undefined ? update.change : newInstruments[idx].change || 0,
+                change: update.change !== undefined ? update.change : newInstruments[idx].change || 0,
+                change_percent: update.change_percent !== undefined ? update.change_percent : newInstruments[idx].changePercent || 0,
+                changePercent: update.change_percent !== undefined ? update.change_percent : newInstruments[idx].changePercent || 0,
+                day_high: update.high || newInstruments[idx].high || 0,
+                high: update.high || newInstruments[idx].high || 0,
+                day_low: update.low || newInstruments[idx].low || 0,
+                low: update.low || newInstruments[idx].low || 0,
+                day_open: update.open || newInstruments[idx].open || 0,
+                open: update.open || newInstruments[idx].open || 0,
+                prev_close: update.prev_close || newInstruments[idx].prevClose || 0,
+                prevClose: update.prev_close || newInstruments[idx].prevClose || 0,
+                volume: update.volume || newInstruments[idx].volume || 0,
+                bid_price: update.bid !== undefined ? update.bid : newInstruments[idx].bid_price || 0,
+                ask_price: update.ask !== undefined ? update.ask : newInstruments[idx].ask_price || 0,
+                spread: update.spread !== undefined ? update.spread : newInstruments[idx].spread || 0,
+                tickDirection: tickDirection,
+                lastTickTime: Date.now()
+              };
+            }
+          }
+
+          // Also update open positions with live prices
+          const newPositions = state.positions.map(pos => {
+            if (updatedSymbols.has(pos.symbol)) {
+              const priceUpdate = latestTicks[pos.symbol];
+              if (priceUpdate) {
+                const currentPrice = priceUpdate.price || priceUpdate.ltp;
+                const exitPrice = pos.type === 'BUY' ? priceUpdate.bid : priceUpdate.ask;
+                const evalPrice = exitPrice > 0 ? exitPrice : currentPrice; // Fallback if bid/ask is 0
+                
+                const unrealizedPnl = pos.type === 'BUY'
+                  ? (evalPrice - pos.entryPrice) * pos.quantity
+                  : (pos.entryPrice - evalPrice) * pos.quantity;
+                  
+                return {
+                  ...pos,
+                  current_price: evalPrice,
+                  currentPrice: evalPrice,
+                  pnl: unrealizedPnl,
+                  pnlPercent: pos.margin > 0 ? (unrealizedPnl / pos.margin) * 100 : 0,
+                };
+              }
+            }
+            return pos;
+          });
+
+          return { instruments: newInstruments, positions: newPositions };
+        });
+      }
+      frameId = requestAnimationFrame(processBatch);
+    };
+
+    frameId = requestAnimationFrame(processBatch);
+
+    connectPriceFeed((updates) => {
+      tickBuffer.push(...updates);
     }, (candleMsg) => {
       // Handle historical candles
       set(state => ({
@@ -484,6 +522,11 @@ export const useTradeStore = create((set, get) => ({
     
     // Subscribe to debug info
     setTimeout(() => debugSubscribeWs(), 1000);
+
+    // Return disconnect cleanup helper
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+    };
   },
   
   updateSubscriptions: () => {
