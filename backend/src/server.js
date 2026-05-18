@@ -71,9 +71,28 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
+const { getBrokerAvailability } = require('./ws/angelOneFeed');
+
 // ── Health Check (minimal for cron-job.org) ──
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
+});
+
+// ── Ready Check (degraded state detection) ──
+app.get('/ready', (req, res) => {
+  const hasAngelCreds = process.env.ANGEL_ONE_CLIENT_CODE && process.env.ANGEL_ONE_PASSWORD && process.env.ANGEL_ONE_TOTP_SECRET;
+  
+  if (hasAngelCreds) {
+    const isAvailable = getBrokerAvailability();
+    if (isAvailable) {
+      res.status(200).json({ status: 'ready', broker: 'available' });
+    } else {
+      res.status(503).json({ status: 'degraded', broker: 'unavailable', error: 'Angel One Broker connection is offline or authenticating' });
+    }
+  } else {
+    // If no credentials are configured, we run in Yahoo Finance polling mode, which is always available
+    res.status(200).json({ status: 'ready', broker: 'local_mock' });
+  }
 });
 
 // ── API Routes ──

@@ -1,6 +1,7 @@
 const { SmartAPI, WebSocketV2 } = require('smartapi-javascript');
 const fs = require('fs');
 const path = require('path');
+const { feedLogger } = require('../core/monitoring/logger');
 
 // Angel One Credentials from environment or config
 const API_KEY = process.env.ANGEL_ONE_API_KEY || 'ueftLmZQ';
@@ -17,6 +18,17 @@ let activeSubscriptions = new Set(); // store tokens we are subscribed to
 let reconnectTimer = null;
 let pingInterval = null;
 
+// Degraded mode / self-healing states
+let isBrokerAvailable = false;
+let isLoggingIn = false;
+let consecutiveFailures = 0;
+let cooldownUntil = 0;
+
+// Watchdog & scheduling timers
+let lastTickReceivedAt = Date.now();
+let watchdogInterval = null;
+let tokenRefreshTimer = null;
+
 // Debug & metrics state
 let wsConnected = false;
 let packetCount = 0;
@@ -31,22 +43,73 @@ if (!fs.existsSync(logsDir)) {
 const replayStream = fs.createWriteStream(path.join(logsDir, `market_replay_${new Date().toISOString().slice(0,10)}.jsonl`), { flags: 'a' });
 
 /**
+ * Get the current availability status of the broker.
+ * Used for degraded mode and /ready status endpoint.
+ */
+function getBrokerAvailability() {
+  return isBrokerAvailable;
+}
+
+/**
  * Initialize Angel One WebSocket
  */
 async function initAngelOneFeed() {
   if (!CLIENT_CODE || !PASSWORD || !TOTP_SECRET) {
-    console.error('❌ CRITICAL: Missing Angel One Client Code, Password, or TOTP Secret.');
-    console.error('❌ Production Build Policy: No mock feeds are allowed. Real feed cannot start.');
+    feedLogger.error('❌ CRITICAL: Missing Angel One Client Code, Password, or TOTP Secret.');
+    feedLogger.error('❌ Production Build Policy: No mock feeds are allowed. Real feed cannot start.');
     return;
   }
 
+  // Check login cooldown window
+  if (Date.now() < cooldownUntil) {
+    const remainingSec = Math.round((cooldownUntil - Date.now()) / 1000);
+    feedLogger.warn(`⏳ Angel One Login is in cooldown. Skipping login attempt. Remaining: ${remainingSec}s`, {
+      consecutiveFailures,
+      cooldownUntil: new Date(cooldownUntil).toISOString()
+    });
+    return;
+  }
+
+  if (isLoggingIn) {
+    feedLogger.warn('⏳ Angel One login attempt already in progress. Skipping duplicate request.');
+    return;
+  }
+
+  isLoggingIn = true;
+
   try {
+    const serverTime = new Date().toISOString();
+    const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    feedLogger.info(`📋 Running Angel One Auth Diagnostics:`, {
+      serverTime,
+      systemTimeZone,
+      clientCode: CLIENT_CODE,
+      passwordLength: PASSWORD ? PASSWORD.length : 0,
+      totpSecretLength: TOTP_SECRET ? TOTP_SECRET.trim().length : 0,
+      consecutiveFailures,
+    });
+
     const { TOTP } = require('totp-generator');
-    const totp = TOTP.generate(TOTP_SECRET).otp;
+    const totpResult = await TOTP.generate(TOTP_SECRET.trim());
+    const totp = totpResult.otp;
+    const expiresSec = Math.round((totpResult.expires - Date.now()) / 1000);
+    
+    // Explicit TOTP pre-login validation
+    if (!totp || !/^\d{6}$/.test(totp)) {
+      throw new Error(`Generated TOTP is invalid (must be exactly 6 digits, got: "${totp || ''}")`);
+    }
+
+    feedLogger.info(`📡 Fresh TOTP generated successfully: ${totp} (Expires in: ${expiresSec}s)`);
+
     const session = await smartApi.generateSession(CLIENT_CODE, PASSWORD, totp);
     
     if (session && session.status && session.data && session.data.jwtToken && session.data.feedToken) {
-      console.log('✅ Angel One SmartAPI Login Successful');
+      feedLogger.info('✅ Angel One SmartAPI Login Successful');
+      
+      // Reset cooldown and failure counters on success
+      consecutiveFailures = 0;
+      cooldownUntil = 0;
+
       connectWebSocket(session.data);
     } else {
       let errMsg = 'Invalid response structure';
@@ -56,15 +119,46 @@ async function initAngelOneFeed() {
         else if (!session.data.jwtToken) errMsg = 'Missing jwtToken in session data';
         else if (!session.data.feedToken) errMsg = 'Missing feedToken in session data';
       }
-      console.error('❌ Angel One Login Failed:', errMsg);
-      scheduleReconnect();
+      
+      handleLoginFailure(errMsg, session);
     }
   } catch (error) {
-    console.error('❌ Angel One Auth Error:', error.message || error);
-    scheduleReconnect();
+    handleLoginFailure(error.message || error);
+  } finally {
+    isLoggingIn = false;
   }
 }
 
+/**
+ * Handle a failed login attempt, checking for cooldown triggers.
+ */
+function handleLoginFailure(reason, session = null) {
+  isBrokerAvailable = false;
+  consecutiveFailures++;
+  
+  feedLogger.error('❌ Angel One Login Failed:', {
+    reason,
+    consecutiveFailures,
+    session: session ? {
+      status: session.status,
+      message: session.message,
+      dataExists: !!session.data,
+      hasJwtToken: !!session.data?.jwtToken,
+      hasFeedToken: !!session.data?.feedToken
+    } : null
+  });
+
+  if (consecutiveFailures >= 5) {
+    cooldownUntil = Date.now() + 5 * 60 * 1000; // 5 minutes pause
+    feedLogger.error(`🚨 5 consecutive Angel One Login failures reached! Pausing connection attempts for 5 minutes (until ${new Date(cooldownUntil).toISOString()}) to avoid broker rate limiting/blocks.`);
+  }
+
+  scheduleReconnect();
+}
+
+/**
+ * Connect the WebSocket client
+ */
 function connectWebSocket(sessionData) {
   if (wsClient) {
     try { wsClient.close(); } catch (e) {}
@@ -78,30 +172,34 @@ function connectWebSocket(sessionData) {
   });
 
   wsClient.connect().then(() => {
-    console.log('📡 Angel One WebSocket Connected');
+    feedLogger.info('📡 Angel One WebSocket Connected successfully');
     wsConnected = true;
+    isBrokerAvailable = true;
     reconnectCount = 0;
+    lastTickReceivedAt = Date.now();
     
     // Auto resubscribe after reconnect
     if (activeSubscriptions.size > 0) {
       const tokens = Array.from(activeSubscriptions);
-      // Group by exchange if necessary, assuming NSE (1) for now
       subscribeTokens([{ exchangeType: 1, tokens }]);
     }
     
     startPing();
+    startWatchdog();
+    scheduleTokenRefresh();
   });
 
   wsClient.on('tick', (data) => {
     packetCount++;
-    const symbol = data.trading_symbol || String(data.token);
+    lastTickReceivedAt = Date.now(); // Feed is alive!
     
-    // Duplicate tick handling (ignore if same timestamp and same price to avoid noise)
+    const symbol = data.trading_symbol || String(data.token);
     const tickTime = data.exchange_timestamp || Date.now();
     const ltp = (data.last_traded_price || 0) / 100;
     
+    // Duplicate tick handling (ignore if same timestamp and same price to avoid noise)
     if (lastTickTime[symbol] && lastTickTime[symbol].time === tickTime && lastTickTime[symbol].ltp === ltp) {
-      return; // duplicate tick
+      return; 
     }
 
     // Calculate latency
@@ -127,36 +225,98 @@ function connectWebSocket(sessionData) {
   });
 
   wsClient.on('close', () => {
-    console.warn('⚠️ Angel WS Closed');
-    wsConnected = false;
-    stopPing();
+    feedLogger.warn('⚠️ Angel WebSocket connection closed.');
+    handleDisconnect();
     scheduleReconnect();
   });
 
   wsClient.on('error', (err) => {
-    console.error('❌ Angel WS Error:', err);
-    wsConnected = false;
-    stopPing();
-    // Do not schedule reconnect here if it also emits 'close', wait for 'close'.
+    feedLogger.error('❌ Angel WebSocket error occurred:', { error: err.message || err });
+    handleDisconnect();
+    // Reconnect is triggered via the 'close' event from the client
   });
 }
 
+/**
+ * Handle cleanup when disconnected
+ */
+function handleDisconnect() {
+  wsConnected = false;
+  isBrokerAvailable = false;
+  stopPing();
+  stopWatchdog();
+  stopTokenRefresh();
+}
+
+/**
+ * WebSocket Watchdog - detects stale connections ("half-open" states)
+ */
+function startWatchdog() {
+  if (watchdogInterval) clearInterval(watchdogInterval);
+  
+  watchdogInterval = setInterval(() => {
+    if (wsClient && wsConnected && activeSubscriptions.size > 0) {
+      const secondsSinceLastTick = (Date.now() - lastTickReceivedAt) / 1000;
+      
+      // If no ticks are received for 90 seconds, consider the stream dead
+      if (secondsSinceLastTick > 90) {
+        feedLogger.warn(`⚠️ WebSocket Watchdog: No market ticks received for ${Math.round(secondsSinceLastTick)}s (stale feed detected). Reconnecting...`, {
+          activeSubscriptions: activeSubscriptions.size
+        });
+        
+        lastTickReceivedAt = Date.now(); // reset timer to prevent rapid trigger loop
+        handleDisconnect();
+        
+        try { wsClient.close(); } catch (e) {}
+        scheduleReconnect();
+      }
+    }
+  }, 30000); // Check every 30 seconds
+}
+
+function stopWatchdog() {
+  if (watchdogInterval) clearInterval(watchdogInterval);
+}
+
+/**
+ * Token Refresh Scheduler - Proactively rotates token every 6 hours
+ */
+function scheduleTokenRefresh() {
+  if (tokenRefreshTimer) clearTimeout(tokenRefreshTimer);
+  
+  tokenRefreshTimer = setTimeout(async () => {
+    feedLogger.info('🔄 Token Refresh Scheduler: Proactively rotating session and refreshing token...');
+    isBrokerAvailable = false;
+    initAngelOneFeed();
+  }, 6 * 60 * 60 * 1000); // 6 hours
+}
+
+function stopTokenRefresh() {
+  if (tokenRefreshTimer) clearTimeout(tokenRefreshTimer);
+}
+
+/**
+ * Reconnection scheduler
+ */
 function scheduleReconnect() {
   if (reconnectTimer) clearTimeout(reconnectTimer);
+  
+  // Backoff or delay reconnect attempt by 5 seconds
   reconnectTimer = setTimeout(() => {
-    console.log('🔄 Attempting to reconnect to Angel One...');
-    reconnectCount++;
-    initAngelOneFeed();
+    if (Date.now() >= cooldownUntil) {
+      feedLogger.info('🔄 Attempting to reconnect to Angel One...', { reconnectCount: reconnectCount + 1 });
+      reconnectCount++;
+      initAngelOneFeed();
+    }
   }, 5000);
 }
 
 function startPing() {
   if (pingInterval) clearInterval(pingInterval);
-  // Send heartbeat ping every 30 seconds
+  // Optional client-side verification ping every 30 seconds
   pingInterval = setInterval(() => {
     if (wsClient && wsConnected) {
-      // Angel API WSV2 might handle internal pings, but sending a safe generic request if needed.
-      // Often just doing nothing is fine if the library handles it, but we can verify connection.
+      // Library V2 handles keep-alives internally, this is just to hook into the loop
     }
   }, 30000);
 }
@@ -172,7 +332,6 @@ function stopPing() {
 function subscribeTokens(tokenObjects) {
   if (!tokenObjects || tokenObjects.length === 0) return;
   
-  // Track subscriptions
   tokenObjects.forEach(obj => {
     obj.tokens.forEach(t => activeSubscriptions.add(t));
   });
@@ -235,7 +394,7 @@ function getLatestTick(symbol) {
 
 setInterval(() => {
   if (wsConnected) {
-    // We reset packetCount to 0 in getDebugStats, so if not polled, reset here to avoid overflow
+    // packetCount tracker reset safety
   }
 }, 1000);
 
@@ -245,5 +404,6 @@ module.exports = {
   unsubscribeTokens,
   onTick,
   getDebugStats,
-  getLatestTick
+  getLatestTick,
+  getBrokerAvailability
 };

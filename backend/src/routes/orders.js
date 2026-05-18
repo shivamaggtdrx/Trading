@@ -24,6 +24,12 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'symbol, side, order_type, and quantity are required' });
     }
 
+    // Check if the broker is active and healthy (when Angel credentials are configured)
+    const hasAngelCreds = process.env.ANGEL_ONE_CLIENT_CODE && process.env.ANGEL_ONE_PASSWORD && process.env.ANGEL_ONE_TOTP_SECRET;
+    if (hasAngelCreds && !angelOneFeed.getBrokerAvailability()) {
+      return res.status(503).json({ error: 'Order execution is temporarily degraded. Broker connection is currently offline. Please try again in a few minutes.' });
+    }
+
     // Check if trading is enabled for user
     if (!profile.trading_enabled) {
       return res.status(403).json({ error: 'Trading is disabled for your account. Contact support.' });
