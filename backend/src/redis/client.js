@@ -19,7 +19,9 @@ function parseRedisUrl(url) {
       port: parseInt(parsed.port) || 6379,
       maxRetriesPerRequest: null, // Required by BullMQ
       retryStrategy: (times) => {
-        if (times > 50) return null; // Stop retrying after 50 attempts
+        if (times % 10 === 0) {
+          console.warn(`🔄 Redis reconnecting: attempt #${times}`);
+        }
         return Math.min(times * 200, 5000);
       },
     };
@@ -51,7 +53,17 @@ redisClient.on('error', (err) => {
   }
 });
 
+pubClient.on('error', (err) => {
+  console.error('Redis Pub Client Error:', err.message);
+});
+
+subClient.on('error', (err) => {
+  console.error('Redis Sub Client Error:', err.message);
+});
+
 redisClient.on('connect', () => console.log('✅ Connected to Redis (Primary)'));
+pubClient.on('connect', () => console.log('✅ Connected to Redis (Pub)'));
+subClient.on('connect', () => console.log('✅ Connected to Redis (Sub)'));
 
 module.exports = {
   redisClient,
@@ -59,3 +71,4 @@ module.exports = {
   pubClient,
   subClient
 };
+

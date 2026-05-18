@@ -29,6 +29,7 @@ const { initSocketServer } = require('./ws/socketServer');
 const { initPriceEngine } = require('./ws/priceEngine');
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (Render, Cloudflare, etc.) for rate limiting
 const server = createServer(app);
 const PORT = process.env.PORT || 4000;
 

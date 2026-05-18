@@ -13,6 +13,10 @@ const orderQueue = new Queue('order-execution', {
   },
 });
 
+orderQueue.on('error', (err) => {
+  console.error('Order Queue Error:', err.message);
+});
+
 /**
  * Add an order to the execution queue.
  * @param {string} jobName - 'execute_market_order' | 'execute_limit_order'

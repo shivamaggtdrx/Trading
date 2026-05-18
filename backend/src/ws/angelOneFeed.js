@@ -45,15 +45,22 @@ async function initAngelOneFeed() {
     const totp = TOTP.generate(TOTP_SECRET).otp;
     const session = await smartApi.generateSession(CLIENT_CODE, PASSWORD, totp);
     
-    if (session.status) {
+    if (session && session.status && session.data && session.data.jwtToken && session.data.feedToken) {
       console.log('✅ Angel One SmartAPI Login Successful');
       connectWebSocket(session.data);
     } else {
-      console.error('❌ Angel One Login Failed:', session.message);
+      let errMsg = 'Invalid response structure';
+      if (session) {
+        if (!session.status) errMsg = session.message || 'Login status is false';
+        else if (!session.data) errMsg = 'Missing session data object';
+        else if (!session.data.jwtToken) errMsg = 'Missing jwtToken in session data';
+        else if (!session.data.feedToken) errMsg = 'Missing feedToken in session data';
+      }
+      console.error('❌ Angel One Login Failed:', errMsg);
       scheduleReconnect();
     }
   } catch (error) {
-    console.error('❌ Angel One Auth Error:', error.message);
+    console.error('❌ Angel One Auth Error:', error.message || error);
     scheduleReconnect();
   }
 }
