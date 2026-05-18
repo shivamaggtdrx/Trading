@@ -197,7 +197,7 @@ export const useTradeStore = create((set, get) => ({
     }
 
     if (state.showWatchlistOnly) {
-      const favs = JSON.parse(localStorage.getItem('tradex_favorites') || '[]');
+      const favs = JSON.parse(localStorage.getItem('tradex_watchlist') || '[]');
       instruments = instruments.filter(i => favs.includes(i.symbol));
     }
 
@@ -212,20 +212,20 @@ export const useTradeStore = create((set, get) => ({
   setShowWatchlistOnly: (show) => set({ showWatchlistOnly: show }),
 
   toggleFavorite: (symbol) => {
-    const favs = JSON.parse(localStorage.getItem('tradex_favorites') || '[]');
+    const favs = JSON.parse(localStorage.getItem('tradex_watchlist') || '[]');
     const updated = favs.includes(symbol) ? favs.filter(s => s !== symbol) : [...favs, symbol];
-    localStorage.setItem('tradex_favorites', JSON.stringify(updated));
+    localStorage.setItem('tradex_watchlist', JSON.stringify(updated));
     set({}); // trigger re-render
   },
 
   isFavorite: (symbol) => {
-    const favs = JSON.parse(localStorage.getItem('tradex_favorites') || '[]');
+    const favs = JSON.parse(localStorage.getItem('tradex_watchlist') || '[]');
     return favs.includes(symbol);
   },
 
   getAllFavorites: () => {
     const state = get();
-    const favs = JSON.parse(localStorage.getItem('tradex_favorites') || '[]');
+    const favs = JSON.parse(localStorage.getItem('tradex_watchlist') || '[]');
     return state.instruments.filter(i => favs.includes(i.symbol));
   },
 
@@ -491,7 +491,7 @@ export const useTradeStore = create((set, get) => ({
     const symbolsToSub = new Set();
     
     // Watchlist
-    const favs = JSON.parse(localStorage.getItem('tradex_favorites') || '[]');
+    const favs = JSON.parse(localStorage.getItem('tradex_watchlist') || '[]');
     favs.forEach(s => symbolsToSub.add(s));
     
     // Chart

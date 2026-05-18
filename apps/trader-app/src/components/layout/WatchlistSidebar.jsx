@@ -20,7 +20,7 @@ function saveWatchlistSymbols(symbols) {
 
 export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
   const {
-    instruments, setSelectedInstrument,
+    instruments, setSelectedInstrument, updateSubscriptions,
   } = useTradeStore();
   const navigate = useNavigate();
 
@@ -30,6 +30,13 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
   const [sidebarSearch, setSidebarSearch] = useState('');
   const [watchlistSymbols, setWatchlistSymbolsState] = useState(getWatchlistSymbols);
   const renameInputRef = useRef(null);
+
+  // Sync watchlist symbols with the store WebSocket price feed dynamically
+  useEffect(() => {
+    if (updateSubscriptions) {
+      updateSubscriptions();
+    }
+  }, [watchlistSymbols, updateSubscriptions]);
 
   // ═══ Resizable sidebar width ═══
   const [sidebarWidth, setSidebarWidth] = useState(() => {
