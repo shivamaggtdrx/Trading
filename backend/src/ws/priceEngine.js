@@ -1,5 +1,4 @@
 const angelOneFeed = require('./angelOneFeed');
-const yahooFeed = require('./yahooFeed');
 const candleAggregator = require('./candleAggregator');
 const executionEngine = require('./executionEngine');
 const { getIO } = require('./socketServer');
@@ -68,15 +67,14 @@ function initPriceEngine() {
     setInterval(updateGlobalSubscriptions, 5000);
     console.log('📊 Price source: Angel One SmartAPI (live tick) connected to Socket.IO');
   } else {
-    activeFeed = 'yahoo';
-    yahooFeed.initYahooFeed();
-    yahooFeed.onTick(handleTick);
-    console.log('📊 Price source: Yahoo Finance (5s polling) connected to Socket.IO');
+    console.error('❌ FATAL ERROR: Angel One credentials are missing in your environment!');
+    console.error('To run live price feeds, you MUST configure ANGEL_ONE_CLIENT_CODE, ANGEL_ONE_PASSWORD, and ANGEL_ONE_TOTP_SECRET.');
+    console.warn('⚠️ Server will run, but live pricing will not be active until Angel One is configured.');
   }
 }
 
 function stopPriceSimulation() {
-  if (activeFeed === 'yahoo') yahooFeed.stopYahooFeed();
+  // Angel One handles connections automatically via WebSocket lifecycle
 }
 
 module.exports = { initPriceEngine, stopPriceSimulation };
