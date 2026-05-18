@@ -586,6 +586,7 @@ router.post('/notifications', requireRole('super_admin', 'admin'), async (req, r
   } catch (err) {
     res.status(500).json({ error: 'Failed to send broadcast' });
   }
+});
 // ═══════════════════════════════════════════
 // RISK MANAGEMENT
 // ═══════════════════════════════════════════
