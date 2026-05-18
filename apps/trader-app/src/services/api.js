@@ -223,9 +223,20 @@ export const api = {
 let marketSocket = null;
 let staleCheckTimer = null;
 let lastMessageTime = Date.now();
+const subscribedSymbols = new Set();
 
 export function connectPriceFeed(onPriceUpdate, onCandleUpdate = null, onDebugUpdate = null, symbols = []) {
-  if (marketSocket && marketSocket.connected) return;
+  if (Array.isArray(symbols)) {
+    symbols.forEach(s => subscribedSymbols.add(s));
+  }
+
+  if (marketSocket && marketSocket.connected) {
+    const currentSymbols = Array.from(subscribedSymbols);
+    if (currentSymbols.length > 0) {
+      marketSocket.emit('MARKET:SUBSCRIBE_TICKERS', currentSymbols);
+    }
+    return;
+  }
 
   const API_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:4000';
   
@@ -240,8 +251,10 @@ export function connectPriceFeed(onPriceUpdate, onCandleUpdate = null, onDebugUp
 
   marketSocket.on('connect', () => {
     console.log('📡 Socket.IO Price feed connected');
-    if (symbols.length > 0) {
-      marketSocket.emit('MARKET:SUBSCRIBE_TICKERS', symbols);
+    const currentSymbols = Array.from(subscribedSymbols);
+    if (currentSymbols.length > 0) {
+      console.log('📡 Subscribing to symbols:', currentSymbols);
+      marketSocket.emit('MARKET:SUBSCRIBE_TICKERS', currentSymbols);
     }
   });
 
@@ -285,7 +298,11 @@ export function updatePositionSlTgtWs(positionId, stopLoss, target) {
 }
 
 export function subscribeWsSymbols(symbols) {
+  if (!Array.isArray(symbols)) return;
+  symbols.forEach(s => subscribedSymbols.add(s));
+
   if (marketSocket && marketSocket.connected) {
+    console.log('📡 Dynamically subscribing to symbols:', symbols);
     marketSocket.emit('MARKET:SUBSCRIBE_TICKERS', symbols);
   }
 }
@@ -302,6 +319,7 @@ export function disconnectPriceFeed() {
     marketSocket.disconnect();
     marketSocket = null;
   }
+  subscribedSymbols.clear();
   disconnectUserSocket();
 }
 
