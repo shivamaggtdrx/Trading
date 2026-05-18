@@ -15,37 +15,37 @@ export default function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-surface-2 border-t border-border z-40">
-      <div className="max-w-lg mx-auto flex items-center justify-around px-0.5 pt-1.5 pb-1">
+    <nav className="fixed bottom-0 left-0 right-0 bg-surface-2 border-t border-border z-40 bottom-nav">
+      <div className="max-w-lg mx-auto flex items-center justify-around px-0.5 pt-1.5">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path || 
+          const isActive = location.pathname === item.path ||
             (item.path === '/' && location.pathname === '/markets');
 
           return (
             <NavLink
               key={item.path}
               to={item.path}
-              className="flex flex-col items-center justify-center w-14 py-0.5 select-none"
+              className="flex flex-col items-center justify-center w-14 py-1 select-none touch-active-subtle"
             >
               <Icon
                 size={20}
                 className={cn(
                   'transition-colors duration-200 mb-0.5',
-                  isActive ? 'text-blue-500' : 'text-gray-500'
+                  isActive ? 'text-[#f06428]' : 'text-gray-500'
                 )}
                 strokeWidth={isActive ? 2.5 : 1.8}
               />
               <span
                 className={cn(
                   'text-[10px] font-medium tracking-wide transition-colors duration-200',
-                  isActive ? 'text-blue-500' : 'text-gray-500'
+                  isActive ? 'text-[#f06428]' : 'text-gray-500'
                 )}
               >
                 {item.label}
               </span>
               {isActive && (
-                <div className="w-4 h-0.5 bg-blue-500 rounded-full mt-0.5" />
+                <div className="w-4 h-0.5 bg-[#f06428] rounded-full mt-0.5" />
               )}
             </NavLink>
           );

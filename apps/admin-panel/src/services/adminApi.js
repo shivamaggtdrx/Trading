@@ -37,6 +37,12 @@ export const adminApi = {
   getCorporateActions: () => request('/admin/crm/corporate-actions'),
   getNotificationTemplates: () => request('/admin/crm/notification-templates'),
 
+  // Generic CRM Module endpoints
+  getCrmModule: (module) => request(`/admin/crm/${module}`),
+  createCrmModule: (module, data) => request(`/admin/crm/${module}`, { method: 'POST', body: JSON.stringify(data) }),
+  updateCrmModule: (module, id, data) => request(`/admin/crm/${module}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCrmModule: (module, id) => request(`/admin/crm/${module}/${id}`, { method: 'DELETE' }),
+
   // ── Dashboard ──
   getDashboard: () => request('/admin/dashboard'),
 
@@ -93,11 +99,20 @@ export const adminApi = {
   sendBroadcast: (data) => request('/admin/notifications', { method: 'POST', body: JSON.stringify(data) }),
 
   // ── Surveillance / Alerts ──
-  getAlerts: () => request('/admin/alerts'),
-  resolveAlert: (id) => request(`/admin/alerts/${id}/resolve`, { method: 'POST' }),
+  getAlerts: () => request('/admin/crm/system-alerts').then(res => ({ alerts: res.system_alerts || [] })),
+  resolveAlert: (id) => request(`/admin/crm/system-alerts/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'resolved' }) }),
 
   // ── Risk Management ──
   getRiskManagement: () => request('/admin/risk-management'),
+  toggleSymbol: (symbol, disable) => request(`/admin/risk-management/symbols/${symbol}/toggle`, { method: 'POST', body: JSON.stringify({ disable }) }),
+  toggleKillSwitch: (activate) => request('/admin/risk-management/kill-switch', { method: 'POST', body: JSON.stringify({ activate }) }),
+
+  // ── Exposure Heatmap ──
+  getExposureHeatmap: () => request('/admin/exposure-heatmap'),
+
+  // ── Queue Monitoring ──
+  getQueueStats: () => request('/admin/queue/stats'),
+  retryFailedJob: (jobId) => request(`/admin/queue/retry/${jobId}`, { method: 'POST' }),
 
   // ── Feedback ──
   getFeedback: () => request('/admin/feedback'),

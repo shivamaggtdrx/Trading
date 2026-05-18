@@ -1,7 +1,7 @@
 services:
   # ── Backend Web Service ──
   - type: web
-    name: tradex-backend
+    name: stockslab-backend
     runtime: node
     plan: free
     rootDir: backend
@@ -19,22 +19,36 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        value: https://tradex-app.onrender.com
+        value: https://stockslab-app.onrender.com
       - key: ADMIN_URL
-        value: https://tradex-admin.onrender.com
+        value: https://stockslab-admin.onrender.com
+      - key: REDIS_URL
+        value: "YOUR_REDIS_URL_HERE"
+      - key: SENTRY_DSN
+        value: "YOUR_SENTRY_DSN_HERE"
+      - key: ANGEL_ONE_API_KEY
+        value: "YOUR_ANGEL_ONE_API_KEY_HERE"
+      - key: ANGEL_ONE_API_SECRET
+        value: "YOUR_ANGEL_ONE_API_SECRET_HERE"
+      - key: ANGEL_ONE_CLIENT_CODE
+        value: "YOUR_ANGEL_ONE_CLIENT_CODE_HERE"
+      - key: ANGEL_ONE_PASSWORD
+        value: "YOUR_ANGEL_ONE_PASSWORD_HERE"
+      - key: ANGEL_ONE_TOTP_SECRET
+        value: "YOUR_ANGEL_ONE_TOTP_SECRET_HERE"
 
   # ── Trader App (Static Site) ──
   - type: web
-    name: tradex-app
+    name: stockslab-app
     runtime: static
     rootDir: apps/trader-app
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
-        value: https://tradex-backend.onrender.com/api
+        value: https://stockslab-backend.onrender.com/api
       - key: VITE_WS_URL
-        value: wss://tradex-backend.onrender.com/ws/prices
+        value: wss://stockslab-backend.onrender.com/ws/prices
     routes:
       - type: rewrite
         source: /*
@@ -42,14 +56,14 @@ services:
 
   # ── Admin Panel (Static Site) ──
   - type: web
-    name: tradex-admin
+    name: stockslab-admin
     runtime: static
     rootDir: apps/admin-panel
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
-        value: https://tradex-backend.onrender.com/api
+        value: https://stockslab-backend.onrender.com/api
     routes:
       - type: rewrite
         source: /*
@@ -57,7 +71,7 @@ services:
 
   # ── Landing Page Website (Static Site) ──
   - type: web
-    name: tradex-landing
+    name: stockslab-landing
     runtime: static
     rootDir: apps/landing
     buildCommand: npm install && npm run build

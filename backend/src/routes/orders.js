@@ -103,15 +103,20 @@ router.post('/', async (req, res) => {
 
     executionPrice = Math.round(executionPrice * 10000) / 10000;
 
-    // ── Margin calculation ──
+    // ── Margin calculation & Atomic Block ──
     const orderValue = quantity * executionPrice;
     const marginRequired = orderValue * (instrument.margin_required / 100);
 
-    if (wallet.balance - wallet.used_margin < marginRequired) {
+    const { error: marginErr } = await supabaseAdmin.rpc('block_margin', {
+      p_user_id: userId,
+      p_margin_amount: marginRequired,
+    });
+
+    if (marginErr) {
       return res.status(400).json({
         error: 'Insufficient margin',
         required: marginRequired,
-        available: wallet.balance - wallet.used_margin,
+        details: marginErr.message
       });
     }
 
@@ -234,6 +239,11 @@ router.delete('/:id', async (req, res) => {
       const { data: wallet } = await supabaseAdmin.from('wallets').select('used_margin').eq('user_id', req.user.id).single();
       await supabaseAdmin.from('wallets').update({ used_margin: Math.max(0, wallet.used_margin - order.margin_blocked) }).eq('user_id', req.user.id);
     }
+
+    try {
+      const { syncLimitOrders } = require('../ws/executionEngine');
+      syncLimitOrders();
+    } catch (err) {}
 
     res.json({ message: 'Order cancelled' });
   } catch (err) {

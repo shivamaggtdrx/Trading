@@ -7,6 +7,9 @@ const { supabaseAdmin } = require('../config/supabase');
 // In-memory active positions for fast execution
 let activePositions = [];
 
+// In-memory pending limit orders
+let activeLimitOrders = [];
+
 /**
  * Sync active positions from database into memory
  */
@@ -15,13 +18,32 @@ async function syncPositions() {
     const { data, error } = await supabaseAdmin
       .from('positions')
       .select('*')
-      .eq('status', 'OPEN');
+      .in('status', ['OPEN', 'open']); // Checking both cases safely
       
     if (!error && data) {
       activePositions = data;
     }
   } catch (err) {
     console.error('Error syncing positions:', err);
+  }
+}
+
+/**
+ * Sync pending limit orders from database into memory
+ */
+async function syncLimitOrders() {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('orders')
+      .select('*')
+      .eq('status', 'pending')
+      .eq('order_type', 'limit');
+      
+    if (!error && data) {
+      activeLimitOrders = data;
+    }
+  } catch (err) {
+    console.error('Error syncing limit orders:', err);
   }
 }
 
@@ -58,7 +80,7 @@ async function updatePositionTargets(positionId, stopLoss, target, userId) {
 async function evaluateTick(tick) {
   const { symbol, ltp, bid, ask } = tick;
   
-  // Filter positions for this symbol
+  // 1. Evaluate Positions for SL/TP
   const positionsToEval = activePositions.filter(p => p.symbol === symbol);
   
   for (const pos of positionsToEval) {
@@ -101,49 +123,79 @@ async function evaluateTick(tick) {
       await executeSquareOff(pos, exitPrice, triggerType);
     }
   }
+
+  // 2. Evaluate Limit Orders for execution
+  const limitsToEval = activeLimitOrders.filter(o => o.symbol === symbol);
+  for (const order of limitsToEval) {
+    let matched = false;
+    let execPrice = null;
+
+    const evalPrice = (order.side === 'buy') ? (ask || ltp) : (bid || ltp);
+
+    if (order.side === 'buy' && evalPrice <= order.price) {
+      matched = true;
+      execPrice = order.price; // execute at requested limit price or better
+    } else if (order.side === 'sell' && evalPrice >= order.price) {
+      matched = true;
+      execPrice = order.price;
+    }
+
+    if (matched) {
+      // Optimistically remove from queue to prevent double-execution
+      activeLimitOrders = activeLimitOrders.filter(o => o.id !== order.id);
+      
+      const { executeQueue } = require('../core/queues/queueManager');
+      try {
+        await executeQueue.add('fill_limit_order', {
+          orderId: order.id,
+          executionPrice: execPrice
+        });
+        console.log(`⏱️ Limit order ${order.id} matched at ${execPrice}, queued for execution`);
+      } catch (err) {
+        console.error('Failed to queue limit order execution:', err);
+        // Put back in queue if failed to send to BullMQ
+        activeLimitOrders.push(order);
+      }
+    }
+  }
 }
 
 /**
- * Square off a position (simulated)
+ * Square off a position (Queue to BullMQ worker)
  */
 async function executeSquareOff(position, exitPrice, triggerType) {
   console.log(`⚡ Auto-Squareoff Triggered: ${position.symbol} ${triggerType} at ${exitPrice}`);
-  
-  const pnl = (position.side === 'BUY' || position.side === 'long')
-    ? (exitPrice - position.entry_price) * position.quantity
-    : (position.entry_price - exitPrice) * position.quantity;
     
-  // Optimistically remove from memory
+  // Optimistically remove from memory to prevent duplicate triggers
   activePositions = activePositions.filter(p => p.id !== position.id);
   
   try {
-    await supabaseAdmin
-      .from('positions')
-      .update({
-        status: 'CLOSED',
-        exit_price: exitPrice,
-        close_time: new Date().toISOString(),
-        pnl: pnl,
-        closed_by: triggerType
-      })
-      .eq('id', position.id);
-      
-    // Broadcast position update to user
-    // In a real app, you'd send this to the specific user's socket
+    const { executeQueue } = require('../core/queues/queueManager');
+    await executeQueue.add('execute_sl_tp', {
+      positionId: position.id,
+      exitPrice: exitPrice,
+      triggerType: triggerType
+    });
+    console.log(`⏱️ Position ${position.id} queued for SL/TP squareoff`);
   } catch (err) {
-    console.error('Squareoff failed:', err);
-    // Add back to memory if DB update fails
+    console.error('Squareoff queueing failed:', err);
+    // Add back to memory if queueing fails
     activePositions.push(position);
   }
 }
 
 // Initial sync
 syncPositions();
+syncLimitOrders();
 // Re-sync every 30 seconds to catch any external changes
-setInterval(syncPositions, 30000);
+setInterval(() => {
+  syncPositions();
+  syncLimitOrders();
+}, 30000);
 
 module.exports = {
   evaluateTick,
   updatePositionTargets,
-  syncPositions
+  syncPositions,
+  syncLimitOrders
 };

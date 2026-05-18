@@ -330,16 +330,18 @@ export function disconnectPriceFeed() {
 let userSocket = null;
 let _onOrderFilled = null;
 let _onPnlUpdate = null;
+let _onBroadcast = null;
 
 /**
  * Connect to the /user namespace for private realtime events.
  * Call this after login with the user's ID.
  */
-export function connectUserSocket(userId, { onOrderFilled, onPnlUpdate } = {}) {
+export function connectUserSocket(userId, { onOrderFilled, onPnlUpdate, onBroadcast } = {}) {
   if (userSocket && userSocket.connected) return;
 
   _onOrderFilled = onOrderFilled;
   _onPnlUpdate = onPnlUpdate;
+  _onBroadcast = onBroadcast;
 
   const API_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:4000';
 
@@ -368,6 +370,12 @@ export function connectUserSocket(userId, { onOrderFilled, onPnlUpdate } = {}) {
     if (_onPnlUpdate) _onPnlUpdate(data);
   });
 
+  // ── Admin broadcast / system announcement ──
+  userSocket.on('SYSTEM:BROADCAST', (data) => {
+    console.log('📢 Admin broadcast received:', data.title);
+    if (_onBroadcast) _onBroadcast(data);
+  });
+
   userSocket.on('disconnect', (reason) => {
     console.log('🔐 User channel disconnected:', reason);
   });
@@ -383,6 +391,8 @@ export function disconnectUserSocket() {
     userSocket = null;
   }
   _onOrderFilled = null;
+  _onPnlUpdate = null;
+  _onBroadcast = null;
   _onPnlUpdate = null;
 }
 

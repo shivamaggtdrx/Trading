@@ -17,51 +17,44 @@ router.use(authenticateAdmin);
 // ═══════════════════════════════════════════
 router.get('/dashboard', async (req, res) => {
   try {
-    const { count: totalClients } = await supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true });
-    const { count: activePositions } = await supabaseAdmin.from('positions').select('*', { count: 'exact', head: true }).eq('status', 'open');
-    const { count: pendingDeposits } = await supabaseAdmin.from('deposit_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-    const { count: pendingWithdrawals } = await supabaseAdmin.from('withdrawal_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-
-    // Calculate house P&L (sum of all client losses = house profit)
-    const { data: wallets } = await supabaseAdmin.from('wallets').select('today_pnl');
-    const totalClientPnl = (wallets || []).reduce((s, w) => s + (w.today_pnl || 0), 0);
-    const housePnl = -totalClientPnl; // house is counterparty
-
-    // Generate chart data (last 7 days of broker PNL)
-    // Broker PNL is the negative of sum(net_pnl) from trades for each day
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const { data: recentTrades } = await supabaseAdmin.from('trades')
-      .select('closed_at, net_pnl')
-      .gte('closed_at', sevenDaysAgo.toISOString());
-    
-    // Group by day
+
+    // ── OPTIMIZATION: Run all independent queries in parallel ──
+    const [
+      { count: totalClients },
+      { count: activePositions },
+      { count: pendingDeposits },
+      { count: pendingWithdrawals },
+      { data: wallets },
+      { data: recentTrades },
+      { data: recentActivity },
+    ] = await Promise.all([
+      supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }),
+      supabaseAdmin.from('positions').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+      supabaseAdmin.from('deposit_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabaseAdmin.from('withdrawal_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabaseAdmin.from('wallets').select('today_pnl'),
+      supabaseAdmin.from('trades').select('closed_at, net_pnl').gte('closed_at', sevenDaysAgo.toISOString()),
+      supabaseAdmin.from('audit_logs').select('id, action, description, created_at, target_type').order('created_at', { ascending: false }).limit(10),
+    ]);
+
+    // Calculate house P&L (sum of all client losses = house profit)
+    const totalClientPnl = (wallets || []).reduce((s, w) => s + (w.today_pnl || 0), 0);
+    const housePnl = -totalClientPnl;
+
+    // Group 7-day trade PNL by day
     const pnlByDay = {};
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      pnlByDay[dateStr] = 0;
+      pnlByDay[d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })] = 0;
     }
-
     (recentTrades || []).forEach(t => {
       const dateStr = new Date(t.closed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      if (pnlByDay[dateStr] !== undefined) {
-        pnlByDay[dateStr] -= (t.net_pnl || 0); // broker pnl is negative of client pnl
-      }
+      if (pnlByDay[dateStr] !== undefined) pnlByDay[dateStr] -= (t.net_pnl || 0);
     });
 
-    const chart_data = Object.keys(pnlByDay).map(name => ({
-      name,
-      value: pnlByDay[name]
-    }));
-
-    // Fetch recent activity (audit logs)
-    const { data: recentActivity } = await supabaseAdmin.from('audit_logs')
-      .select('id, action, description, created_at, target_type')
-      .order('created_at', { ascending: false })
-      .limit(10);
-      
     const formattedActivity = (recentActivity || []).map(a => ({
       id: a.id,
       type: a.target_type === 'system' ? 'system' : 'user',
@@ -70,6 +63,8 @@ router.get('/dashboard', async (req, res) => {
       time: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }));
 
+    // Allow CDN/browser to cache for 10 seconds (dashboard data is inherently slightly stale)
+    res.set('Cache-Control', 'public, max-age=10, stale-while-revalidate=30');
     res.json({
       total_clients: totalClients || 0,
       active_positions: activePositions || 0,
@@ -77,7 +72,7 @@ router.get('/dashboard', async (req, res) => {
       pending_withdrawals: pendingWithdrawals || 0,
       house_pnl_today: housePnl,
       client_pnl_today: totalClientPnl,
-      chart_data,
+      chart_data: Object.keys(pnlByDay).map(name => ({ name, value: pnlByDay[name] })),
       recent_activity: formattedActivity,
     });
   } catch (err) {
@@ -579,37 +574,18 @@ router.post('/notifications', requireRole('super_admin', 'admin'), async (req, r
     
     await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'create_broadcast', target_type: 'system', target_id: 'broadcast', description: `Sent broadcast: ${title}`, ip_address: req.ip });
     
+    // Broadcast in real-time via WebSocket
+    try {
+      const { getIO } = require('../ws/socketServer');
+      getIO().of('/user').emit('SYSTEM:BROADCAST', { title, message, type, target_audience, timestamp: new Date().toISOString() });
+    } catch (wsErr) {
+      console.warn('Failed to emit WebSocket broadcast', wsErr.message);
+    }
+
     res.json({ message: 'Broadcast sent successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to send broadcast' });
   }
-});
-
-// ═══════════════════════════════════════════
-// SURVEILLANCE & ALERTS
-// ═══════════════════════════════════════════
-router.get('/alerts', async (req, res) => {
-  try {
-    const { data, error } = await supabaseAdmin.from('system_alerts')
-      .select('*, profiles(client_id, full_name)')
-      .order('created_at', { ascending: false });
-      
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ alerts: data || [] });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch alerts' });
-  }
-});
-
-router.post('/alerts/:id/resolve', requireRole('super_admin', 'admin', 'risk_manager'), async (req, res) => {
-  try {
-    await supabaseAdmin.from('system_alerts').update({ status: 'resolved', resolved_by: req.admin.id, resolved_at: new Date().toISOString() }).eq('id', req.params.id);
-    res.json({ message: 'Alert resolved' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to resolve alert' });
-  }
-});
-
 // ═══════════════════════════════════════════
 // RISK MANAGEMENT
 // ═══════════════════════════════════════════
@@ -693,9 +669,229 @@ router.get('/risk-management', async (req, res) => {
       severity: a.type === 'critical' ? 'critical' : a.type === 'warning' ? 'high' : 'medium'
     }));
 
-    res.json({ exposureData, segmentExposure, riskAlerts });
+    // Fetch realtime symbol exposure from Redis
+    const symbolExposureData = [];
+    try {
+      const { redisClient } = require('../redis/client');
+      if (redisClient) {
+        const exposureKeys = await redisClient.keys('exp:symbol:*');
+        const disabledKeys = await redisClient.keys('risk:symbol_disabled:*');
+        
+        const disabledSymbols = new Set(disabledKeys.map(k => k.replace('risk:symbol_disabled:', '')));
+        
+        for (const key of exposureKeys) {
+          const symbol = key.replace('exp:symbol:', '');
+          const netQty = parseFloat(await redisClient.get(key)) || 0;
+          if (netQty !== 0 || disabledSymbols.has(symbol)) {
+            symbolExposureData.push({ symbol, netQty, disabled: disabledSymbols.has(symbol) });
+          }
+        }
+        
+        for (const sym of disabledSymbols) {
+          if (!symbolExposureData.find(s => s.symbol === sym)) {
+            symbolExposureData.push({ symbol: sym, netQty: 0, disabled: true });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch Redis exposure:', err);
+    }
+    
+    // Fetch Global Kill Switch status
+    let killSwitchActive = false;
+    try {
+      const { isKillSwitchActive } = require('../core/risk/validator');
+      killSwitchActive = await isKillSwitchActive();
+    } catch (err) {
+      console.error('Failed to fetch kill switch status:', err);
+    }
+
+    res.json({ exposureData, segmentExposure, riskAlerts, symbolExposure: symbolExposureData, killSwitchActive });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch risk management data' });
+  }
+});
+
+router.post('/risk-management/symbols/:symbol/toggle', requireRole('super_admin', 'admin', 'risk_manager'), async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const { disable } = req.body;
+    const { disableSymbol, enableSymbol } = require('../core/risk/validator');
+    
+    if (disable) {
+      await disableSymbol(symbol);
+    } else {
+      await enableSymbol(symbol);
+    }
+    
+    await supabaseAdmin.from('audit_logs').insert({
+      admin_id: req.admin.id,
+      action: disable ? 'disable_symbol' : 'enable_symbol',
+      target_type: 'symbol',
+      target_id: symbol,
+      description: `${disable ? 'Disabled' : 'Enabled'} trading for ${symbol}`,
+      ip_address: req.ip
+    });
+    
+    res.json({ message: `Symbol ${symbol} ${disable ? 'disabled' : 'enabled'}` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to toggle symbol status' });
+  }
+});
+
+router.post('/risk-management/kill-switch', requireRole('super_admin', 'admin', 'risk_manager'), async (req, res) => {
+  try {
+    const { activate } = req.body;
+    const { activateKillSwitch, deactivateKillSwitch } = require('../core/risk/validator');
+    
+    if (activate) {
+      await activateKillSwitch();
+    } else {
+      await deactivateKillSwitch();
+    }
+    
+    await supabaseAdmin.from('audit_logs').insert({
+      admin_id: req.admin.id,
+      action: activate ? 'activate_kill_switch' : 'deactivate_kill_switch',
+      target_type: 'system',
+      target_id: 'global',
+      description: `${activate ? 'Activated' : 'Deactivated'} the global kill switch`,
+      ip_address: req.ip
+    });
+    
+    res.json({ message: `Global kill switch ${activate ? 'activated' : 'deactivated'}` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to toggle global kill switch' });
+  }
+});
+
+// ═══════════════════════════════════════════
+// EXPOSURE HEATMAP (Real-time from Redis + DB)
+// ═══════════════════════════════════════════
+router.get('/exposure-heatmap', async (req, res) => {
+  try {
+    const { redisClient } = require('../redis/client');
+    const heatmapItems = [];
+
+    // Fetch all exposure keys from Redis
+    const exposureKeys = await redisClient.keys('exp:symbol:*').catch(() => []);
+    const disabledKeys = await redisClient.keys('risk:symbol_disabled:*').catch(() => []);
+    const maxExposureKeys = await redisClient.keys('risk:max_exposure:*').catch(() => []);
+
+    const disabledSymbols = new Set(disabledKeys.map(k => k.replace('risk:symbol_disabled:', '')));
+    const maxExposureMap = {};
+    for (const key of maxExposureKeys) {
+      const sym = key.replace('risk:max_exposure:', '');
+      maxExposureMap[sym] = parseFloat(await redisClient.get(key)) || Infinity;
+    }
+
+    // Fetch instrument segment info for enrichment
+    const { data: instruments } = await supabaseAdmin
+      .from('instruments').select('symbol, segment, name');
+    const instrMap = {};
+    (instruments || []).forEach(i => { instrMap[i.symbol] = i; });
+
+    for (const key of exposureKeys) {
+      const symbol = key.replace('exp:symbol:', '');
+      const netQty = parseFloat(await redisClient.get(key)) || 0;
+      if (netQty === 0 && !disabledSymbols.has(symbol)) continue;
+
+      const maxExp = maxExposureMap[symbol] || 10000; // default 10k units
+      const exposurePct = Math.min(100, Math.round((Math.abs(netQty) / maxExp) * 100));
+      const instr = instrMap[symbol] || {};
+
+      heatmapItems.push({
+        symbol,
+        netQty,
+        exposurePct,
+        segment: instr.segment || 'NSE',
+        name: instr.name || symbol,
+        disabled: disabledSymbols.has(symbol),
+        direction: netQty > 0 ? 'long' : netQty < 0 ? 'short' : 'flat',
+      });
+    }
+
+    // Sort by exposure % descending
+    heatmapItems.sort((a, b) => b.exposurePct - a.exposurePct);
+
+    res.json({ heatmap: heatmapItems });
+  } catch (err) {
+    console.error('Exposure heatmap error:', err);
+    res.json({ heatmap: [] }); // Non-fatal — just return empty
+  }
+});
+
+// ═══════════════════════════════════════════
+// QUEUE MONITORING & RETRY
+// ═══════════════════════════════════════════
+router.get('/queue/stats', async (req, res) => {
+  try {
+    const { orderQueue } = require('../core/queues/orderQueue');
+    const counts = await orderQueue.getJobCounts('active', 'waiting', 'completed', 'failed', 'delayed');
+    const failedJobs = await orderQueue.getFailed(0, 49); // Last 50 failed jobs
+
+    res.json({
+      counts,
+      failedJobs: failedJobs.map(j => ({
+        id: j.id,
+        name: j.name,
+        failedReason: j.failedReason,
+        attemptsMade: j.attemptsMade,
+        timestamp: new Date(j.timestamp).toISOString(),
+        data: {
+          symbol: j.data?.symbol,
+          side: j.data?.side,
+          quantity: j.data?.quantity,
+          userId: j.data?.userId,
+        },
+      })),
+    });
+  } catch (err) {
+    console.error('Queue stats error:', err);
+    res.status(500).json({ error: 'Failed to fetch queue stats' });
+  }
+});
+
+router.post('/queue/retry/:jobId', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { orderQueue } = require('../core/queues/orderQueue');
+    const job = await orderQueue.getJob(req.params.jobId);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    await job.retry();
+
+    await supabaseAdmin.from('audit_logs').insert({
+      admin_id: req.admin.id,
+      action: 'retry_failed_job',
+      target_type: 'queue',
+      target_id: req.params.jobId,
+      description: `Retried failed job ${req.params.jobId} (${job.name})`,
+      ip_address: req.ip,
+    });
+
+    res.json({ message: `Job ${req.params.jobId} queued for retry` });
+  } catch (err) {
+    console.error('Job retry error:', err);
+    res.status(500).json({ error: 'Failed to retry job' });
+  }
+});
+
+// ═══════════════════════════════════════════
+// NOTIFICATIONS LIST
+// ═══════════════════════════════════════════
+router.get('/notifications', async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('system_notifications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    res.json({ notifications: data || [] });
+  } catch (err) {
+    res.json({ notifications: [] });
   }
 });
 
@@ -1201,7 +1397,8 @@ const allowedModules = [
   'reports', 'market-control', 'brokerage-config', 'client-restrictions',
   'banners', 'fee-config', 'eod-settlement', 'ip-whitelist',
   'cron-jobs', 'feature-flags', 'tournaments', 'admin-users',
-  'sessions', 'campaigns', 'documents', 'revenue-leakage', 'churn-prediction'
+  'sessions', 'campaigns', 'documents', 'revenue-leakage', 'churn-prediction',
+  'system-notifications', 'system-alerts'
 ];
 
 router.get('/crm/:module', async (req, res) => {

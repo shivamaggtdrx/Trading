@@ -8,6 +8,7 @@ import BottomNav from './BottomNav';
 import WatchlistSidebar from './WatchlistSidebar';
 import MarketTickerBar from './MarketTickerBar';
 import AcknowledgmentModal from '../ui/AcknowledgmentModal';
+import SystemBanner from './SystemBanner';
 import { useTradeStore } from '../../store/useTradeStore';
 import { api } from '../../services/api';
 import { cn } from '../../utils/helpers';
@@ -137,6 +138,9 @@ export default function AppLayout() {
           </header>
         </div>
       </div>
+
+      {/* ═══ SYSTEM BROADCAST BANNER ═══ */}
+      <SystemBanner />
 
       {/* ═══ MAIN AREA: Sidebar + Content ═══ */}
       <div className="flex-1 flex overflow-hidden">

@@ -1,18 +1,25 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { X, Search, FileSearch } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { useTradeStore } from '../../store/useTradeStore';
 import { formatCurrency, formatPercent, cn } from '../../utils/helpers';
+import { usePullToRefresh, PullIndicator } from '../../hooks/usePullToRefresh';
 
 export default function Positions() {
-  const { positions, closePosition } = useTradeStore();
+  const { positions, closePosition, fetchPositions } = useTradeStore();
   const [closingId, setClosingId] = useState(null);
   const [selectAll, setSelectAll] = useState(false);
 
   const totalPnl = positions.reduce((sum, p) => sum + (p.pnl || 0), 0);
   const totalPnlPct = positions.length > 0
     ? positions.reduce((sum, p) => sum + (p.pnlPercent || 0), 0) / positions.length : 0;
+
+  const onRefresh = useCallback(async () => {
+    try { await fetchPositions(); } catch (e) { /* silent */ }
+  }, [fetchPositions]);
+
+  const { containerProps, isRefreshing, pullProgress } = usePullToRefresh(onRefresh);
 
   const handleClose = () => { if (closingId) { closePosition(closingId); setClosingId(null); } };
 
@@ -22,7 +29,8 @@ export default function Positions() {
   };
 
   return (
-    <div className="page-enter bg-surface min-h-screen">
+    <div className="page-enter bg-surface min-h-screen relative" {...containerProps}>
+      <PullIndicator progress={pullProgress} isRefreshing={isRefreshing} />
       <div className="px-4 pt-4 pb-2">
         <h1 className="text-lg font-bold text-text-primary">Positions</h1>
         <div className="mt-2 h-0.5 bg-blue-500 w-20 rounded-full" />

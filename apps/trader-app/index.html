@@ -2,17 +2,43 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+
+    <!-- ═══ PRIMARY META ═══ -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#0d1117" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="description" content="Stocks Lab — Professional Trading Platform. Trade Stocks, Forex & Metals with precision." />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <title>Stocks Lab — Professional Trading Platform</title>
+    <meta name="description" content="Stocks Lab — Trade stocks, indices & commodities with real-time prices, advanced charting, and instant order execution." />
+    <meta name="keywords" content="trading platform, stocks, NSE, BSE, futures, options, commodities, Stocks Lab" />
+
+    <!-- ═══ ICONS & MANIFEST ═══ -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icon-512.png" />
     <link rel="manifest" href="/manifest.json" />
+
+    <!-- ═══ THEME ═══ -->
+    <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+
+    <!-- ═══ iOS PWA ═══ -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Stocks Lab" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- iOS splash screens (portrait, key sizes) -->
+    <link rel="apple-touch-startup-image" href="/icon-512.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="/icon-512.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" />
+
+    <!-- ═══ OPEN GRAPH ═══ -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Stocks Lab — Professional Trading Platform" />
+    <meta property="og:description" content="Trade stocks, indices & commodities with real-time prices and advanced tools." />
+    <meta property="og:image" content="/icon-512.png" />
+
+    <!-- ═══ FONTS ═══ -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- ═══ THEME INIT (prevent flash) ═══ -->
     <script>
       (function() {
         var theme = localStorage.getItem('theme');

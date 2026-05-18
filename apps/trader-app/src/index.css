@@ -127,9 +127,25 @@ body {
     0 0 0 1px rgba(239, 68, 68, 0.05);
 }
 
-/* Bottom nav safe area */
+/* Bottom nav safe area — uses max() to guarantee at least 6px on non-notched devices */
 .bottom-nav {
-  padding-bottom: env(safe-area-inset-bottom, 6px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 6px);
+}
+
+/* ── PWA-specific animation aliases (used by install prompt & update prompt) ── */
+.animate-slide-up {
+  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-fade-in {
+  animation: fadeInUp 0.25s ease-out;
+}
+
+/* Dark shimmer variant */
+.dark .animate-shimmer {
+  background: linear-gradient(90deg, #1e2433 25%, #252d3d 50%, #1e2433 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
 }
 
 /* Number input hide arrows */

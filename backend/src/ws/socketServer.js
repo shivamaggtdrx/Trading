@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const { createAdapter } = require('@socket.io/redis-adapter');
 const { pubClient, subClient } = require('../redis/client');
+const { supabaseAdmin } = require('../config/supabase');
 
 let io;
 
@@ -12,6 +13,7 @@ function initSocketServer(httpServer) {
         process.env.FRONTEND_URL || 'http://localhost:5173',
         process.env.ADMIN_URL || 'http://localhost:5174',
         'http://localhost:3000',
+        'https://stockslab-app.onrender.com',
         'https://stockslab.onrender.com',
         'https://stockslab-admin.onrender.com',
       ].filter(Boolean),
@@ -61,14 +63,32 @@ function initSocketServer(httpServer) {
   // Dedicated to private user data (PNL, orders, margin). Requires Auth.
   const userNamespace = io.of('/user');
   
-  // Future: Add middleware here to authenticate the socket connection
-  // userNamespace.use((socket, next) => { ... });
+  userNamespace.use(async (socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
+      if (!token) return next(new Error('Authentication error: Missing token'));
+
+      const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+      if (error || !user) return next(new Error('Authentication error: Invalid token'));
+
+      socket.user = user;
+      next();
+    } catch (err) {
+      next(new Error('Authentication error: Server error'));
+    }
+  });
 
   userNamespace.on('connection', (socket) => {
-    // When a user connects and authenticates, they join their private room
+    // Automatically join the authenticated user to their private room
+    if (socket.user && socket.user.id) {
+      socket.join(`user:${socket.user.id}`);
+    }
+
+    // Legacy handler: Validate room ownership by ignoring the requested userId
+    // and enforcing the authenticated user's id
     socket.on('USER:JOIN_PRIVATE', (userId) => {
-      if (userId) {
-        socket.join(`user:${userId}`);
+      if (socket.user && socket.user.id) {
+        socket.join(`user:${socket.user.id}`);
       }
     });
   });

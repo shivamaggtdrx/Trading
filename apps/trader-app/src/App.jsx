@@ -17,6 +17,9 @@ import Preferences from './pages/Preferences/Preferences';
 import History from './pages/History/History';
 import Markets from './pages/Markets/Markets';
 import Trade from './pages/Trade/Trade';
+import OfflineBanner from './components/pwa/OfflineBanner';
+import PWAInstallPrompt from './components/pwa/PWAInstallPrompt';
+import PWAUpdatePrompt from './components/pwa/PWAUpdatePrompt';
 import { useEffect } from 'react';
 
 function ProtectedRoute({ children }) {
@@ -41,6 +44,9 @@ function AppInitializer({ children }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <OfflineBanner />
+      <PWAInstallPrompt />
+      <PWAUpdatePrompt />
       <AppInitializer>
         <Routes>
           {/* Public */}

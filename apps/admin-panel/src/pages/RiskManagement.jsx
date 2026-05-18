@@ -9,7 +9,9 @@ export default function RiskManagement() {
   
   const [exposureData, setExposureData] = useState([]);
   const [segmentExposure, setSegmentExposure] = useState([]);
+  const [symbolExposure, setSymbolExposure] = useState([]);
   const [riskAlerts, setRiskAlerts] = useState([]);
+  const [killSwitchActive, setKillSwitchActive] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchRiskData = async () => {
@@ -19,6 +21,8 @@ export default function RiskManagement() {
       setExposureData(data.exposureData || []);
       setSegmentExposure(data.segmentExposure || []);
       setRiskAlerts(data.riskAlerts || []);
+      setSymbolExposure(data.symbolExposure || []);
+      setKillSwitchActive(data.killSwitchActive || false);
     } catch (err) {
       console.error('Failed to fetch risk data', err);
     } finally {
@@ -55,6 +59,16 @@ export default function RiskManagement() {
     return 'bg-green-500';
   };
 
+  const handleToggleSymbol = async (symbol, disable) => {
+    try {
+      await adminApi.toggleSymbol(symbol, disable);
+      // Optimistically update
+      setSymbolExposure(prev => prev.map(s => s.symbol === symbol ? { ...s, disabled: disable } : s));
+    } catch (err) {
+      alert('Failed to toggle symbol status');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -68,17 +82,19 @@ export default function RiskManagement() {
             Force Margin Check
           </button>
           <button onClick={async () => {
-             if (window.confirm('Are you sure you want to FREEZE ALL NEW ORDERS globally?')) {
+             const action = killSwitchActive ? 'ENABLE' : 'FREEZE';
+             if (window.confirm(`Are you sure you want to ${action} ALL NEW ORDERS globally?`)) {
                try {
-                 await adminApi.updateSetting('trading_enabled', 'false');
-                 alert('Trading has been disabled globally.');
+                 await adminApi.toggleKillSwitch(!killSwitchActive);
+                 setKillSwitchActive(!killSwitchActive);
+                 alert(`Trading has been ${killSwitchActive ? 'enabled' : 'disabled'} globally.`);
                } catch (err) {
-                 alert('Failed to update setting.');
+                 alert('Failed to toggle kill switch.');
                }
              }
-          }} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-red-600 text-white hover:bg-red-700 h-10 px-4 py-2 shadow-sm">
+          }} className={`inline-flex items-center justify-center rounded-md text-sm font-bold h-10 px-4 py-2 shadow-sm ${killSwitchActive ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-red-600 text-white hover:bg-red-700'}`}>
             <Ban className="h-4 w-4 mr-2" />
-            Freeze All New Orders
+            {killSwitchActive ? 'Enable All Trading' : 'Freeze All New Orders'}
           </button>
         </div>
       </div>
@@ -268,6 +284,50 @@ export default function RiskManagement() {
                         <Ban className="h-3.5 w-3.5" />
                       </button>
                     </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Symbol Risk & Controls */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+          <h2 className="text-sm font-bold text-gray-900">Symbol Risk & Controls (Redis)</h2>
+          <span className="text-xs text-gray-500">Live net exposure tracking</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left whitespace-nowrap">
+            <thead className="text-[11px] text-gray-500 uppercase bg-gray-100 border-b border-gray-200 tracking-wider">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Symbol</th>
+                <th className="px-4 py-3 font-semibold text-right">Net Exposure (Qty)</th>
+                <th className="px-4 py-3 font-semibold text-center">Status</th>
+                <th className="px-4 py-3 text-right font-semibold">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {symbolExposure.length === 0 ? (
+                <tr><td colSpan="4" className="p-4 text-center text-gray-500">No active symbol exposure tracked yet.</td></tr>
+              ) : symbolExposure.map(row => (
+                <tr key={row.symbol} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-bold text-gray-900">{row.symbol}</td>
+                  <td className={`px-4 py-3 text-right font-bold ${row.netQty > 0 ? 'text-green-600' : row.netQty < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                    {row.netQty > 0 ? '+' : ''}{row.netQty}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${row.disabled ? 'bg-red-100 text-red-700 border-red-200' : 'bg-green-100 text-green-700 border-green-200'}`}>
+                      {row.disabled ? 'Disabled' : 'Trading'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button 
+                      onClick={() => handleToggleSymbol(row.symbol, !row.disabled)} 
+                      className={`px-3 py-1 text-[10px] font-bold rounded border ${row.disabled ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'}`}>
+                      {row.disabled ? 'Enable' : 'Disable'}
+                    </button>
                   </td>
                 </tr>
               ))}

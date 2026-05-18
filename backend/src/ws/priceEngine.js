@@ -9,17 +9,30 @@ const { processTick: processOHLC } = require('./feed/ohlcAggregator');
 let activeFeed = null;
 let mockInterval = null;
 
+// ── Tick throttle: max 1 emit per symbol per 250ms ──
+// Prevents flooding the Socket.IO bus when Angel One sends ticks faster
+// than clients can process (e.g. index futures during high volatility).
+const TICK_THROTTLE_MS = 250;
+const lastEmitTime = new Map(); // symbol → timestamp
+
 function handleTick(rawTick) {
   // 0. Normalize & validate the tick (rejects corrupted/stale data)
   const tick = normalizeTick(rawTick);
   if (!tick) return; // Corrupted tick rejected
 
-  // 1. Broadcast to Socket.IO clients INSTANTLY (sub-millisecond direct broadcast path)
-  try {
-    const io = getIO();
-    io.of('/market').to(`feed:${tick.symbol}`).emit('MARKET:TICK', tick);
-  } catch (err) {
-    // If Socket.io isn't initialized yet, ignore
+  // 1. Throttle: skip emit if we sent this symbol within TICK_THROTTLE_MS
+  const now = Date.now();
+  const lastEmit = lastEmitTime.get(tick.symbol) || 0;
+  const shouldEmit = (now - lastEmit) >= TICK_THROTTLE_MS;
+
+  if (shouldEmit) {
+    lastEmitTime.set(tick.symbol, now);
+    try {
+      const io = getIO();
+      io.of('/market').to(`feed:${tick.symbol}`).emit('MARKET:TICK', tick);
+    } catch (err) {
+      // If Socket.io isn't initialized yet, ignore
+    }
   }
 
   // 2. Process other heavy pipeline steps asynchronously using setImmediate

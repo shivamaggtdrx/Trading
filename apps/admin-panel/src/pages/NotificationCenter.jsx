@@ -10,8 +10,15 @@ export default function NotificationCenter() {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const data = await adminApi.getNotifications();
-      setNotifications(data.notifications || []);
+      const data = await adminApi.getAlerts();
+      setNotifications(data.alerts.map(a => ({
+        id: a.id,
+        title: a.type,
+        message: a.description,
+        type: a.severity?.toLowerCase() === 'critical' ? 'critical' : a.severity?.toLowerCase() === 'high' ? 'warning' : 'info',
+        time: a.created_at,
+        read: a.status === 'resolved'
+      })) || []);
     } catch (err) {
       console.error(err);
     } finally {

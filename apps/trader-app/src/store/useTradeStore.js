@@ -103,6 +103,20 @@ export const useTradeStore = create((set, get) => ({
   authLoading: false,
   authError: null,
 
+  // ── System Banner (from admin broadcasts) ──
+  systemBanner: null,
+  dismissBanner: () => set({ systemBanner: null }),
+  handleBroadcast: (data) => {
+    set({ systemBanner: data });
+    // Auto-dismiss info banners after 15 seconds
+    if (data.type === 'info') {
+      setTimeout(() => {
+        const current = get().systemBanner;
+        if (current && current.timestamp === data.timestamp) set({ systemBanner: null });
+      }, 15000);
+    }
+  },
+
   login: async (email, password) => {
     set({ authLoading: true, authError: null });
     try {
@@ -637,6 +651,7 @@ export const useTradeStore = create((set, get) => ({
       connectUserSocket(user.id, {
         onOrderFilled: (data) => get().handleOrderFilled(data),
         onPnlUpdate: (data) => get().handlePnlUpdate(data),
+        onBroadcast: (data) => get().handleBroadcast(data),
       });
     }
     

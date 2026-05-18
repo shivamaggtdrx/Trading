@@ -21,6 +21,10 @@ const executionWorker = new Worker(
         return await processMarketOrder(data);
       case 'execute_limit_order':
         return await processLimitOrder(data);
+      case 'fill_limit_order':
+        return await fillLimitOrder(data);
+      case 'execute_sl_tp':
+        return await executeSlTp(data);
       default:
         throw new Error(`Unknown job type: ${name}`);
     }
@@ -84,7 +88,14 @@ async function processMarketOrder(data) {
     .select()
     .single();
 
-  if (orderErr) throw new Error('Failed to create order: ' + orderErr.message);
+  if (orderErr) {
+    // Release margin atomically — avoid separate SELECT + UPDATE race condition
+    await supabaseAdmin.rpc('release_margin', {
+      p_user_id: userId,
+      p_amount: marginRequired,
+    }).catch(e => console.warn('Margin release failed:', e.message));
+    throw new Error('Failed to create order: ' + orderErr.message);
+  }
 
   // ── Step 2: Create position ──
   const positionData = {
@@ -109,31 +120,32 @@ async function processMarketOrder(data) {
     .select()
     .single();
 
-  if (posErr) throw new Error('Order filled but position creation failed: ' + posErr.message);
+  if (posErr) {
+    // Release margin atomically and revert order
+    await supabaseAdmin.rpc('release_margin', {
+      p_user_id: userId,
+      p_amount: marginRequired,
+    }).catch(e => console.warn('Margin release failed:', e.message));
+    await supabaseAdmin.from('orders').update({ status: 'rejected', reject_reason: posErr.message }).eq('id', order.id);
+    throw new Error('Order filled but position creation failed: ' + posErr.message);
+  }
 
-  // ── Step 3: Block margin atomically ──
-  const { error: marginErr } = await supabaseAdmin.rpc('block_margin', {
-    p_user_id: userId,
-    p_margin_amount: marginRequired,
-  });
-  if (marginErr) console.error('Margin block RPC error:', marginErr);
+  // ── Margin is already blocked atomically in the API route ──
 
-  // ── Step 4: Log wallet transaction ──
-  const { data: wallet } = await supabaseAdmin
-    .from('wallets')
-    .select('balance')
-    .eq('user_id', userId)
-    .single();
-
-  await supabaseAdmin.from('wallet_transactions').insert({
-    user_id: userId,
-    type: 'commission',
-    amount: -(spreadAmount * quantity * 0.01),
-    balance_after: wallet ? wallet.balance : 0,
-    reference_id: order.id,
-    reference_type: 'order',
-    description: `Order ${side.toUpperCase()} ${quantity} ${symbol} @ ${executionPrice}`,
-  });
+  // ── Step 4: Deduct commission atomically ──
+  const commission = spreadAmount * quantity * 0.01;
+  if (commission > 0) {
+    const { error: commErr } = await supabaseAdmin.rpc('debit_wallet', {
+      p_user_id: userId,
+      p_amount: commission,
+      p_reference_id: order.id,
+      p_reference_type: 'order',
+      p_description: `Commission for ${side.toUpperCase()} ${quantity} ${symbol} @ ${executionPrice}`
+    });
+    if (commErr) {
+      console.warn(`Failed to deduct commission for order ${order.id}:`, commErr);
+    }
+  }
 
   // ── Step 5: Notify user via Socket.IO ──
   try {
@@ -186,9 +198,242 @@ async function processLimitOrder(data) {
     .select()
     .single();
 
-  if (error) throw new Error('Failed to create limit order: ' + error.message);
+  if (error) {
+    // Release margin atomically
+    await supabaseAdmin.rpc('release_margin', {
+      p_user_id: userId,
+      p_amount: marginRequired,
+    }).catch(e => console.warn('Margin release failed:', e.message));
+    throw new Error('Failed to create limit order: ' + error.message);
+  }
+
+  // Trigger sync of limit orders so it can be evaluated instantly
+  try {
+    const { syncLimitOrders } = require('../../ws/executionEngine');
+    syncLimitOrders();
+  } catch (err) {}
 
   return { orderId: order.id, status: 'pending' };
+}
+
+/**
+ * Fill a pending Limit Order
+ */
+async function fillLimitOrder(data) {
+  const { orderId, executionPrice } = data;
+
+  // ── Step 1: Fetch order & instrument ──
+  const { data: order, error: fetchErr } = await supabaseAdmin
+    .from('orders')
+    .select('*, instrument:instruments(*)')
+    .eq('id', orderId)
+    .single();
+
+  if (fetchErr || !order) throw new Error('Order not found: ' + (fetchErr?.message || ''));
+  if (order.status !== 'pending') throw new Error(`Order ${orderId} is not pending (status: ${order.status})`);
+
+  const {
+    user_id: userId,
+    symbol,
+    side,
+    quantity,
+    instrument_id: instrumentId,
+    instrument,
+    margin_required: marginRequired,
+    price: referencePrice
+  } = order;
+
+  // Assuming 0.01% spread markup for calculation
+  const spreadAmount = executionPrice * 0.0001;
+
+  // ── Step 2: Update the order to filled ──
+  const { error: updateErr } = await supabaseAdmin
+    .from('orders')
+    .update({
+      status: 'filled',
+      executed_price: executionPrice,
+      filled_quantity: quantity,
+      avg_fill_price: executionPrice,
+      slippage_amount: Math.abs(executionPrice - referencePrice),
+      spread_markup: spreadAmount,
+      filled_at: new Date().toISOString(),
+    })
+    .eq('id', orderId);
+
+  if (updateErr) throw new Error('Failed to update limit order: ' + updateErr.message);
+
+  // ── Step 3: Create position ──
+  const positionData = {
+    user_id: userId,
+    instrument_id: instrumentId,
+    symbol,
+    order_id: orderId,
+    side: side === 'buy' ? 'long' : 'short',
+    quantity,
+    entry_price: executionPrice,
+    current_price: executionPrice,
+    margin_used: marginRequired, // Margin was already blocked!
+    leverage: 100 / (instrument.margin_required || 10),
+    routing: 'b_book',
+  };
+
+  const { data: position, error: posErr } = await supabaseAdmin
+    .from('positions')
+    .insert(positionData)
+    .select()
+    .single();
+
+  if (posErr) {
+    // Attempt rollback (rare but needed)
+    await supabaseAdmin.from('orders').update({ status: 'pending', filled_at: null }).eq('id', orderId);
+    throw new Error('Position creation failed for limit order: ' + posErr.message);
+  }
+
+  // ── Step 4: Deduct commission atomically ──
+  const commission = spreadAmount * quantity * 0.01;
+  if (commission > 0) {
+    const { error: commErr } = await supabaseAdmin.rpc('debit_wallet', {
+      p_user_id: userId,
+      p_amount: commission,
+      p_reference_id: orderId,
+      p_reference_type: 'order',
+      p_description: `Commission for Limit ${side.toUpperCase()} ${quantity} ${symbol} @ ${executionPrice}`
+    });
+    if (commErr) {
+      console.warn(`Failed to deduct commission for limit order ${orderId}:`, commErr);
+    }
+  }
+
+  // ── Step 5: Notify user via Socket.IO ──
+  try {
+    const io = getIO();
+    io.of('/user').to(`user:${userId}`).emit('USER:ORDER_FILLED', {
+      order: { ...order, status: 'filled', executed_price: executionPrice },
+      position,
+      execution: {
+        requested_price: referencePrice,
+        executed_price: executionPrice,
+        spread: spreadAmount,
+        slippage: Math.abs(executionPrice - referencePrice),
+      },
+    });
+  } catch (err) {}
+
+  // ── Step 6: Update Redis exposure tracking ──
+  await updateExposure(symbol, side, quantity);
+
+  console.log(`✅ Limit Order Filled: ${side} ${quantity}x ${symbol} @ ${executionPrice} [${orderId}]`);
+  return { orderId, positionId: position.id, executionPrice };
+}
+
+/**
+ * Process a Stop Loss / Take Profit squareoff
+ */
+async function executeSlTp(data) {
+  const { positionId, exitPrice, triggerType } = data;
+
+  // 1. Fetch position
+  const { data: position, error: fetchErr } = await supabaseAdmin
+    .from('positions')
+    .select('*, instrument:instruments(*)')
+    .eq('id', positionId)
+    .single();
+
+  if (fetchErr || !position) throw new Error('Position not found: ' + (fetchErr?.message || ''));
+  if (position.status !== 'open' && position.status !== 'OPEN') {
+    console.log(`⚠️ Position ${positionId} is already closed/closing. Ignoring SL/TP trigger.`);
+    return;
+  }
+
+  const {
+    user_id: userId,
+    symbol,
+    side,
+    quantity,
+    entry_price: entryPrice,
+    instrument,
+    margin_used: marginUsed,
+    total_swap_fees: totalSwapFees,
+    routing
+  } = position;
+
+  // Assuming 0.05% spread markup for calculation
+  const spreadAmount = exitPrice * 0.0005;
+
+  let grossPnl = 0;
+  if (side === 'long' || side === 'BUY') {
+    grossPnl = (exitPrice - entryPrice) * quantity;
+  } else {
+    grossPnl = (entryPrice - exitPrice) * quantity;
+  }
+
+  const charges = (spreadAmount * quantity * 0.01) + (totalSwapFees || 0);
+  const netPnl = grossPnl - charges;
+
+  // 2. Close position
+  const { error: updateErr } = await supabaseAdmin
+    .from('positions')
+    .update({
+      status: 'closed',
+      current_price: exitPrice,
+      realized_pnl: netPnl,
+      close_reason: triggerType.toLowerCase(),
+      closed_at: new Date().toISOString(),
+    })
+    .eq('id', positionId);
+
+  if (updateErr) throw new Error('Failed to update position to closed: ' + updateErr.message);
+
+  // 3. Create trade record
+  await supabaseAdmin.from('trades').insert({
+    user_id: userId,
+    instrument_id: position.instrument_id,
+    position_id: positionId,
+    symbol: symbol,
+    side: side === 'long' || side === 'BUY' ? 'buy' : 'sell',
+    quantity: quantity,
+    entry_price: entryPrice,
+    exit_price: exitPrice,
+    gross_pnl: grossPnl,
+    charges: charges,
+    net_pnl: netPnl,
+    spread_revenue: spreadAmount * quantity * 0.01,
+    swap_revenue: totalSwapFees || 0,
+    routing: routing,
+    opened_at: position.opened_at,
+  });
+
+  // 4. Settle PNL & release margin atomically
+  const { error: settleErr } = await supabaseAdmin.rpc('settle_position_pnl', {
+    p_user_id: userId,
+    p_net_pnl: netPnl,
+    p_margin_to_release: marginUsed,
+    p_reference_id: positionId,
+    p_symbol: `${triggerType} ${side.toUpperCase()} ${quantity} ${symbol}`,
+  });
+  if (settleErr) {
+    console.error('Settlement RPC error on SL/TP:', settleErr);
+    // Continue despite settlement failure, but this should be alerted
+  }
+
+  // 5. Notify user
+  try {
+    const io = getIO();
+    io.of('/user').to(`user:${userId}`).emit('USER:ORDER_FILLED', {
+      position: { ...position, status: 'closed', current_price: exitPrice, pnl: netPnl },
+      execution: {
+        executed_price: exitPrice,
+        reason: triggerType
+      },
+    });
+  } catch (err) {}
+
+  // 6. Update exposure (reversing the position)
+  // Reversing the quantity because we are closing
+  await updateExposure(symbol, side === 'long' || side === 'BUY' ? 'sell' : 'buy', quantity);
+
+  console.log(`✅ ${triggerType} Executed: ${symbol} @ ${exitPrice} PNL: ${netPnl} [Pos: ${positionId}]`);
+  return { positionId, exitPrice, netPnl, triggerType };
 }
 
 // ── Worker Event Logging ──

@@ -157,12 +157,14 @@ export default function SystemHealth() {
               <div className="text-3xl font-black text-gray-900">{health?.metrics.tps} <span className="text-xs font-medium text-gray-400 normal-case">/ sec</span></div>
             </div>
             <div>
-              <div className="text-xs text-gray-500 font-bold uppercase mb-1">Pending Webhooks</div>
-              <div className="text-3xl font-black text-green-600">{health?.metrics.pendingWebhooks}</div>
+              <div className="text-xs text-gray-500 font-bold uppercase mb-1">Queue (Wait/Act)</div>
+              <div className="text-3xl font-black text-green-600">
+                {health?.metrics.queueWaiting || 0} / {health?.metrics.queueActive || 0}
+              </div>
             </div>
             <div>
-              <div className="text-xs text-gray-500 font-bold uppercase mb-1">Error Rate (5xx)</div>
-              <div className="text-3xl font-black text-gray-900">{health?.metrics.errorRate}</div>
+              <div className="text-xs text-gray-500 font-bold uppercase mb-1">Failed Jobs</div>
+              <div className="text-3xl font-black text-red-600">{health?.metrics.queueFailed || 0}</div>
             </div>
           </div>
         </div>

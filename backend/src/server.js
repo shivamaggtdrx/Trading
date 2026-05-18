@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const { createServer } = require('http');
 
@@ -34,13 +35,15 @@ const server = createServer(app);
 const PORT = process.env.PORT || 4000;
 
 // ── Sentry Initialization ──
+const IS_PROD = process.env.NODE_ENV === 'production';
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   integrations: [
     nodeProfilingIntegration(),
   ],
-  tracesSampleRate: 1.0, 
-  profilesSampleRate: 1.0,
+  // 1.0 in dev captures everything; 0.1 in production is sufficient (10% sampling)
+  tracesSampleRate: IS_PROD ? 0.1 : 1.0,
+  profilesSampleRate: IS_PROD ? 0.05 : 1.0,
 });
 
 // The request handler must be the first middleware on the app
@@ -66,10 +69,20 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// ── Compression (gzip) — must be before routes ──
+// Compresses all responses > 1KB. Saves ~70% on JSON payloads.
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  },
+  threshold: 1024, // Only compress responses > 1KB
+}));
+
 // ── Body Parsing & Logging ──
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan('dev'));
+app.use(morgan(IS_PROD ? 'combined' : 'dev'));
 
 const { getBrokerAvailability } = require('./ws/angelOneFeed');
 

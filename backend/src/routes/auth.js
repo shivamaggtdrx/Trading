@@ -280,14 +280,18 @@ router.get('/referrals', authenticateUser, async (req, res) => {
           .from('trades')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', ref.id);
+          
+        const trades = tradeCount || 0;
+        // Basic commission logic: ₹10 per trade for example
+        const earned = trades * 10;
 
         return {
           id: ref.id,
           name: ref.full_name || 'Unknown',
           status: ref.status || 'active',
           joined: new Date(ref.created_at).toISOString().split('T')[0],
-          trades: tradeCount || 0,
-          earned: 0, // Commission calculation can be added later
+          trades: trades,
+          earned: earned,
         };
       })
     );
