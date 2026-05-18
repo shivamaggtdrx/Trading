@@ -2,6 +2,7 @@ const { SmartAPI, WebSocketV2 } = require('smartapi-javascript');
 const fs = require('fs');
 const path = require('path');
 const { feedLogger } = require('../core/monitoring/logger');
+const scripMaster = require('./feed/scripMaster');
 
 // Angel One Credentials from environment or config
 const API_KEY = process.env.ANGEL_ONE_API_KEY || 'ueftLmZQ';
@@ -14,7 +15,7 @@ let smartApi = new SmartAPI({ api_key: API_KEY });
 
 let wsClient = null;
 let tickSubscribers = [];
-let activeSubscriptions = new Set(); // store tokens we are subscribed to
+let activeSubscriptions = new Set(); // store numeric tokens we are subscribed to
 let reconnectTimer = null;
 let pingInterval = null;
 
@@ -88,6 +89,9 @@ async function initAngelOneFeed() {
       totpSecretLength: TOTP_SECRET ? TOTP_SECRET.trim().length : 0,
       consecutiveFailures,
     });
+
+    // Proactively load Scrip Master symbol/token mappings
+    await scripMaster.loadScripMaster();
 
     const { TOTP } = require('totp-generator');
     const totpResult = await TOTP.generate(TOTP_SECRET.trim());
@@ -178,10 +182,18 @@ function connectWebSocket(sessionData) {
     reconnectCount = 0;
     lastTickReceivedAt = Date.now();
     
-    // Auto resubscribe after reconnect
+    // Auto resubscribe after reconnect using active subscriptions
     if (activeSubscriptions.size > 0) {
       const tokens = Array.from(activeSubscriptions);
-      subscribeTokens([{ exchangeType: 1, tokens }]);
+      feedLogger.info(`🔄 Re-subscribing to ${tokens.length} active tokens...`, { tokens });
+      
+      wsClient.fetchData({
+        correlationID: "tradex_reconnect_sub",
+        action: 1, // subscribe
+        mode: 3, // Snap Quote
+        exchangeType: 1, // NSE
+        tokens: tokens
+      });
     }
     
     startPing();
@@ -193,7 +205,10 @@ function connectWebSocket(sessionData) {
     packetCount++;
     lastTickReceivedAt = Date.now(); // Feed is alive!
     
-    const symbol = data.trading_symbol || String(data.token);
+    // Translate numeric token back to symbol string (e.g., '3045' -> 'SBIN')
+    const numericToken = String(data.token);
+    const symbol = scripMaster.tokenToSymbol(numericToken) || data.trading_symbol || numericToken;
+    
     const tickTime = data.exchange_timestamp || Date.now();
     const ltp = (data.last_traded_price || 0) / 100;
     
@@ -233,7 +248,6 @@ function connectWebSocket(sessionData) {
   wsClient.on('error', (err) => {
     feedLogger.error('❌ Angel WebSocket error occurred:', { error: err.message || err });
     handleDisconnect();
-    // Reconnect is triggered via the 'close' event from the client
   });
 }
 
@@ -313,10 +327,9 @@ function scheduleReconnect() {
 
 function startPing() {
   if (pingInterval) clearInterval(pingInterval);
-  // Optional client-side verification ping every 30 seconds
   pingInterval = setInterval(() => {
     if (wsClient && wsConnected) {
-      // Library V2 handles keep-alives internally, this is just to hook into the loop
+      // Library V2 handles keep-alives internally
     }
   }, 30000);
 }
@@ -326,23 +339,35 @@ function stopPing() {
 }
 
 /**
- * Subscribe to specific tokens
- * @param {Array} tokenObjects - Array of token objects { exchangeType: 1, tokens: ["3045"] }
+ * Subscribe to specific tokens (Translates symbol strings to numeric tokens)
+ * @param {Array} tokenObjects - Array of token objects { exchangeType: 1, tokens: ["SBIN", "RELIANCE"] }
  */
 function subscribeTokens(tokenObjects) {
   if (!tokenObjects || tokenObjects.length === 0) return;
   
+  const tokensToSub = [];
+
   tokenObjects.forEach(obj => {
-    obj.tokens.forEach(t => activeSubscriptions.add(t));
+    obj.tokens.forEach(t => {
+      // If it's already numeric, keep it, otherwise map symbol -> numeric token
+      const numericToken = /^\d+$/.test(t) ? t : scripMaster.symbolToToken(t);
+      if (numericToken) {
+        activeSubscriptions.add(numericToken);
+        tokensToSub.push(numericToken);
+      } else {
+        feedLogger.warn(`⚠️ Subscription rejected: no token mapping found for symbol "${t}"`);
+      }
+    });
   });
 
-  if (wsClient && wsConnected) {
+  if (wsClient && wsConnected && tokensToSub.length > 0) {
+    feedLogger.info(`📡 Subscribing to ${tokensToSub.length} tokens on Angel WebSocket...`, { tokensToSub });
     wsClient.fetchData({
       correlationID: "tradex_sub",
       action: 1, // 1 for subscribe
       mode: 3, // 3 for Full Snap Quote
       exchangeType: 1, // 1 for NSE
-      tokens: tokenObjects[0].tokens
+      tokens: tokensToSub
     });
   }
 }
@@ -353,17 +378,26 @@ function subscribeTokens(tokenObjects) {
 function unsubscribeTokens(tokenObjects) {
   if (!tokenObjects || tokenObjects.length === 0) return;
   
+  const tokensToUnsub = [];
+
   tokenObjects.forEach(obj => {
-    obj.tokens.forEach(t => activeSubscriptions.delete(t));
+    obj.tokens.forEach(t => {
+      const numericToken = /^\d+$/.test(t) ? t : scripMaster.symbolToToken(t);
+      if (numericToken) {
+        activeSubscriptions.delete(numericToken);
+        tokensToUnsub.push(numericToken);
+      }
+    });
   });
 
-  if (wsClient && wsConnected) {
+  if (wsClient && wsConnected && tokensToUnsub.length > 0) {
+    feedLogger.info(`📡 Unsubscribing from ${tokensToUnsub.length} tokens on Angel WebSocket...`, { tokensToUnsub });
     wsClient.fetchData({
       correlationID: "tradex_unsub",
       action: 0, // 0 for unsubscribe
       mode: 3,
       exchangeType: 1,
-      tokens: tokenObjects[0].tokens
+      tokens: tokensToUnsub
     });
   }
 }
@@ -373,7 +407,9 @@ function onTick(callback) {
 }
 
 function broadcastTick(tick) {
-  tickSubscribers.forEach(cb => cb(tick));
+  tickSubscribers.forEach(cb => {
+    try { cb(tick); } catch (e) { /* ignore subscriber errors */ }
+  });
 }
 
 // Stats for Debug Panel
