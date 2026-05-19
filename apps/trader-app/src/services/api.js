@@ -347,6 +347,9 @@ export function connectUserSocket(userId, { onOrderFilled, onPnlUpdate, onBroadc
 
   userSocket = io(`${API_URL}/user`, {
     transports: ['websocket'],
+    auth: {
+      token: getToken()
+    },
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
