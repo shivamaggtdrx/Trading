@@ -1,5 +1,42 @@
 const router = require('express').Router();
 const { supabaseAdmin } = require('../config/supabase');
+const { getNormalizerStats } = require('../ws/feed/normalizer');
+const { getIO } = require('../ws/socketServer');
+
+/**
+ * GET /api/instruments/debug
+ * Server-side diagnostics for WebSocket connections and normalizer activity.
+ */
+router.get('/debug', async (req, res) => {
+  try {
+    let wsClients = 0;
+    let wsRooms = [];
+    try {
+      const io = getIO();
+      wsClients = io.of('/market').sockets.size;
+      for (const [roomName, clients] of io.of('/market').adapter.rooms.entries()) {
+        if (roomName.startsWith('feed:')) {
+          wsRooms.push({ room: roomName, clients: clients.size });
+        }
+      }
+    } catch (e) {
+      wsClients = `Error: ${e.message}`;
+    }
+
+    res.json({
+      normalizerStats: getNormalizerStats(),
+      wsClients,
+      wsRooms,
+      env: {
+        NODE_ENV: process.env.NODE_ENV,
+        hasClientCode: !!process.env.ANGEL_ONE_CLIENT_CODE,
+        clientCode: process.env.ANGEL_ONE_CLIENT_CODE,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * GET /api/instruments
