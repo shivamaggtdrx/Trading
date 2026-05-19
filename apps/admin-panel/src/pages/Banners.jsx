@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Image, Target, Calendar, Play, Pause, Trash2, Plus, X, Loader2 } from 'lucide-react';
-import { adminApi } from '../../services/adminApi';
+import { adminApi } from '../services/adminApi';
 
 export default function Banners() {
   const [banners, setBanners] = useState([]);

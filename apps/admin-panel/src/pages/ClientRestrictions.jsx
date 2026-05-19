@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ShieldBan, Lock, Search, Save, UserX, ToggleLeft, ToggleRight, AlertTriangle, Loader2 } from 'lucide-react';
-import { adminApi } from '../../services/adminApi';
+import { adminApi } from '../services/adminApi';
 
 const DEFAULT_RESTRICTIONS = {
   login: true,
