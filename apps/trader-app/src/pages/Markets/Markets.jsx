@@ -69,7 +69,7 @@ function SwipeableRow({ children, onDelete }) {
 }
 
 export default function Markets() {
-  const { instruments, setSelectedInstrument, user, setOrderSide } = useTradeStore();
+  const { instruments, setSelectedInstrument, user, setOrderSide, updateSubscriptions } = useTradeStore();
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -102,6 +102,7 @@ export default function Markets() {
     if (!updated.lists[activeTab].includes(symbol)) {
       updated.lists[activeTab] = [...updated.lists[activeTab], symbol];
       setWatchlistData(updated); saveWatchlists(updated);
+      updateSubscriptions(); // Update WS subscriptions
     }
     setSearchQuery('');
   };
@@ -109,10 +110,12 @@ export default function Markets() {
     const updated = { ...watchlistData };
     updated.lists[activeTab] = updated.lists[activeTab].filter(s => s !== symbol);
     setWatchlistData(updated); saveWatchlists(updated);
+    updateSubscriptions(); // Update WS subscriptions
   };
   const switchTab = (tab) => {
     const updated = { ...watchlistData, active: tab };
     setWatchlistData(updated); saveWatchlists(updated);
+    updateSubscriptions(); // Update WS subscriptions
   };
 
   const fmtPrice = (p) => {

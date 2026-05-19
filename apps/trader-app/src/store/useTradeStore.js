@@ -547,16 +547,34 @@ export const useTradeStore = create((set, get) => ({
     const state = get();
     const symbolsToSub = new Set();
     
-    // Watchlist
+    // 1. Core indices for the header ticker
+    symbolsToSub.add('NIFTY50');
+    symbolsToSub.add('BANKNIFTY');
+
+    // 2. Legacy Watchlist (tradex_watchlist)
     const favs = JSON.parse(localStorage.getItem('tradex_watchlist') || '[]');
     favs.forEach(s => symbolsToSub.add(s));
+
+    // 3. Multi-Watchlists (tradex_watchlists: MW-1 to MW-5)
+    try {
+      const wlists = JSON.parse(localStorage.getItem('tradex_watchlists') || 'null');
+      if (wlists && wlists.lists) {
+        Object.values(wlists.lists).forEach(list => {
+          if (Array.isArray(list)) {
+            list.forEach(s => symbolsToSub.add(s));
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to parse tradex_watchlists', e);
+    }
     
-    // Chart
+    // 4. Chart
     if (state.selectedInstrument) {
       symbolsToSub.add(state.selectedInstrument.symbol);
     }
     
-    // Positions
+    // 5. Positions
     state.positions.forEach(p => {
       if (p.status !== 'CLOSED') symbolsToSub.add(p.symbol);
     });
