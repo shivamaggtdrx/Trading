@@ -8,6 +8,7 @@ const { processTick: processOHLC } = require('./feed/ohlcAggregator');
 
 let activeFeed = null;
 let mockInterval = null;
+let lastLiveTickTime = 0; // Tracks when the last live broker tick was received
 
 // ── Tick throttle: max 1 emit per symbol per 250ms ──
 // Prevents flooding the Socket.IO bus when Angel One sends ticks faster
@@ -19,6 +20,11 @@ function handleTick(rawTick) {
   // 0. Normalize & validate the tick (rejects corrupted/stale data)
   const tick = normalizeTick(rawTick);
   if (!tick) return; // Corrupted tick rejected
+
+  // Record live broker tick timestamp to keep the backup mock simulator silent
+  if (rawTick._debug?.source !== 'local_simulator') {
+    lastLiveTickTime = Date.now();
+  }
 
   // 1. Throttle: skip emit if we sent this symbol within TICK_THROTTLE_MS
   const now = Date.now();
@@ -88,9 +94,13 @@ async function startMockFeed() {
       prices[i.symbol] = parseFloat(i.last_price) || 100;
     });
 
-    console.log(`✅ Local Mock Simulator started: simulating ${instruments.length} active instruments at ultra-smooth 100ms intervals.`);
+    console.log(`✅ Local Mock Simulator initialized: simulating ${instruments.length} active instruments as a dynamic backup.`);
 
     mockInterval = setInterval(() => {
+      // ONLY simulate price ticks if no live broker feed tick has been received in the last 5 seconds
+      const isLiveFeedOffline = (Date.now() - lastLiveTickTime) > 5000;
+      if (!isLiveFeedOffline) return;
+
       instruments.forEach(inst => {
         const currentPrice = prices[inst.symbol];
         // Micro-price fluctuations for ultra-realistic rendering (-0.02% to +0.02% per 100ms)
@@ -118,7 +128,7 @@ async function startMockFeed() {
 
         handleTick(tick);
       });
-    }, 100); // 100ms update rate for continuousZerodha-like ticks
+    }, 100); // 100ms update rate for continuous Zerodha-like ticks
   } catch (err) {
     console.error('❌ Failed to start local mock simulator:', err.message);
   }
@@ -138,17 +148,19 @@ function initPriceEngine() {
     && !password.includes('YOUR_')
     && !totpSecret.includes('YOUR_');
 
+  // ALWAYS initialize the mock feed so it's ready to dynamically take over if live feed fails or is offline
+  startMockFeed();
+
   if (hasAngelCreds) {
     activeFeed = 'angel';
     angelOneFeed.initAngelOneFeed();
     angelOneFeed.onTick(handleTick);
     setInterval(updateGlobalSubscriptions, 5000);
-    console.log('📊 Price source: Angel One SmartAPI (live tick) connected to Socket.IO');
+    console.log('📊 Price source: Angel One SmartAPI connected with self-healing local mock backup.');
   } else {
     activeFeed = 'mock';
-    startMockFeed();
     console.log('⚠️ Warning: Angel One credentials are empty or placeholders in production.');
-    console.log('📊 Price source fallback: Local mock simulator activated to keep rates fluctuating and platform operational.');
+    console.log('📊 Price source fallback: Local mock simulator activated.');
   }
 }
 
