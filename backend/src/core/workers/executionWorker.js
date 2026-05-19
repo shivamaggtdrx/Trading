@@ -3,7 +3,6 @@ const { redisOpts } = require('../../redis/client');
 const { supabaseAdmin } = require('../../config/supabase');
 const { getIO } = require('../../ws/socketServer');
 const { updateExposure } = require('../risk/validator');
-const angelOneFeed = require('../../ws/angelOneFeed');
 
 /**
  * Execution Worker

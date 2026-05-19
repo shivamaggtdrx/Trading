@@ -84,7 +84,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan(IS_PROD ? 'combined' : 'dev'));
 
-const { getBrokerAvailability } = require('./ws/angelOneFeed');
+const { upstoxStream } = require('./services/upstoxStream');
 
 // ── Health Check (minimal for cron-job.org) ──
 app.get('/health', (req, res) => {
@@ -93,18 +93,26 @@ app.get('/health', (req, res) => {
 
 // ── Ready Check (degraded state detection) ──
 app.get('/ready', (req, res) => {
-  const hasAngelCreds = process.env.ANGEL_ONE_CLIENT_CODE && process.env.ANGEL_ONE_PASSWORD && process.env.ANGEL_ONE_TOTP_SECRET;
+  const hasUpstoxCreds = process.env.UPSTOX_CLIENT_ID && process.env.UPSTOX_CLIENT_SECRET;
   
-  if (hasAngelCreds) {
-    const isAvailable = getBrokerAvailability();
-    if (isAvailable) {
-      res.status(200).json({ status: 'ready', broker: 'available' });
+  if (hasUpstoxCreds) {
+    if (upstoxStream.status === 'CONNECTED') {
+      res.status(200).json({ status: 'ready', broker: 'upstox', stream: 'online' });
+    } else if (upstoxStream.status === 'CONNECTING') {
+      res.status(503).json({ status: 'degraded', broker: 'upstox', stream: 'connecting' });
     } else {
-      res.status(503).json({ status: 'degraded', broker: 'unavailable', error: 'Angel One Broker connection is offline or authenticating' });
+      if (process.env.NODE_ENV !== 'production') {
+        res.status(200).json({ status: 'ready', broker: 'local_mock' });
+      } else {
+        res.status(503).json({ status: 'degraded', broker: 'upstox', stream: 'offline', error: upstoxStream.stats.lastError || 'Disconnected' });
+      }
     }
   } else {
-    // If no credentials are configured, we run in Yahoo Finance polling mode, which is always available
-    res.status(200).json({ status: 'ready', broker: 'local_mock' });
+    if (process.env.NODE_ENV !== 'production') {
+      res.status(200).json({ status: 'ready', broker: 'local_mock' });
+    } else {
+      res.status(503).json({ status: 'degraded', broker: 'upstox', error: 'Upstox credentials not configured' });
+    }
   }
 });
 

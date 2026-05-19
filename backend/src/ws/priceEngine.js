@@ -1,32 +1,40 @@
-const angelOneFeed = require('./angelOneFeed');
+/**
+ * Price Engine
+ * 
+ * Central market data broker that connects to Upstox streaming service,
+ * throttles and broadcasts live ticks to active Socket.IO rooms,
+ * and feeds ticks into the backend candle, execution, and risk pipelines.
+ */
+
+const { upstoxStream } = require('../services/upstoxStream');
 const candleAggregator = require('./candleAggregator');
 const executionEngine = require('./executionEngine');
 const { getIO } = require('./socketServer');
 const { cacheTickPrice } = require('../core/pnl/mtmCalculator');
-const { normalizeTick } = require('./feed/normalizer');
 const { processTick: processOHLC } = require('./feed/ohlcAggregator');
+const { feedLogger } = require('../core/monitoring/logger');
 
 let activeFeed = null;
 let mockInterval = null;
-let lastLiveTickTime = 0; // Tracks when the last live broker tick was received
+let lastLiveTickTime = 0;
 
 // ── Tick throttle: max 1 emit per symbol per 250ms ──
-// Prevents flooding the Socket.IO bus when Angel One sends ticks faster
-// than clients can process (e.g. index futures during high volatility).
+// Prevents flooding the Socket.IO bus when Upstox sends high-frequency updates.
 const TICK_THROTTLE_MS = 250;
 const lastEmitTime = new Map(); // symbol → timestamp
 
-function handleTick(rawTick) {
-  // 0. Normalize & validate the tick (rejects corrupted/stale data)
-  const tick = normalizeTick(rawTick);
-  if (!tick) return; // Corrupted tick rejected
+/**
+ * Handle a normalized tick from any source
+ */
+function handleTick(tick) {
+  if (!tick || !tick.symbol) return;
 
-  // Record live broker tick timestamp to keep the backup mock simulator silent
-  if (rawTick._debug?.source !== 'local_simulator') {
+  // Track live tick timestamps to control backup simulator
+  if (tick._debug?.source !== 'local_simulator') {
     lastLiveTickTime = Date.now();
   }
 
-  // 1. Throttle: skip emit if we sent this symbol within TICK_THROTTLE_MS
+  // 1. Throttle Socket.IO broadcasts
   const now = Date.now();
   const lastEmit = lastEmitTime.get(tick.symbol) || 0;
   const shouldEmit = (now - lastEmit) >= TICK_THROTTLE_MS;
@@ -37,55 +45,44 @@ function handleTick(rawTick) {
       const io = getIO();
       io.of('/market').to(`feed:${tick.symbol}`).emit('MARKET:TICK', tick);
     } catch (err) {
-      // If Socket.io isn't initialized yet, ignore
+      // Ignore if Socket.io is not ready yet
     }
   }
 
-  // 2. Process other heavy pipeline steps asynchronously using setImmediate
-  // to avoid blocking the event loop and ensure zero latency for price delivery.
+  // 2. Heavy pipeline processing (candles, limits, risk, margin) handled asynchronously
   setImmediate(() => {
     try {
       candleAggregator.processTickForCandles(tick);
       processOHLC(tick);
       executionEngine.evaluateTick(tick);
-      cacheTickPrice(tick.symbol, tick.ltp, tick.bid, tick.ask);
+      cacheTickPrice(tick.symbol, tick.ltp || tick.price, tick.bid || tick.price, tick.ask || tick.price);
     } catch (err) {
-      console.error('❌ Async pipeline error:', err.message);
+      feedLogger.error(`Pipeline execution failed for ${tick.symbol}: ${err.message}`);
     }
   });
 }
 
-// Poll for room updates every 5 seconds since users can join/leave dynamically.
-// Socket.io adapter.rooms gives us the active subscriptions across all instances.
-function updateGlobalSubscriptions() {
-  if (activeFeed !== 'angel') return;
-  try {
-    const io = getIO();
-    const rooms = io.of('/market').adapter.rooms;
-    const tokens = [];
-    for (const [roomName, clients] of rooms.entries()) {
-      if (roomName.startsWith('feed:')) {
-        tokens.push(roomName.split(':')[1]);
-      }
-    }
-    if (tokens.length > 0) {
-      angelOneFeed.subscribeTokens([{ exchangeType: 1, tokens }]);
-    }
-  } catch (err) {}
-}
-
+/**
+ * Local Simulator - strictly used in development fallback ONLY
+ */
 async function startMockFeed() {
+  // If in production, DO NOT start the mock simulator under any circumstances!
+  if (process.env.NODE_ENV === 'production') {
+    feedLogger.info('Production mode detected. Local mock simulator is disabled in production per safety guidelines.');
+    return;
+  }
+
   try {
     const { supabaseAdmin } = require('../config/supabase');
     
-    // Load active instruments from DB
+    // Load active instruments
     const { data: instruments } = await supabaseAdmin
       .from('instruments')
       .select('symbol, last_price')
       .eq('is_active', true);
       
     if (!instruments || instruments.length === 0) {
-      console.log('⚠️ Mock Feed: No active instruments found in DB to simulate.');
+      feedLogger.warn('Mock Feed: No active instruments found in DB.');
       return;
     }
 
@@ -94,17 +91,16 @@ async function startMockFeed() {
       prices[i.symbol] = parseFloat(i.last_price) || 100;
     });
 
-    console.log(`✅ Local Mock Simulator initialized: simulating ${instruments.length} active instruments as a dynamic backup.`);
+    feedLogger.info(`Development Backup: Simulated ${instruments.length} active instruments.`);
 
     mockInterval = setInterval(() => {
-      // ONLY simulate price ticks if no live broker feed tick has been received in the last 5 seconds
-      const isLiveFeedOffline = (Date.now() - lastLiveTickTime) > 5000;
+      // Only simulate if no live feed ticks have arrived in the last 10 seconds
+      const isLiveFeedOffline = (Date.now() - lastLiveTickTime) > 10000;
       if (!isLiveFeedOffline) return;
 
       instruments.forEach(inst => {
         const currentPrice = prices[inst.symbol];
-        // Micro-price fluctuations for ultra-realistic rendering (-0.02% to +0.02% per 100ms)
-        const changePct = (Math.random() - 0.5) * 0.0004;
+        const changePct = (Math.random() - 0.5) * 0.0006; // Micro price changes
         const changeAmount = currentPrice * changePct;
         const newPrice = Math.max(0.1, +(currentPrice + changeAmount).toFixed(2));
         prices[inst.symbol] = newPrice;
@@ -115,60 +111,71 @@ async function startMockFeed() {
 
         const tick = {
           symbol: inst.symbol,
-          ltp: newPrice,
+          exchange: 'NSE',
           price: newPrice,
-          bid: bid,
-          ask: ask,
-          spread: +spread.toFixed(2),
+          ltp: newPrice,
+          bid,
+          ask,
           change: +(newPrice - (inst.last_price || newPrice)).toFixed(2),
-          change_percent: +((newPrice - (inst.last_price || newPrice)) / (inst.last_price || newPrice) * 100).toFixed(2),
+          changePercent: +((newPrice - (inst.last_price || newPrice)) / (inst.last_price || newPrice) * 100).toFixed(2),
           timestamp: Date.now(),
           _debug: { source: 'local_simulator' }
         };
 
         handleTick(tick);
       });
-    }, 100); // 100ms update rate for continuous Zerodha-like ticks
+    }, 200);
+
   } catch (err) {
-    console.error('❌ Failed to start local mock simulator:', err.message);
+    feedLogger.error('Failed to initialize local backup simulator:', err);
   }
 }
 
+/**
+ * Initialize the Price Engine
+ */
 function initPriceEngine() {
-  console.log('📡 Engine initialized on Socket.IO');
+  feedLogger.info('Initializing Price Engine with Upstox Feed...');
 
-  const clientCode = process.env.ANGEL_ONE_CLIENT_CODE || '';
-  const password = process.env.ANGEL_ONE_PASSWORD || '';
-  const totpSecret = process.env.ANGEL_ONE_TOTP_SECRET || '';
+  const clientId = process.env.UPSTOX_CLIENT_ID || '';
+  const clientSecret = process.env.UPSTOX_CLIENT_SECRET || '';
 
-  // Check if credentials are set and are not placeholders
-  const hasAngelCreds = clientCode && password && totpSecret
-    && !clientCode.includes('YOUR_')
-    && !clientCode.includes('PLACEHOLDER')
-    && !password.includes('YOUR_')
-    && !totpSecret.includes('YOUR_');
+  const hasUpstoxCreds = clientId && clientSecret 
+    && !clientId.includes('YOUR_') 
+    && !clientId.includes('PLACEHOLDER')
+    && !clientSecret.includes('YOUR_')
+    && !clientSecret.includes('PLACEHOLDER');
 
-  // ALWAYS initialize the mock feed so it's ready to dynamically take over if live feed fails or is offline
-  startMockFeed();
+  // Hook stream callbacks
+  upstoxStream.on('tick', handleTick);
 
-  if (hasAngelCreds) {
-    activeFeed = 'angel';
-    angelOneFeed.initAngelOneFeed();
-    angelOneFeed.onTick(handleTick);
-    setInterval(updateGlobalSubscriptions, 5000);
-    console.log('📊 Price source: Angel One SmartAPI connected with self-healing local mock backup.');
+  if (hasUpstoxCreds) {
+    activeFeed = 'upstox';
+    feedLogger.info('Starting Upstox Live Streaming client...');
+    upstoxStream.start();
   } else {
     activeFeed = 'mock';
-    console.log('⚠️ Warning: Angel One credentials are empty or placeholders in production.');
-    console.log('📊 Price source fallback: Local mock simulator activated.');
+    feedLogger.warn('No valid Upstox credentials found. Fallback mode.');
   }
+
+  // Always boot dev simulator as backup (it enforces dev env check internally)
+  startMockFeed();
 }
 
-function stopPriceSimulation() {
+/**
+ * Stop Price Simulation & Stream
+ */
+function stopPriceEngine() {
   if (mockInterval) {
     clearInterval(mockInterval);
     mockInterval = null;
   }
+  upstoxStream.stop();
+  feedLogger.info('Price Engine shut down successfully.');
 }
 
-module.exports = { initPriceEngine, stopPriceSimulation };
+module.exports = {
+  initPriceEngine,
+  stopPriceEngine,
+  stopPriceSimulation: stopPriceEngine // maintaining legacy naming compatibility
+};

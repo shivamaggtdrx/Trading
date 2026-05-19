@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { supabaseAdmin } = require('../config/supabase');
 const { authenticateUser } = require('../middleware/auth');
-const angelOneFeed = require('../ws/angelOneFeed');
+const { upstoxStream } = require('../services/upstoxStream');
 const { enqueueOrder } = require('../core/queues/orderQueue');
 const { validateOrder } = require('../core/risk/validator');
 const { v4: uuidv4 } = require('uuid');
@@ -24,10 +24,12 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'symbol, side, order_type, and quantity are required' });
     }
 
-    // Check if the broker is active and healthy (when Angel credentials are configured)
-    const hasAngelCreds = process.env.ANGEL_ONE_CLIENT_CODE && process.env.ANGEL_ONE_PASSWORD && process.env.ANGEL_ONE_TOTP_SECRET;
-    if (hasAngelCreds && !angelOneFeed.getBrokerAvailability()) {
-      return res.status(503).json({ error: 'Order execution is temporarily degraded. Broker connection is currently offline. Please try again in a few minutes.' });
+    // Check if the broker is active and healthy (when Upstox credentials are configured)
+    const hasUpstoxCreds = process.env.UPSTOX_CLIENT_ID && process.env.UPSTOX_CLIENT_SECRET;
+    if (hasUpstoxCreds && upstoxStream.status !== 'CONNECTED') {
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(503).json({ error: 'Order execution is temporarily degraded. Broker connection is currently offline. Please try again in a few minutes.' });
+      }
     }
 
     // Check if trading is enabled for user
@@ -79,7 +81,7 @@ router.post('/', async (req, res) => {
     const sp = spreadProfile || { base_spread_pct: 0.05, slippage_min_pct: 0, slippage_max_pct: 0.05, execution_delay_min_ms: 0, execution_delay_max_ms: 200, house_favor_pct: 70 };
 
     // Get latest tick from memory (fallback to DB last_price if not available)
-    const latestTick = angelOneFeed.getLatestTick(symbol.toUpperCase());
+    const latestTick = upstoxStream.getLatestTick(symbol.toUpperCase());
     const referencePrice = latestTick ? latestTick.ltp : instrument.last_price;
     const bidPrice = latestTick && latestTick.bid > 0 ? latestTick.bid : referencePrice;
     const askPrice = latestTick && latestTick.ask > 0 ? latestTick.ask : referencePrice;
