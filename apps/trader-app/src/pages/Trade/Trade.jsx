@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import LightweightChart from '../../components/ui/LightweightChart';
+import TradingViewChart from '../../components/ui/TradingViewChart';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -40,11 +40,19 @@ export default function Trade() {
   const placeOrder = useTradeStore(state => state.placeOrder);
   const orderLoading = useTradeStore(state => state.orderLoading);
   const debugStats = useTradeStore(state => state.debugStats);
+  const updateSubscriptions = useTradeStore(state => state.updateSubscriptions);
   const navigate = useNavigate();
   const [limitPrice, setLimitPrice] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [orderError, setOrderError] = useState(null);
   const [activeTimeframe, setActiveTimeframe] = useState(3); // 1H default
+
+  // Ensure we're subscribed to the selected instrument's price feed
+  useEffect(() => {
+    if (selectedInstrument?.symbol) {
+      updateSubscriptions();
+    }
+  }, [selectedInstrument?.symbol]);
 
   const instrument = useTradeStore(state => {
     const inst = state.instruments.find(i => i.symbol === state.selectedInstrument?.symbol);
@@ -136,14 +144,13 @@ export default function Trade() {
       </header>
 
       {/* Chart Area — Dominant (~55% viewport) */}
-      <div className="relative bg-surface border-b border-border/20">
+      <div className="relative bg-surface border-b border-border/20" style={{ height: '45vh' }}>
           {/* Chart Area */}
-          <div className="flex-1 relative overflow-hidden bg-[#f8fafc] w-full h-full">
-            <LightweightChart
+          <div className="w-full h-full">
+            <TradingViewChart
               symbol={instrument.symbol}
-              timeframe={['1M', '5M', '15M', '1H', '4H', '1D', '1W'][activeTimeframe]}
-              basePrice={instrument.price}
-              isDark={false}
+              timeframe={['1m', '5m', '15m', '1H', '4H', 'D', 'W'][activeTimeframe]}
+              isDark={true}
             />
           </div>
 
@@ -151,14 +158,14 @@ export default function Trade() {
           <div className="absolute top-3 left-3 flex flex-wrap gap-x-2 gap-y-1.5 z-10 pointer-events-none max-w-[80%]">
             {[
               { label: 'O', value: instrument.open || instrument.price },
-              { label: 'H', value: instrument.high || instrument.price, color: 'text-emerald-500' },
-              { label: 'L', value: instrument.low || instrument.price, color: 'text-red-500' },
+              { label: 'H', value: instrument.high || instrument.price, color: 'text-emerald-400' },
+              { label: 'L', value: instrument.low || instrument.price, color: 'text-red-400' },
               { label: 'C', value: instrument.price },
-              { label: 'BID', value: instrument.bid_price, color: 'text-emerald-600' },
-              { label: 'ASK', value: instrument.ask_price, color: 'text-red-500' },
+              { label: 'BID', value: instrument.bid_price, color: 'text-emerald-400' },
+              { label: 'ASK', value: instrument.ask_price, color: 'text-red-400' },
               { label: 'SPREAD', value: instrument.spread, color: 'text-text-primary' },
             ].map(item => (
-              <div key={item.label} className="text-[10px] bg-white/70 dark:bg-black/50 px-1.5 py-0.5 rounded backdrop-blur-sm">
+              <div key={item.label} className="text-[10px] bg-surface/80 dark:bg-surface-2/80 px-1.5 py-0.5 rounded backdrop-blur-sm">
                 <span className="text-text-muted font-bold">{item.label}: </span>
                 <span className={cn('font-bold tabular-nums', item.color || 'text-text-secondary')}>
                   {item.value !== undefined ? (item.value >= 100 ? item.value.toFixed(2) : item.value.toFixed(4)) : '-'}
@@ -174,8 +181,8 @@ export default function Trade() {
           </div>
 
           {/* Time frame buttons */}
-          <div className="absolute bottom-2 left-2 right-2 flex gap-1">
-            {['1M', '5M', '15M', '1H', '4H', '1D', '1W'].map((tf, i) => (
+          <div className="absolute bottom-2 left-2 right-2 flex gap-1 z-10">
+            {['1m', '5m', '15m', '1H', '4H', 'D', 'W'].map((tf, i) => (
               <button
                 key={tf}
                 onClick={() => setActiveTimeframe(i)}
@@ -183,7 +190,7 @@ export default function Trade() {
                   'flex-1 py-1.5 text-sm font-bold rounded-lg transition-all',
                   i === activeTimeframe
                     ? 'bg-primary text-white shadow-sm'
-                    : 'bg-white/70 text-text-muted hover:bg-surface hover:text-text-secondary'
+                    : 'bg-surface-2/80 text-text-muted hover:bg-surface-3 hover:text-text-secondary backdrop-blur-sm'
                 )}
               >
                 {tf}
@@ -244,8 +251,8 @@ export default function Trade() {
             className={cn(
               'py-3.5 rounded-xl text-base font-extrabold tracking-wide transition-all duration-200',
               orderSide === 'buy'
-                ? 'bg-[#00b852] text-white'
-                : 'bg-[#f0fdf4] text-[#00b852] border border-[#dcfce7]'
+                ? 'bg-[#00b852] text-white shadow-lg shadow-emerald-500/20'
+                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
             )}
           >
             ▲ BUY
@@ -255,8 +262,8 @@ export default function Trade() {
             className={cn(
               'py-3.5 rounded-xl text-base font-extrabold tracking-wide transition-all duration-200',
               orderSide === 'sell'
-                ? 'bg-[#ef4444] text-white'
-                : 'bg-[#fef2f2] text-[#ef4444] border border-[#fee2e2]'
+                ? 'bg-[#ef4444] text-white shadow-lg shadow-red-500/20'
+                : 'bg-red-500/10 text-red-400 border border-red-500/20'
             )}
           >
             ▼ SELL

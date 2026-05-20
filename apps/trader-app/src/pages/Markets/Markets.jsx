@@ -1,10 +1,11 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { Search, Maximize2, Trash2 } from 'lucide-react';
+import { Search, Maximize2, Trash2, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTradeStore } from '../../store/useTradeStore';
 import { cn } from '../../utils/helpers';
 import ScriptActionSheet from '../../components/ui/ScriptActionSheet';
 import SideDrawer from '../../components/ui/SideDrawer';
+import InstrumentBrowser from '../../components/ui/InstrumentBrowser';
 
 // Watchlist persistence
 function getWatchlists() {
@@ -76,6 +77,7 @@ export default function Markets() {
   const [watchlistData, setWatchlistData] = useState(getWatchlists);
   const [actionInstrument, setActionInstrument] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showBrowser, setShowBrowser] = useState(false);
 
   const activeTab = watchlistData.active;
   const activeSymbols = watchlistData.lists[activeTab] || [];
@@ -189,6 +191,12 @@ export default function Markets() {
           <button className="p-2.5 bg-surface-2 border border-border rounded-lg text-text-muted hover:text-text-primary transition-colors">
             <Maximize2 size={16} />
           </button>
+          <button
+            onClick={() => setShowBrowser(true)}
+            className="p-2.5 bg-primary/10 border border-primary/20 rounded-lg text-primary hover:bg-primary/20 transition-colors"
+          >
+            <Plus size={16} strokeWidth={2.5} />
+          </button>
         </div>
       </div>
 
@@ -242,7 +250,7 @@ export default function Markets() {
       </div>
 
       {/* ── Bottom Watchlist Tabs ── */}
-      <div className="fixed bottom-14 left-0 right-0 bg-surface border-t border-border z-30 max-w-lg mx-auto lg:hidden">
+      <div className="fixed left-0 right-0 bg-surface border-t border-border z-30 max-w-lg mx-auto lg:hidden" style={{ bottom: '56px' }}>
         <div className="flex items-center px-1">
           <button className="p-2 text-text-muted"><span className="text-lg">‹</span></button>
           <div className="flex-1 flex items-center gap-0 overflow-x-auto scrollbar-hide">
@@ -264,6 +272,18 @@ export default function Markets() {
           onDelete={(inst) => removeFromWatchlist(inst.symbol)} />
       )}
       <SideDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
+      {/* ── MT5-Style Instrument Browser ── */}
+      {showBrowser && (
+        <InstrumentBrowser
+          instruments={instruments}
+          activeSymbols={activeSymbols}
+          onAdd={(symbol) => {
+            addToWatchlist(symbol);
+          }}
+          onClose={() => setShowBrowser(false)}
+        />
+      )}
     </div>
   );
 }

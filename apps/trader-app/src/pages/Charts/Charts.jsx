@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import LightweightChart from '../../components/ui/LightweightChart';
+import TradingViewChart from '../../components/ui/TradingViewChart';
 import {
   ChevronDown, X, Plus, Minus, ShoppingCart, Tag,
   RefreshCw, AlertCircle, Check, Loader2,
@@ -20,6 +20,7 @@ export default function Charts() {
     selectedInstrument, setSelectedInstrument,
     orderType, setOrderType, orderSide, setOrderSide,
     quantity, setQuantity, getAllInstruments, placeOrder, wallet,
+    updateSubscriptions, instruments,
   } = useTradeStore();
   const navigate = useNavigate();
 
@@ -31,10 +32,20 @@ export default function Charts() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
 
+  // Ensure we're subscribed to the selected instrument's price feed
+  useEffect(() => {
+    if (selectedInstrument?.symbol) {
+      updateSubscriptions();
+    }
+  }, [selectedInstrument?.symbol]);
+
   const allInstruments = getAllInstruments();
-  const instrument = selectedInstrument || (allInstruments.length > 0 ? allInstruments[0] : {
+  // Read LIVE instrument data from the instruments array (not stale selectedInstrument)
+  const instrument = (selectedInstrument
+    ? instruments.find(i => i.symbol === selectedInstrument.symbol) || selectedInstrument
+    : allInstruments[0]) || {
     symbol: 'LOADING', name: '', price: 0, change: 0, changePercent: 0
-  });
+  };
   const isForex = instrument.price < 100;
   const currSymbol = isForex ? '$' : '₹';
   const bal = wallet?.availableMargin || wallet?.balance || 0;
@@ -119,7 +130,7 @@ export default function Charts() {
 
       {/* ── Chart Area ── */}
       <div className="flex-1 relative overflow-hidden bg-surface">
-        <LightweightChart symbol={instrument.symbol} timeframe={TIMEFRAMES[activeTimeframe].label} basePrice={instrument.price} isDark={true} />
+        <TradingViewChart symbol={instrument.symbol} timeframe={TIMEFRAMES[activeTimeframe].label} isDark={true} />
       </div>
 
       {/* ── BUY / SELL Buttons ── */}

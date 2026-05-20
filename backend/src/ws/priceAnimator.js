@@ -23,9 +23,12 @@ const { getIO } = require('./socketServer');
 const { feedLogger } = require('../core/monitoring/logger');
 
 // ── Configuration ──
-const ANIMATION_INTERVAL_MS = 130;     // ~7-8 updates per second
-const MICRO_VARIATION_PCT = 0.00015;   // ±0.015% max variation from anchor
-const SPREAD_VARIATION_PCT = 0.00008;  // Bid/ask spread micro-variation
+const ANIMATION_INTERVAL_MS = 250;     // ~4 updates per second (natural, not fake)
+const MICRO_VARIATION_PCT = 0.00008;   // ±0.008% max variation from anchor
+const SPREAD_VARIATION_PCT = 0.00004;  // Bid/ask spread micro-variation
+
+// Only animate these exchanges — Finnhub (US/Forex) excluded until speed is tested
+const ANIMATABLE_EXCHANGES = new Set(['NSE', 'NSE_INDEX', 'CRYPTO', 'BINANCE', 'MCX']);
 
 // ── State ──
 const anchorPrices = new Map();   // symbol → { price, bid, ask, high, low, open, prev_close, change, changePct, volume, exchange, timestamp }
@@ -103,6 +106,9 @@ function startAnimator() {
         const roomSize = rooms.get(roomName)?.size || 0;
         if (roomSize === 0) continue;
 
+        // Skip animation for exchanges that aren't approved (e.g., Finnhub)
+        if (!ANIMATABLE_EXCHANGES.has(anchor.exchange)) continue;
+
         // Generate realistic micro-variation
         const microTick = generateMicroTick(symbol, anchor);
         if (!microTick) continue;
@@ -159,11 +165,13 @@ function generateMicroTick(symbol, anchor) {
     ltp: newPrice,
     bid,
     ask,
+    spread: +(ask - bid).toFixed(getDecimalPlaces(basePrice)),
     high,
     low,
     open: anchor.open,
     prev_close: anchor.prev_close,
     change,
+    change_percent: changePct,
     changePercent: changePct,
     volume: anchor.volume,
     timestamp: Date.now(),
