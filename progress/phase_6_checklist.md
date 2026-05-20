@@ -32,7 +32,8 @@
 - [ ] Add `Cache-Control` headers for static/stable API responses (instruments list, etc.)
 
 ## 6. Feed Resilience
-- [ ] Angel One feed: Add circuit-breaker to stop retrying after 10 consecutive failures (manual reset only)
-- [ ] Angel One feed: Emit Socket.IO `MARKET:FEED_STATUS` on connect/disconnect for UI indicator
+- [ ] Upstox feed: Add circuit-breaker to stop retrying after 10 consecutive failures (manual reset only)
+- [ ] Upstox feed: Emit Socket.IO `MARKET:FEED_STATUS` on connect/disconnect for UI indicator
 - [ ] Watchdog: If no tick received in 60s, trigger reconnect and log stale feed warning
-- [ ] Add fallback polling from Yahoo Finance if Angel One is down for > 2 minutes
+- [ ] Add fallback polling from Yahoo Finance if Upstox is down for > 2 minutes
+

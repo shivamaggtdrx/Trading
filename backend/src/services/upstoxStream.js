@@ -157,7 +157,7 @@ class UpstoxStream extends EventEmitter {
 
     this.reconnectTimeout = null;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 20;
+    this.maxReconnectAttempts = 10;
     
     // In-memory latest ticks cache for backwards compatibility with execution and risk engines
     this.latestTicks = new Map();
@@ -249,6 +249,11 @@ class UpstoxStream extends EventEmitter {
       this.reconnectAttempts = 0;
       this.stats.connectionEstablishedAt = Date.now();
       
+      try {
+        const { getIO } = require('../ws/socketServer');
+        getIO().of('/market').emit('MARKET:FEED_STATUS', { status: 'connected', broker: 'upstox' });
+      } catch (err) {}
+
       // Subscribe to all symbols
       this._subscribeToAll();
     });
@@ -261,6 +266,12 @@ class UpstoxStream extends EventEmitter {
       feedLogger.warn(`Upstox WebSocket closed (Code: ${code}, Reason: ${reason || 'None'})`);
       this.status = 'DISCONNECTED';
       this.ws = null;
+      
+      try {
+        const { getIO } = require('../ws/socketServer');
+        getIO().of('/market').emit('MARKET:FEED_STATUS', { status: 'disconnected', broker: 'upstox' });
+      } catch (err) {}
+      
       this._scheduleReconnect();
     });
 
@@ -285,23 +296,31 @@ class UpstoxStream extends EventEmitter {
 
     feedLogger.info(`Subscribing to ${keys.length} Upstox instruments...`);
     
-    const subscriptionPayload = {
-      guid: `sub_${Date.now()}`,
-      method: 'sub',
-      data: {
-        mode: 'full', // 'full' mode provides high/low/open/close, close, volume, LTP
-        instrumentKeys: keys
-      }
-    };
+    // Chunk keys into arrays of max 100 items (Upstox limit)
+    const chunkSize = 100;
+    for (let i = 0; i < keys.length; i += chunkSize) {
+      const chunk = keys.slice(i, i + chunkSize);
+      const subscriptionPayload = {
+        guid: `sub_${Date.now()}_${i}`,
+        method: 'sub',
+        data: {
+          mode: 'full', // 'full' mode provides high/low/open/close, close, volume, LTP
+          instrumentKeys: chunk
+        }
+      };
 
-    try {
-      this.ws.send(JSON.stringify(subscriptionPayload));
-      this.stats.activeSubscriptions = keys.length;
-      feedLogger.info('Upstox subscription payload sent successfully.');
-    } catch (err) {
-      feedLogger.error('Failed to send Upstox subscription payload:', err);
-      this.stats.errorsEncountered++;
+      try {
+        // Upstox expects the subscription JSON to be sent as a Binary frame (Buffer)
+        const payloadBuffer = Buffer.from(JSON.stringify(subscriptionPayload));
+        this.ws.send(payloadBuffer);
+        feedLogger.info(`Upstox subscription payload sent for chunk ${i/chunkSize + 1}`);
+      } catch (err) {
+        feedLogger.error('Failed to send Upstox subscription payload:', err);
+        this.stats.errorsEncountered++;
+      }
     }
+    
+    this.stats.activeSubscriptions = keys.length;
   }
 
   /**

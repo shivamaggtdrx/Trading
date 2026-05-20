@@ -131,6 +131,8 @@ async function startMockFeed() {
   }
 }
 
+let watchdogInterval = null;
+
 /**
  * Initialize the Price Engine
  */
@@ -160,6 +162,62 @@ function initPriceEngine() {
 
   // Always boot dev simulator as backup (it enforces dev env check internally)
   startMockFeed();
+
+  // Watchdog & Fallback Polling
+  watchdogInterval = setInterval(async () => {
+    if (activeFeed !== 'upstox') return;
+
+    const timeSinceLastTick = Date.now() - lastLiveTickTime;
+
+    // > 60s: trigger reconnect
+    if (timeSinceLastTick > 60000 && timeSinceLastTick <= 120000) {
+      feedLogger.warn(`Watchdog: No ticks received in ${Math.round(timeSinceLastTick / 1000)}s. Triggering Upstox reconnect...`);
+      upstoxStream.stop();
+      upstoxStream.start();
+    }
+    
+    // > 120s: trigger Yahoo Finance fallback polling
+    if (timeSinceLastTick > 120000) {
+      feedLogger.warn(`Watchdog: Upstox down for > 2m. Fetching fallback prices from Yahoo Finance...`);
+      try {
+        const { supabaseAdmin } = require('../config/supabase');
+        const { data: instruments } = await supabaseAdmin
+          .from('instruments')
+          .select('symbol')
+          .eq('is_active', true);
+
+        if (!instruments) return;
+
+        const yahooFinance = require('yahoo-finance2').default;
+        for (const inst of instruments) {
+          // Try adding .NS or .BO for Indian stocks
+          const yfSymbol = inst.symbol.includes('-') ? inst.symbol : `${inst.symbol}.NS`;
+          try {
+            const quote = await yahooFinance.quote(yfSymbol);
+            if (quote && quote.regularMarketPrice) {
+              const tick = {
+                symbol: inst.symbol,
+                exchange: 'NSE',
+                price: quote.regularMarketPrice,
+                ltp: quote.regularMarketPrice,
+                bid: quote.bid || quote.regularMarketPrice,
+                ask: quote.ask || quote.regularMarketPrice,
+                change: quote.regularMarketChange || 0,
+                changePercent: quote.regularMarketChangePercent || 0,
+                timestamp: Date.now(),
+                _debug: { source: 'yahoo_fallback' }
+              };
+              handleTick(tick);
+            }
+          } catch (yfErr) {
+            // Ignore individual fetch errors
+          }
+        }
+      } catch (err) {
+        feedLogger.error('Yahoo Finance fallback error:', err);
+      }
+    }
+  }, 30000); // Check every 30s
 }
 
 /**
@@ -169,6 +227,10 @@ function stopPriceEngine() {
   if (mockInterval) {
     clearInterval(mockInterval);
     mockInterval = null;
+  }
+  if (watchdogInterval) {
+    clearInterval(watchdogInterval);
+    watchdogInterval = null;
   }
   upstoxStream.stop();
   feedLogger.info('Price Engine shut down successfully.');

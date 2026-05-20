@@ -675,8 +675,24 @@ router.get('/risk-management', async (req, res) => {
     try {
       const { redisClient } = require('../redis/client');
       if (redisClient) {
-        const exposureKeys = await redisClient.keys('exp:symbol:*');
-        const disabledKeys = await redisClient.keys('risk:symbol_disabled:*');
+        // Helper to fetch keys without blocking Redis
+        const scanKeys = async (pattern) => {
+          let cursor = '0';
+          const keys = [];
+          try {
+            do {
+              const res = await redisClient.scan(cursor, 'MATCH', pattern, 'COUNT', 1000);
+              cursor = res[0];
+              keys.push(...res[1]);
+            } while (cursor !== '0');
+          } catch (err) {
+             console.error(`Failed to scan keys for pattern ${pattern}:`, err);
+          }
+          return keys;
+        };
+        
+        const exposureKeys = await scanKeys('exp:symbol:*');
+        const disabledKeys = await scanKeys('risk:symbol_disabled:*');
         
         const disabledSymbols = new Set(disabledKeys.map(k => k.replace('risk:symbol_disabled:', '')));
         
@@ -776,10 +792,26 @@ router.get('/exposure-heatmap', async (req, res) => {
     const { redisClient } = require('../redis/client');
     const heatmapItems = [];
 
-    // Fetch all exposure keys from Redis
-    const exposureKeys = await redisClient.keys('exp:symbol:*').catch(() => []);
-    const disabledKeys = await redisClient.keys('risk:symbol_disabled:*').catch(() => []);
-    const maxExposureKeys = await redisClient.keys('risk:max_exposure:*').catch(() => []);
+    // Helper to fetch keys without blocking Redis
+    const scanKeys = async (pattern) => {
+      let cursor = '0';
+      const keys = [];
+      try {
+        do {
+          const res = await redisClient.scan(cursor, 'MATCH', pattern, 'COUNT', 1000);
+          cursor = res[0];
+          keys.push(...res[1]);
+        } while (cursor !== '0');
+      } catch (err) {
+        console.error(`Failed to scan keys for pattern ${pattern}:`, err);
+      }
+      return keys;
+    };
+
+    // Fetch all exposure keys from Redis using SCAN
+    const exposureKeys = await scanKeys('exp:symbol:*');
+    const disabledKeys = await scanKeys('risk:symbol_disabled:*');
+    const maxExposureKeys = await scanKeys('risk:max_exposure:*');
 
     const disabledSymbols = new Set(disabledKeys.map(k => k.replace('risk:symbol_disabled:', '')));
     const maxExposureMap = {};

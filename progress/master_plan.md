@@ -49,14 +49,14 @@
 *   [x] Created `usePullToRefresh` hook + `PullIndicator` component
 *   [x] Wired pull-to-refresh into Positions page
 
-## PHASE 6 — PERFORMANCE & SCALING
-*   [ ] Optimize Redis usage
-*   [ ] Reduce unnecessary realtime writes
-*   [ ] Fix N+1 DB queries
-*   [ ] Optimize BullMQ retry/dead-letter handling
-*   [ ] Improve horizontal scalability readiness
-*   [ ] Improve memory efficiency
-*   [ ] Improve feed resilience
+## PHASE 6 — PERFORMANCE & SCALING ✅
+*   [x] Optimize Redis usage
+*   [x] Reduce unnecessary realtime writes
+*   [x] Fix N+1 DB queries
+*   [x] Optimize BullMQ retry/dead-letter handling
+*   [x] Improve horizontal scalability readiness
+*   [x] Improve memory efficiency
+*   [x] Improve feed resilience
 
 ## PHASE 7 — BUSINESS FEATURES
 *   [ ] Referral engine
