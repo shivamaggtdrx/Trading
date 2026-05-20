@@ -23,9 +23,6 @@ const withdrawalRoutes = require('./routes/withdrawals');
 const adminRoutes = require('./routes/admin');
 
 // ── Import WebSocket ──
-// Old raw ws implementation (Deprecated in Phase 1):
-// const { initWebSocket } = require('./ws/priceEngine'); 
-// New Socket.IO implementation:
 const { initSocketServer } = require('./ws/socketServer');
 const { initPriceEngine } = require('./ws/priceEngine');
 
@@ -165,7 +162,6 @@ server.listen(PORT, () => {
 });
 
 // ── Init Socket.IO Server ──
-// Old raw WS call: initWebSocket(server);
 initSocketServer(server);
 initPriceEngine();
 

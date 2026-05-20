@@ -5,7 +5,7 @@ import {
   RefreshCw, AlertCircle, Check, Loader2,
 } from 'lucide-react';
 import { useTradeStore } from '../../store/useTradeStore';
-import { formatCurrency, cn } from '../../utils/helpers';
+import { formatCurrency, cn , formatPrice} from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 
 const TIMEFRAMES = [
@@ -52,11 +52,7 @@ export default function Charts() {
   const totalValue = quantity ? (Number(quantity) * instrument.price) : 0;
   const requiredMargin = totalValue * 0.1;
 
-  const fmtPrice = (p) => {
-    if (!p) return '0.00';
-    return p >= 100 ? p.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : p.toFixed(p < 1 ? 5 : 2);
-  };
-
+  
   const now = new Date();
   const ltt = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
 
@@ -92,7 +88,7 @@ export default function Charts() {
           {(instrument.change || 0) >= 0 ? '+' : ''}{(instrument.change || 0).toFixed(2)} ({(instrument.changePercent || 0).toFixed(2)}%)
         </span>
         <span className="text-xs text-text-muted truncate flex-1">{instrument.name}</span>
-        <span className="text-sm font-bold text-text-primary tabular-nums">{currSymbol}{fmtPrice(instrument.price)}</span>
+        <span className="text-sm font-bold text-text-primary tabular-nums">{currSymbol}{formatPrice(instrument.price)}</span>
       </header>
 
       {/* Stock Picker Dropdown */}
@@ -173,10 +169,10 @@ export default function Charts() {
             {/* Price Bar */}
             <div className="mx-4 mt-4 bg-surface-2 rounded-xl p-4 border border-border">
               <div className="grid grid-cols-4 gap-2 text-center">
-                <div><p className="text-[11px] text-blue-500 font-bold uppercase">Best Bid</p><p className="text-sm font-bold text-blue-500 mt-0.5">{currSymbol} {fmtPrice(instrument.bid_price || instrument.price * 0.999)}</p></div>
-                <div><p className="text-[11px] text-emerald-500 font-bold uppercase">LTP</p><p className="text-sm font-bold text-emerald-500 mt-0.5">{currSymbol} {fmtPrice(instrument.price)}</p></div>
+                <div><p className="text-[11px] text-blue-500 font-bold uppercase">Best Bid</p><p className="text-sm font-bold text-blue-500 mt-0.5">{currSymbol} {formatPrice(instrument.bid_price || instrument.price * 0.999)}</p></div>
+                <div><p className="text-[11px] text-emerald-500 font-bold uppercase">LTP</p><p className="text-sm font-bold text-emerald-500 mt-0.5">{currSymbol} {formatPrice(instrument.price)}</p></div>
                 <div><p className="text-[11px] text-text-muted font-bold uppercase">LTT</p><p className="text-sm font-bold text-text-primary mt-0.5">{ltt}</p></div>
-                <div><p className="text-[11px] text-red-500 font-bold uppercase">Best Ask</p><p className="text-sm font-bold text-red-500 mt-0.5">{currSymbol} {fmtPrice(instrument.ask_price || instrument.price * 1.001)}</p></div>
+                <div><p className="text-[11px] text-red-500 font-bold uppercase">Best Ask</p><p className="text-sm font-bold text-red-500 mt-0.5">{currSymbol} {formatPrice(instrument.ask_price || instrument.price * 1.001)}</p></div>
               </div>
             </div>
 
@@ -230,7 +226,7 @@ export default function Charts() {
               <div className="px-4 mt-4">
                 <div className="border border-border rounded-xl px-4 py-3 relative">
                   <label className="absolute -top-2.5 left-3 bg-surface px-1 text-xs font-semibold text-text-muted">Price</label>
-                  <input type="number" value={limitPrice} onChange={(e) => setLimitPrice(e.target.value)} placeholder={fmtPrice(instrument.price)}
+                  <input type="number" value={limitPrice} onChange={(e) => setLimitPrice(e.target.value)} placeholder={formatPrice(instrument.price)}
                     className="w-full text-lg font-bold text-text-primary outline-none bg-transparent tabular-nums" />
                 </div>
               </div>

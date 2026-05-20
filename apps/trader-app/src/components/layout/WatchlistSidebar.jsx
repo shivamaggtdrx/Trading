@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Star, X, Plus, Trash2, Maximize2, Minimize2, GripVertical, Edit3, Check } from 'lucide-react';
 import { useTradeStore } from '../../store/useTradeStore';
-import { cn } from '../../utils/helpers';
+import { cn , formatPrice} from '../../utils/helpers';
 
 // ── Watchlist persistence helpers ──
 function getWatchlistName() {
@@ -133,13 +133,7 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
     setIsRenaming(false);
   };
 
-  const fmtPrice = (p) => {
-    if (!p || p === 0) return '0.00';
-    return p >= 100
-      ? p.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : p.toFixed(p < 1 ? 5 : 2);
-  };
-
+  
   // ═══ EXPANDED VIEW — Full market watch table ═══
   if (isExpanded) {
     return (
@@ -263,7 +257,7 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
                     )}
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}
                   >
-                    {fmtPrice(inst.price)}
+                    {formatPrice(inst.price)}
                   </span>
                   <span className={cn('w-[80px] text-right text-[11px] font-bold tabular-nums flex-shrink-0', isUp ? 'text-emerald-500' : 'text-red-500')}>
                     {isUp ? '+' : ''}{(inst.change || 0).toFixed(2)}
@@ -275,16 +269,16 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
                     {inst.volume || '0'}
                   </span>
                   <span className="w-[80px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
-                    {fmtPrice(inst.open || 0)}
+                    {formatPrice(inst.open || 0)}
                   </span>
                   <span className="w-[80px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
-                    {fmtPrice(inst.high || 0)}
+                    {formatPrice(inst.high || 0)}
                   </span>
                   <span className="w-[80px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
-                    {fmtPrice(inst.low || 0)}
+                    {formatPrice(inst.low || 0)}
                   </span>
                   <span className="w-[90px] text-right text-[11px] text-text-muted tabular-nums flex-shrink-0">
-                    {fmtPrice(inst.prevClose || 0)}
+                    {formatPrice(inst.prevClose || 0)}
                   </span>
                   <span className="w-[50px] text-right flex-shrink-0">
                     <button
@@ -414,7 +408,11 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
                     <span className="text-[12px] font-bold text-text-primary truncate">{inst.symbol}</span>
                     {inst.segment && (
                       <span className="text-[9px] font-medium text-text-muted/50 uppercase">
-                        {inst.segment === 'nse_equity' ? '' : inst.segment === 'forex' ? '.fx' : ''}
+                        {inst.segment === 'nse_equity' ? '' : 
+                         inst.segment === 'forex' ? '.fx' : 
+                         inst.segment === 'crypto' ? '.cry' :
+                         inst.segment === 'us_equity' ? '.us' :
+                         inst.segment === 'mcx' ? '.mcx' : ''}
                       </span>
                     )}
                   </div>
@@ -430,7 +428,7 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
                       )}
                       style={{ fontFamily: "'JetBrains Mono', monospace" }}
                     >
-                      {fmtPrice(inst.price)}
+                      {formatPrice(inst.price)}
                     </p>
                     <p className={cn(
                       'text-[10px] font-bold tabular-nums',

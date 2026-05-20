@@ -26,16 +26,6 @@ services:
         value: "YOUR_REDIS_URL_HERE"
       - key: SENTRY_DSN
         value: "YOUR_SENTRY_DSN_HERE"
-      - key: ANGEL_ONE_API_KEY
-        value: "YOUR_ANGEL_ONE_API_KEY_HERE"
-      - key: ANGEL_ONE_API_SECRET
-        value: "YOUR_ANGEL_ONE_API_SECRET_HERE"
-      - key: ANGEL_ONE_CLIENT_CODE
-        value: "YOUR_ANGEL_ONE_CLIENT_CODE_HERE"
-      - key: ANGEL_ONE_PASSWORD
-        value: "YOUR_ANGEL_ONE_PASSWORD_HERE"
-      - key: ANGEL_ONE_TOTP_SECRET
-        value: "YOUR_ANGEL_ONE_TOTP_SECRET_HERE"
 
   # ── Trader App (Static Site) ──
   - type: web

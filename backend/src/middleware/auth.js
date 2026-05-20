@@ -54,7 +54,7 @@ async function authenticateAdmin(req, res, next) {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET);
 
     const { data: admin } = await supabaseAdmin
       .from('admin_users')

@@ -3,7 +3,7 @@ import { X, Search, FileSearch } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { useTradeStore } from '../../store/useTradeStore';
-import { formatCurrency, formatPercent, cn } from '../../utils/helpers';
+import { formatCurrency, formatPercent, cn , formatPrice} from '../../utils/helpers';
 import { usePullToRefresh, PullIndicator } from '../../hooks/usePullToRefresh';
 
 export default function Positions() {
@@ -23,11 +23,7 @@ export default function Positions() {
 
   const handleClose = () => { if (closingId) { closePosition(closingId); setClosingId(null); } };
 
-  const fmtPrice = (p) => {
-    if (!p) return '0.00';
-    return p >= 100 ? p.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : p.toFixed(p < 1 ? 5 : 2);
-  };
-
+  
   return (
     <div className="page-enter bg-surface min-h-screen relative" {...containerProps}>
       <PullIndicator progress={pullProgress} isRefreshing={isRefreshing} />
@@ -80,8 +76,8 @@ export default function Positions() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                    <div><p className="text-[10px] text-text-muted font-medium uppercase">Entry</p><p className="text-xs font-bold text-text-secondary tabular-nums">{fmtPrice(pos.entryPrice)}</p></div>
-                    <div><p className="text-[10px] text-text-muted font-medium uppercase">Current</p><p className={cn('text-xs font-bold tabular-nums', isProfit ? 'text-emerald-400' : 'text-red-400')}>{fmtPrice(pos.currentPrice)}</p></div>
+                    <div><p className="text-[10px] text-text-muted font-medium uppercase">Entry</p><p className="text-xs font-bold text-text-secondary tabular-nums">{formatPrice(pos.entryPrice)}</p></div>
+                    <div><p className="text-[10px] text-text-muted font-medium uppercase">Current</p><p className={cn('text-xs font-bold tabular-nums', isProfit ? 'text-emerald-400' : 'text-red-400')}>{formatPrice(pos.currentPrice)}</p></div>
                     <div><p className="text-[10px] text-text-muted font-medium uppercase">Margin</p><p className="text-xs font-bold text-text-secondary tabular-nums">{formatCurrency(pos.margin)}</p></div>
                     <button onClick={() => setClosingId(pos.id)}
                       className="px-3 py-1.5 border border-red-500/40 rounded-lg text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors">Close</button>

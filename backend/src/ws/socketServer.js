@@ -93,10 +93,45 @@ function initSocketServer(httpServer) {
     });
   });
 
-  // ── DEALER NAMESPACE ──
-  const dealerNamespace = io.of('/dealer');
-  dealerNamespace.on('connection', (socket) => {
-    // Future Phase 3 implementation
+  // ── ADMIN NAMESPACE ──
+  // Dedicated to admin panels (real-time ticks and order flow)
+  const adminNamespace = io.of('/admin');
+  const jwt = require('jsonwebtoken');
+
+  adminNamespace.use(async (socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
+      if (!token) return next(new Error('Authentication error: Missing token'));
+
+      // Admins are authenticated via custom JWT, not Supabase auth tokens
+      const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
+      const decoded = jwt.verify(token, secret);
+      if (!decoded || !decoded.id) return next(new Error('Authentication error: Invalid token'));
+
+      socket.admin = decoded;
+      next();
+    } catch (err) {
+      next(new Error('Authentication error: Server error'));
+    }
+  });
+
+  adminNamespace.on('connection', (socket) => {
+    // Admin client requests to join specific instrument rooms for LiveMarket/DealingDesk
+    socket.on('ADMIN:SUBSCRIBE_TICKERS', (symbols) => {
+      if (Array.isArray(symbols)) {
+        symbols.forEach(symbol => {
+          socket.join(`admin:feed:${symbol}`);
+        });
+      }
+    });
+
+    socket.on('ADMIN:UNSUBSCRIBE_TICKERS', (symbols) => {
+      if (Array.isArray(symbols)) {
+        symbols.forEach(symbol => {
+          socket.leave(`admin:feed:${symbol}`);
+        });
+      }
+    });
   });
 
   return io;

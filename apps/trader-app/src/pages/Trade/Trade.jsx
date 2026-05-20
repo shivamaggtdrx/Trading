@@ -18,13 +18,13 @@ import Input from '../../components/ui/Input';
 import Tabs from '../../components/ui/Tabs';
 import SlideToConfirm from '../../components/ui/SlideToConfirm';
 import { useTradeStore } from '../../store/useTradeStore';
-import { formatCurrency, formatPercent, cn } from '../../utils/helpers';
+import { formatCurrency, formatPercent, cn , formatPrice} from '../../utils/helpers';
 
 
 const orderTypes = [
   { key: 'market', label: 'Market' },
   { key: 'limit', label: 'Limit' },
-  { key: 'stoploss', label: 'SL' },
+  { key: 'stop_loss', label: 'SL' },
 ];
 
 export default function Trade() {
@@ -58,7 +58,8 @@ export default function Trade() {
   });
 
   const totalValue = quantity ? (Number(quantity) * instrument.price) : 0;
-  const estimatedMargin = totalValue * 0.2; // 5x leverage
+  const marginFactor = instrument.margin_required ? parseFloat(instrument.margin_required) / 100 : 1.0;
+  const estimatedMargin = totalValue * marginFactor;
 
   const handleConfirmOrder = async () => {
     setOrderError(null);
@@ -71,7 +72,7 @@ export default function Trade() {
     if (orderType === 'limit' && limitPrice) {
       orderData.price = Number(limitPrice);
     }
-    if (orderType === 'stoploss' && limitPrice) {
+    if (orderType === 'stop_loss' && limitPrice) {
       orderData.stop_price = Number(limitPrice);
     }
 
@@ -96,12 +97,7 @@ export default function Trade() {
   };
 
   const currSymbol = instrument.price >= 100 ? '₹' : '$';
-  const formatInstrumentPrice = (price) => {
-    return price >= 100
-      ? price.toLocaleString('en-IN', { minimumFractionDigits: 2 })
-      : price.toFixed(4);
-  };
-
+  
   return (
     <div className="page-enter">
       {/* Compact Header */}
@@ -128,7 +124,7 @@ export default function Trade() {
           </div>
           <div className="text-right">
             <p className="text-base font-extrabold text-text-primary tabular-nums leading-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              {currSymbol}{formatInstrumentPrice(instrument.price)}
+              {currSymbol}{formatPrice(instrument.price)}
             </p>
             <p className={cn(
               'text-sm font-semibold',
@@ -289,7 +285,7 @@ export default function Trade() {
             <div className="data-row py-1">
               <span className="data-label">Quantity × Price</span>
               <span className="text-sm font-bold text-text-primary tabular-nums">
-                {quantity} × {currSymbol}{formatInstrumentPrice(instrument.price)}
+                {quantity} × {currSymbol}{formatPrice(instrument.price)}
               </span>
             </div>
             <div className="data-row py-1">

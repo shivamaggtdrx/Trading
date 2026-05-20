@@ -32,7 +32,6 @@ const ANIMATABLE_EXCHANGES = new Set(['NSE', 'NSE_INDEX', 'CRYPTO', 'BINANCE', '
 
 // ── State ──
 const anchorPrices = new Map();   // symbol → { price, bid, ask, high, low, open, prev_close, change, changePct, volume, exchange, timestamp }
-const activeRooms = new Set();     // Symbols with active Socket.IO watchers
 let animatorInterval = null;
 let tickCount = 0;
 
@@ -64,20 +63,6 @@ function updateAnchor(tick) {
   });
 }
 
-/**
- * Register a symbol as having active watchers
- * (Called when a client joins a feed room)
- */
-function addActiveSymbol(symbol) {
-  activeRooms.add(symbol);
-}
-
-/**
- * Remove a symbol from active watching
- */
-function removeActiveSymbol(symbol) {
-  activeRooms.delete(symbol);
-}
 
 /**
  * Start the high-frequency price animator
@@ -91,20 +76,26 @@ function startAnimator() {
     try {
       const io = getIO();
       const marketNs = io.of('/market');
+      const adminNs = io.of('/admin');
 
       // Get all rooms that actually have connected clients
-      const rooms = marketNs.adapter?.rooms;
-      if (!rooms) return;
+      const marketRooms = marketNs.adapter?.rooms;
+      const adminRooms = adminNs.adapter?.rooms;
+      if (!marketRooms && !adminRooms) return;
 
       // Iterate all anchor prices and animate the ones with active listeners
       for (const [symbol, anchor] of anchorPrices) {
-        const roomName = `feed:${symbol}`;
+        const marketRoomName = `feed:${symbol}`;
+        const adminRoomName = `admin:feed:${symbol}`;
+
+        // Check if anyone is watching in either namespace
+        const hasMarketWatchers = marketRooms?.has(marketRoomName) && (marketRooms.get(marketRoomName)?.size || 0) > 0;
+        const hasAdminWatchers = adminRooms?.has(adminRoomName) && (adminRooms.get(adminRoomName)?.size || 0) > 0;
 
         // Only animate if someone is actually watching this symbol
-        if (!rooms.has(roomName)) continue;
+        if (!hasMarketWatchers && !hasAdminWatchers) continue;
 
-        const roomSize = rooms.get(roomName)?.size || 0;
-        if (roomSize === 0) continue;
+
 
         // Skip animation for exchanges that aren't approved (e.g., Finnhub)
         if (!ANIMATABLE_EXCHANGES.has(anchor.exchange)) continue;
@@ -113,8 +104,9 @@ function startAnimator() {
         const microTick = generateMicroTick(symbol, anchor);
         if (!microTick) continue;
 
-        // Emit to the room
-        marketNs.to(roomName).emit('MARKET:TICK', microTick);
+        // Emit to the rooms
+        if (hasMarketWatchers) marketNs.to(marketRoomName).emit('MARKET:TICK', microTick);
+        if (hasAdminWatchers) adminNs.to(adminRoomName).emit('MARKET:TICK', microTick);
         tickCount++;
       }
     } catch (err) {
@@ -208,7 +200,6 @@ function getAnimatorStats() {
   return {
     running: !!animatorInterval,
     anchorSymbols: anchorPrices.size,
-    activeWatchers: activeRooms.size,
     totalMicroTicks: tickCount,
     intervalMs: ANIMATION_INTERVAL_MS,
     ticksPerSecond: Math.round(1000 / ANIMATION_INTERVAL_MS),
@@ -217,8 +208,6 @@ function getAnimatorStats() {
 
 module.exports = {
   updateAnchor,
-  addActiveSymbol,
-  removeActiveSymbol,
   startAnimator,
   stopAnimator,
   getAnimatorStats,

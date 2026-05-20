@@ -3,11 +3,13 @@ const { supabaseAdmin } = require('../config/supabase');
 const { getNormalizerStats } = require('../ws/feed/normalizer');
 const { getIO } = require('../ws/socketServer');
 
+const { authenticateUser } = require('../middleware/auth');
+
 /**
  * GET /api/instruments/debug
  * Server-side diagnostics for WebSocket connections and normalizer activity.
  */
-router.get('/debug', async (req, res) => {
+router.get('/debug', authenticateUser, async (req, res) => {
   try {
     let wsClients = 0;
     let wsRooms = [];
@@ -77,6 +79,33 @@ router.get('/:symbol', async (req, res) => {
     res.json({ instrument: data });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch instrument' });
+  }
+});
+
+/**
+ * GET /api/instruments/:symbol/candles
+ * Get historical candles from ohlc_1m
+ */
+router.get('/:symbol/candles', async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+    const limit = parseInt(req.query.limit) || 100;
+    
+    // We fetch the latest candles and order by timestamp descending
+    const { data, error } = await supabaseAdmin
+      .from('ohlc_1m')
+      .select('timestamp, open, high, low, close, volume')
+      .eq('symbol', symbol)
+      .order('timestamp', { ascending: false })
+      .limit(limit);
+
+    if (error) return res.status(500).json({ error: error.message });
+    
+    // Sort ascending for charts
+    const candles = (data || []).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    res.json({ symbol, candles });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch historical candles' });
   }
 });
 

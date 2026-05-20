@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, ShoppingCart, Tag, ChevronDown, ChevronUp, Trash2, BarChart2 } from 'lucide-react';
-import { cn } from '../../utils/helpers';
+import { cn , formatPrice} from '../../utils/helpers';
 import { useTradeStore } from '../../store/useTradeStore';
 
 /**
@@ -19,13 +19,7 @@ export default function ScriptActionSheet({ instrument: initialInstrument, onClo
 
   if (!instrument) return null;
 
-  const fmtPrice = (p) => {
-    if (!p || p === 0) return '--';
-    return p >= 100
-      ? p.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : p.toFixed(p < 1 ? 5 : 3);
-  };
-
+  
   const fmtVol = (v) => {
     if (!v) return '0';
     if (v >= 10000000) return (v / 10000000).toFixed(2) + 'Cr';
@@ -61,7 +55,7 @@ export default function ScriptActionSheet({ instrument: initialInstrument, onClo
               'text-sm font-bold tabular-nums',
               (instrument.change || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
             )}>
-              {fmtPrice(instrument.price)}
+              {formatPrice(instrument.price)}
             </span>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-surface-3 transition-colors">
@@ -89,19 +83,19 @@ export default function ScriptActionSheet({ instrument: initialInstrument, onClo
             <div className="grid grid-cols-5 gap-2 mb-3">
               <div>
                 <p className="text-[11px] text-text-muted font-medium">Open</p>
-                <p className="text-[13px] font-bold text-text-primary tabular-nums">{fmtPrice(instrument.open || instrument.day_open)}</p>
+                <p className="text-[13px] font-bold text-text-primary tabular-nums">{formatPrice(instrument.open || instrument.day_open)}</p>
               </div>
               <div>
                 <p className="text-[11px] text-text-muted font-medium">High</p>
-                <p className="text-[13px] font-bold text-text-primary tabular-nums">{fmtPrice(instrument.high || instrument.day_high)}</p>
+                <p className="text-[13px] font-bold text-text-primary tabular-nums">{formatPrice(instrument.high || instrument.day_high)}</p>
               </div>
               <div>
                 <p className="text-[11px] text-text-muted font-medium">Low</p>
-                <p className="text-[13px] font-bold text-text-primary tabular-nums">{fmtPrice(instrument.low || instrument.day_low)}</p>
+                <p className="text-[13px] font-bold text-text-primary tabular-nums">{formatPrice(instrument.low || instrument.day_low)}</p>
               </div>
               <div>
                 <p className="text-[11px] text-text-muted font-medium">Close</p>
-                <p className="text-[13px] font-bold text-text-primary tabular-nums">{fmtPrice(instrument.price || instrument.last_price)}</p>
+                <p className="text-[13px] font-bold text-text-primary tabular-nums">{formatPrice(instrument.price || instrument.last_price)}</p>
               </div>
               <div>
                 <p className="text-[11px] text-text-muted font-medium">Volume</p>
@@ -116,7 +110,7 @@ export default function ScriptActionSheet({ instrument: initialInstrument, onClo
                 <p className={cn(
                   'text-[13px] font-bold tabular-nums transition-colors duration-150',
                   tickDir === 'up' ? 'text-emerald-400' : tickDir === 'down' ? 'text-red-400' : 'text-text-primary'
-                )}>{fmtPrice(instrument.bid_price)}</p>
+                )}>{formatPrice(instrument.bid_price)}</p>
               </div>
               <div>
                 <p className="text-[11px] text-text-muted font-medium">Bid Qty</p>
@@ -129,7 +123,7 @@ export default function ScriptActionSheet({ instrument: initialInstrument, onClo
                 <p className={cn(
                   'text-[13px] font-bold tabular-nums transition-colors duration-150',
                   tickDir === 'up' ? 'text-emerald-400' : tickDir === 'down' ? 'text-red-400' : 'text-text-primary'
-                )}>{fmtPrice(instrument.ask_price)}</p>
+                )}>{formatPrice(instrument.ask_price)}</p>
               </div>
               <div>
                 <p className="text-[11px] text-text-muted font-medium">Ask Qty</p>

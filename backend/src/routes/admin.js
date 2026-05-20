@@ -1432,7 +1432,7 @@ const allowedModules = [
   'banners', 'fee-config', 'eod-settlement', 'ip-whitelist',
   'cron-jobs', 'feature-flags', 'tournaments', 'admin-users',
   'sessions', 'campaigns', 'documents', 'revenue-leakage', 'churn-prediction',
-  'system-notifications', 'system-alerts'
+  'system-notifications', 'system-alerts', 'leads', 'client-tiers', 'api-keys'
 ];
 
 router.get('/crm/:module', async (req, res) => {

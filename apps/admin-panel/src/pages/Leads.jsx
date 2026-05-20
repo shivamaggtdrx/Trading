@@ -13,6 +13,18 @@ export default function Leads() {
 
   const filteredLeads = leads.filter(l => activeTab === 'all' || l.status === activeTab);
 
+  // Dynamic metrics calculation
+  const newLeadsToday = leads.filter(l => {
+    if (l.status !== 'new') return false;
+    const date = new Date(l.created_at || l.date);
+    const today = new Date();
+    return date.toDateString() === today.toDateString();
+  }).length;
+  
+  const contactedCount = leads.filter(l => l.status === 'contacted').length;
+  const kycPendingCount = leads.filter(l => l.status === 'kyc_pending').length;
+  const convertedCount = leads.filter(l => l.status === 'converted').length;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -29,19 +41,19 @@ export default function Leads() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
           <div className="text-sm font-bold text-gray-500">New Leads Today</div>
-          <div className="text-2xl font-black text-blue-600 mt-1">24</div>
+          <div className="text-2xl font-black text-blue-600 mt-1">{newLeadsToday}</div>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
           <div className="text-sm font-bold text-gray-500">Contacted / Follow-up</div>
-          <div className="text-2xl font-black text-orange-600 mt-1">156</div>
+          <div className="text-2xl font-black text-orange-600 mt-1">{contactedCount}</div>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
           <div className="text-sm font-bold text-gray-500">KYC Pending</div>
-          <div className="text-2xl font-black text-yellow-600 mt-1">42</div>
+          <div className="text-2xl font-black text-yellow-600 mt-1">{kycPendingCount}</div>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <div className="text-sm font-bold text-gray-500">Converted (This Month)</div>
-          <div className="text-2xl font-black text-green-600 mt-1">89</div>
+          <div className="text-sm font-bold text-gray-500">Converted (Total)</div>
+          <div className="text-2xl font-black text-green-600 mt-1">{convertedCount}</div>
         </div>
       </div>
 

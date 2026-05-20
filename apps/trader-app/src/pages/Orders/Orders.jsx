@@ -3,7 +3,7 @@ import { Clock, CheckCircle2, XCircle, X, Calendar, ClipboardList, Zap } from 'l
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { useTradeStore } from '../../store/useTradeStore';
-import { formatCurrency, cn } from '../../utils/helpers';
+import { formatCurrency, cn , formatPrice} from '../../utils/helpers';
 
 const statusConfig = {
   pending: { icon: Clock, label: 'Pending', color: 'text-amber-400', bg: 'bg-amber-500/10' },
@@ -21,8 +21,7 @@ export default function Orders() {
   const cancelledCount = orders.filter((o) => o.status === 'cancelled').length;
 
   const handleCancelOrder = () => { if (cancellingId) { cancelOrder(cancellingId); setCancellingId(null); } };
-  const fmtPrice = (price) => price >= 100 ? '₹' + price.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '$' + price.toFixed(4);
-  const fmtTime = (ts) => {
+    const fmtTime = (ts) => {
     if (!ts) return '—';
     return new Date(ts).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
   };
@@ -78,14 +77,14 @@ export default function Orders() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div><p className="text-[10px] text-text-muted font-medium uppercase">Qty</p><p className="text-xs font-bold text-text-secondary tabular-nums">{order.quantity}</p></div>
-                        <div><p className="text-[10px] text-text-muted font-medium uppercase">Price</p><p className="text-xs font-bold text-text-primary tabular-nums">{fmtPrice(order.price)}</p></div>
+                        <div><p className="text-[10px] text-text-muted font-medium uppercase">Price</p><p className="text-xs font-bold text-text-primary tabular-nums">{formatPrice(order.price)}</p></div>
                         <div><p className="text-[10px] text-text-muted font-medium uppercase">Value</p><p className="text-xs font-bold text-text-secondary tabular-nums">{formatCurrency(order.price * order.quantity)}</p></div>
                       </div>
                       <p className="text-[11px] text-text-muted flex items-center gap-1"><Calendar size={8} />{fmtTime(order.filledAt || order.cancelledAt || order.createdAt)}</p>
                     </div>
                     {isOpen && (
                       <div className="mt-2 flex items-center gap-1.5 bg-amber-500/5 rounded-lg px-2.5 py-1.5">
-                        <Zap size={10} className="text-amber-400" /><span className="text-[11px] font-medium text-amber-400">Awaiting execution at {fmtPrice(order.price)}</span>
+                        <Zap size={10} className="text-amber-400" /><span className="text-[11px] font-medium text-amber-400">Awaiting execution at {formatPrice(order.price)}</span>
                       </div>
                     )}
                   </div>
@@ -111,7 +110,7 @@ export default function Orders() {
               <div className="bg-surface rounded-lg p-3 space-y-2">
                 <div className="flex justify-between text-sm"><span className="text-text-muted">Symbol</span><span className="font-bold text-text-primary">{order.symbol}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-text-muted">Side</span><span className={cn('font-semibold', order.side === 'BUY' ? 'text-emerald-500' : 'text-red-500')}>{order.side}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-text-muted">Qty × Price</span><span className="font-bold text-text-primary">{order.quantity} × {fmtPrice(order.price)}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-text-muted">Qty × Price</span><span className="font-bold text-text-primary">{order.quantity} × {formatPrice(order.price)}</span></div>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" fullWidth size="md" onClick={() => setCancellingId(null)}>Keep</Button>

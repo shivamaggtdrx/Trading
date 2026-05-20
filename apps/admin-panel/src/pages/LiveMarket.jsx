@@ -1,21 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, TrendingUp, TrendingDown, Clock, Globe, ArrowRight } from 'lucide-react';
+import { initAdminSocket, subscribeToTickers, unsubscribeFromTickers, onMarketTick } from '../services/adminSocket';
 
 export default function LiveMarket() {
   const [marketStatus, setMarketStatus] = useState('Open');
   const [time, setTime] = useState(new Date().toLocaleTimeString());
+  const [indices, setIndices] = useState({
+    'NIFTY50': { name: 'NIFTY 50', value: '0.00', change: '0.00', pct: '0.00%', up: true, rawValue: 0 },
+    'BANKNIFTY': { name: 'BANKNIFTY', value: '0.00', change: '0.00', pct: '0.00%', up: true, rawValue: 0 },
+    'SENSEX': { name: 'SENSEX', value: '0.00', change: '0.00', pct: '0.00%', up: true, rawValue: 0 },
+    'INDIA VIX': { name: 'INDIA VIX', value: '0.00', change: '0.00', pct: '0.00%', up: true, rawValue: 0 },
+  });
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date().toLocaleTimeString()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+    
+    // Initialize socket and subscribe
+    initAdminSocket();
+    const symbols = Object.keys(indices);
+    subscribeToTickers(symbols);
 
-  const indices = [
-    { name: 'NIFTY 50', value: '19,542.65', change: '+124.50', pct: '+0.64%', up: true },
-    { name: 'BANKNIFTY', value: '44,231.10', change: '+310.20', pct: '+0.71%', up: true },
-    { name: 'SENSEX', value: '65,821.40', change: '-45.10', pct: '-0.07%', up: false },
-    { name: 'INDIA VIX', value: '11.45', change: '-0.30', pct: '-2.55%', up: false },
-  ];
+    const unsubscribeTicks = onMarketTick((tick) => {
+      if (tick && tick.symbol && indices[tick.symbol]) {
+        setIndices(prev => ({
+          ...prev,
+          [tick.symbol]: {
+            ...prev[tick.symbol],
+            value: Number(tick.price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+            change: (tick.change >= 0 ? '+' : '') + Number(tick.change || 0).toFixed(2),
+            pct: (tick.change >= 0 ? '+' : '') + Number(tick.change_percent || 0).toFixed(2) + '%',
+            up: tick.change >= 0,
+            rawValue: tick.price,
+          }
+        }));
+      }
+    });
+
+    return () => {
+      clearInterval(timer);
+      unsubscribeFromTickers(symbols);
+      unsubscribeTicks();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-6">
@@ -41,8 +67,8 @@ export default function LiveMarket() {
 
       {/* Tickers */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {indices.map(idx => (
-           <div key={idx.name} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group">
+        {Object.values(indices).map(idx => (
+           <div key={idx.name} className={`bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group transition-colors duration-150 ${idx.rawValue > 0 ? (idx.up ? 'bg-green-50/10' : 'bg-red-50/10') : ''}`}>
               <div className="text-xs font-bold text-gray-500 mb-1">{idx.name}</div>
               <div className="text-2xl font-black text-gray-900">{idx.value}</div>
               <div className={`text-sm font-bold flex items-center gap-1 mt-1 ${idx.up ? 'text-green-600' : 'text-red-600'}`}>

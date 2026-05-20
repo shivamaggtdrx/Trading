@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { X, Search, ChevronRight, Plus, Check, TrendingUp, Globe, DollarSign, BarChart2 } from 'lucide-react';
-import { cn } from '../../utils/helpers';
+import { cn , formatPrice} from '../../utils/helpers';
 
 // ── Category Folders ──
 const CATEGORIES = [
@@ -39,11 +39,7 @@ export default function InstrumentBrowser({ instruments, onAdd, onClose, activeS
     ).slice(0, 30);
   }, [instruments, searchQuery]);
 
-  const fmtPrice = (p) => {
-    if (!p || p === 0) return '-';
-    return p >= 100 ? p.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : p.toFixed(p < 1 ? 5 : 3);
-  };
-
+  
   const isAdded = (symbol) => activeSymbols?.includes(symbol);
 
   return (
@@ -177,7 +173,7 @@ function InstrumentRow({ inst, isAdded, onAdd, fmtPrice }) {
         <p className="text-xs text-text-muted truncate">{inst.name || inst.symbol}</p>
       </div>
       <div className="text-right mr-2">
-        <p className="text-sm font-bold text-text-primary tabular-nums">{fmtPrice(inst.price || inst.last_price)}</p>
+        <p className="text-sm font-bold text-text-primary tabular-nums">{formatPrice(inst.price || inst.last_price)}</p>
         <p className={cn('text-[11px] font-medium tabular-nums', isUp ? 'text-emerald-400' : 'text-red-400')}>
           {change >= 0 ? '+' : ''}{change.toFixed(2)} ({pct.toFixed(2)}%)
         </p>

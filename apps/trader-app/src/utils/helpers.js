@@ -14,11 +14,17 @@ export function formatPercent(value) {
   return sign + value.toFixed(2) + '%';
 }
 
-export function formatPrice(value) {
-  if (value >= 100) {
-    return value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export function formatPrice(value, includeCurrency = false) {
+  if (!value || isNaN(value)) return '0.00';
+  const num = Number(value);
+  const formatted = num >= 100 
+    ? num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : num.toFixed(num < 1 ? 5 : 4);
+  
+  if (includeCurrency) {
+    return (num >= 100 ? '₹' : '$') + formatted;
   }
-  return value.toFixed(4);
+  return formatted;
 }
 
 export function cn(...classes) {

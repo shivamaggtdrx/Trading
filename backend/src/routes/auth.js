@@ -85,11 +85,19 @@ router.post('/signup', async (req, res) => {
   }
 });
 
+const rateLimit = require('express-rate-limit');
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 login requests per window
+  message: { error: 'Too many login attempts, please try again after 15 minutes.' }
+});
+
 /**
  * POST /api/auth/login
  * Login trader user
  */
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -352,7 +360,7 @@ function formatTimeAgo(dateStr) {
  * GET /api/auth/system/debug
  * Exposes live diagnostics for feed connection monitoring
  */
-router.get('/system/debug', async (req, res) => {
+router.get('/system/debug', authenticateUser, async (req, res) => {
   try {
     const { redisClient } = require('../redis/client');
     const { getFeedStatus } = require('../ws/priceEngine');

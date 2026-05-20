@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef } from 'react';
 import { Search, Maximize2, Trash2, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTradeStore } from '../../store/useTradeStore';
-import { cn } from '../../utils/helpers';
+import { cn , formatPrice} from '../../utils/helpers';
 import ScriptActionSheet from '../../components/ui/ScriptActionSheet';
 import SideDrawer from '../../components/ui/SideDrawer';
 import InstrumentBrowser from '../../components/ui/InstrumentBrowser';
@@ -120,11 +120,7 @@ export default function Markets() {
     updateSubscriptions(); // Update WS subscriptions
   };
 
-  const fmtPrice = (p) => {
-    if (!p || p === 0) return '0.00';
-    return p >= 100 ? p.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : p.toFixed(p < 1 ? 5 : 3);
-  };
-  const fmtChange = (change, pct) => `${(change || 0).toFixed(2)} (${(pct || 0).toFixed(2)}%)`;
+    const fmtChange = (change, pct) => `${(change || 0).toFixed(2)} (${(pct || 0).toFixed(2)}%)`;
 
   const handleInstrumentTap = (inst) => setActionInstrument(inst);
   const handleBuy = (inst) => { setSelectedInstrument(inst); setOrderSide('buy'); navigate('/trade'); };
@@ -134,7 +130,7 @@ export default function Markets() {
   const tickerFmt = (data) => {
     if (!data) return { price: '0.00', change: '0.00', pct: '(0.00%)' };
     return {
-      price: fmtPrice(data.price || data.last_price || 0),
+      price: formatPrice(data.price || data.last_price || 0),
       change: ((data.change || data.change_amount || 0)).toFixed(2),
       pct: `(${((data.changePercent || data.change_percent || 0)).toFixed(2)}%)`,
     };
@@ -214,7 +210,7 @@ export default function Markets() {
                     <p className="text-[12px] text-text-muted truncate">{inst.name}</p>
                   </div>
                   <div className="text-right ml-3">
-                    <p className="text-[14px] font-bold text-text-primary tabular-nums">{fmtPrice(inst.price)}</p>
+                    <p className="text-[14px] font-bold text-text-primary tabular-nums">{formatPrice(inst.price)}</p>
                     <p className={cn('text-[12px] font-medium tabular-nums', isUp ? 'text-emerald-400' : 'text-red-400')}>{fmtChange(change, pct)}</p>
                   </div>
                 </div>
@@ -236,7 +232,7 @@ export default function Markets() {
                       <p className="text-[12px] text-text-muted truncate">{inst.name}</p>
                     </div>
                     <div className="text-right ml-3">
-                      <p className="text-[14px] font-bold text-text-primary tabular-nums">{fmtPrice(inst.price)}</p>
+                      <p className="text-[14px] font-bold text-text-primary tabular-nums">{formatPrice(inst.price)}</p>
                       <p className={cn('text-[12px] font-medium tabular-nums', isUp ? 'text-emerald-400' : 'text-red-400')}>{fmtChange(change, pct)}</p>
                     </div>
                   </div>

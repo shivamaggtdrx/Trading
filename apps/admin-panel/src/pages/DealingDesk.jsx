@@ -1,26 +1,53 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Activity, Layers, ArrowRightLeft, ShieldAlert, Zap, DollarSign, Crosshair, TrendingDown, Target } from 'lucide-react';
+import { initAdminSocket, subscribeToTickers, unsubscribeFromTickers, onMarketTick } from '../services/adminSocket';
 
-const orderBook = {
-  bids: [
-    { price: 2950.15, size: 1500, orders: 4 },
-    { price: 2950.10, size: 2300, orders: 7 },
-    { price: 2950.05, size: 8500, orders: 12 },
-    { price: 2950.00, size: 12000, orders: 25 },
-    { price: 2949.90, size: 4200, orders: 8 },
-  ],
-  asks: [
-    { price: 2950.25, size: 1200, orders: 3 },
-    { price: 2950.30, size: 3100, orders: 5 },
-    { price: 2950.35, size: 4500, orders: 9 },
-    { price: 2950.40, size: 15000, orders: 18 },
-    { price: 2950.50, size: 5000, orders: 6 },
-  ]
+const generateMockOrderBook = (price) => {
+  if (!price) return null;
+  const spread = 0.05;
+  return {
+    bids: [
+      { price: price - spread * 1, size: Math.floor(Math.random() * 5000) + 1000, orders: Math.floor(Math.random() * 10) + 1 },
+      { price: price - spread * 2, size: Math.floor(Math.random() * 8000) + 2000, orders: Math.floor(Math.random() * 15) + 2 },
+      { price: price - spread * 3, size: Math.floor(Math.random() * 12000) + 3000, orders: Math.floor(Math.random() * 20) + 5 },
+      { price: price - spread * 4, size: Math.floor(Math.random() * 15000) + 5000, orders: Math.floor(Math.random() * 25) + 8 },
+      { price: price - spread * 5, size: Math.floor(Math.random() * 20000) + 8000, orders: Math.floor(Math.random() * 30) + 10 },
+    ],
+    asks: [
+      { price: price + spread * 1, size: Math.floor(Math.random() * 5000) + 1000, orders: Math.floor(Math.random() * 10) + 1 },
+      { price: price + spread * 2, size: Math.floor(Math.random() * 8000) + 2000, orders: Math.floor(Math.random() * 15) + 2 },
+      { price: price + spread * 3, size: Math.floor(Math.random() * 12000) + 3000, orders: Math.floor(Math.random() * 20) + 5 },
+      { price: price + spread * 4, size: Math.floor(Math.random() * 15000) + 5000, orders: Math.floor(Math.random() * 25) + 8 },
+      { price: price + spread * 5, size: Math.floor(Math.random() * 20000) + 8000, orders: Math.floor(Math.random() * 30) + 10 },
+    ]
+  };
 };
 
 export default function DealingDesk() {
   const [selectedSymbol, setSelectedSymbol] = useState('RELIANCE');
   const [activeTab, setActiveTab] = useState('virtual_dealer');
+  const [currentPrice, setCurrentPrice] = useState(0);
+  const [orderBook, setOrderBook] = useState(generateMockOrderBook(2950.20));
+
+  useEffect(() => {
+    initAdminSocket();
+    subscribeToTickers([selectedSymbol]);
+
+    const unsubscribeTicks = onMarketTick((tick) => {
+      if (tick && tick.symbol === selectedSymbol) {
+        setCurrentPrice(tick.price);
+        // Only regenerate order book sometimes to simulate realistic jitter
+        if (Math.random() > 0.3) {
+          setOrderBook(generateMockOrderBook(tick.price));
+        }
+      }
+    });
+
+    return () => {
+      unsubscribeFromTickers([selectedSymbol]);
+      unsubscribeTicks();
+    };
+  }, [selectedSymbol]);
 
   return (
     <div className="space-y-6">
@@ -207,7 +234,7 @@ export default function DealingDesk() {
                 <div className="text-right">Price</div>
               </div>
               <div className="flex flex-col-reverse divide-y divide-gray-50 border-b border-gray-200">
-                {orderBook.asks.map((ask, i) => (
+                {orderBook?.asks.map((ask, i) => (
                   <div key={`ask-${i}`} className="grid grid-cols-3 gap-2 px-4 py-1.5 hover:bg-red-50 relative group cursor-pointer">
                     <div className="absolute right-0 top-0 bottom-0 bg-red-100 opacity-20" style={{ width: `${(ask.size / 15000) * 100}%` }}></div>
                     <div className="text-left text-gray-500 z-10">{ask.orders}</div>
@@ -217,10 +244,10 @@ export default function DealingDesk() {
                 ))}
               </div>
               <div className="py-2 text-center text-xs font-bold text-gray-500 bg-gray-50 border-b border-gray-200">
-                Spread: 0.10 (0.003%) | Mark: 2950.20
+                Spread: 0.10 (0.003%) | Mark: {currentPrice ? currentPrice.toFixed(2) : 'Loading...'}
               </div>
               <div className="flex flex-col divide-y divide-gray-50">
-                {orderBook.bids.map((bid, i) => (
+                {orderBook?.bids.map((bid, i) => (
                   <div key={`bid-${i}`} className="grid grid-cols-3 gap-2 px-4 py-1.5 hover:bg-green-50 relative group cursor-pointer">
                     <div className="absolute right-0 top-0 bottom-0 bg-green-100 opacity-20" style={{ width: `${(bid.size / 15000) * 100}%` }}></div>
                     <div className="text-left text-gray-500 z-10">{bid.orders}</div>

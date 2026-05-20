@@ -130,8 +130,8 @@ class NseFeed extends EventEmitter {
   _startPolling() {
     if (this.pollInterval) clearInterval(this.pollInterval);
 
-    const POLL_INTERVAL_MS = 1500; // Poll every 1.5 seconds (aggressive but safe)
-    const BATCH_SIZE = 10;         // 10 symbols per cycle (faster full rotation)
+    const POLL_INTERVAL_MS = 1000; // Poll every 1.0 seconds
+    const BATCH_SIZE = 50;         // 50 symbols per cycle (faster full rotation)
     let batchIndex = 0;
     let indexBatchIndex = 0;
 

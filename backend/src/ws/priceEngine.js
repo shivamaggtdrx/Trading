@@ -71,18 +71,35 @@ function handleTick(tick) {
 
   // 2. Queue for periodic DB flush (only for live data, not simulator)
   if (!tick._debug || tick._debug.source !== 'local_simulator') {
-    pendingDbUpdates.set(tick.symbol, {
-      last_price: tick.ltp || tick.price,
-      bid_price: tick.bid || tick.ltp || tick.price,
-      ask_price: tick.ask || tick.ltp || tick.price,
-      day_open: tick.open || 0,
-      day_high: tick.high || 0,
-      day_low: tick.low || 0,
-      change_amount: tick.change || 0,
-      change_percent: tick.changePercent || tick.change_percent || 0,
-      volume: Math.floor(tick.volume || 0),
-      last_price_update: new Date().toISOString(),
-    });
+    let hasSubscribers = false;
+    try {
+      const io = getIO();
+      if (io) {
+        const marketRoom = io.of('/market').adapter.rooms.get(`feed:${tick.symbol}`);
+        const adminRoom = io.of('/admin').adapter.rooms.get(`admin:feed:${tick.symbol}`);
+        hasSubscribers = (marketRoom && marketRoom.size > 0) || (adminRoom && adminRoom.size > 0);
+      }
+    } catch (e) {}
+
+    const now = Date.now();
+    const lastUpdate = lastKnownPrices.get(`${tick.symbol}_db`) || 0;
+    
+    // Update if there are subscribers, or if it's been > 60s for non-subscribed
+    if (hasSubscribers || (now - lastUpdate > 60000)) {
+      lastKnownPrices.set(`${tick.symbol}_db`, now);
+      pendingDbUpdates.set(tick.symbol, {
+        last_price: tick.ltp || tick.price,
+        bid_price: tick.bid || tick.ltp || tick.price,
+        ask_price: tick.ask || tick.ltp || tick.price,
+        day_open: tick.open || 0,
+        day_high: tick.high || 0,
+        day_low: tick.low || 0,
+        change_amount: tick.change || 0,
+        change_percent: tick.changePercent || tick.change_percent || 0,
+        volume: Math.floor(tick.volume || 0),
+        last_price_update: new Date(now).toISOString(),
+      });
+    }
   }
 
   // 3. Heavy pipeline processing (candles, limits, risk, margin) handled asynchronously
