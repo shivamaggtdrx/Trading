@@ -11,11 +11,11 @@ services:
       - key: NODE_ENV
         value: production
       - key: SUPABASE_URL
-        value: "YOUR_SUPABASE_URL_HERE"
+        value: "https://nrwyqkannylqwqxigozn.supabase.co"
       - key: SUPABASE_SERVICE_ROLE_KEY
-        value: "YOUR_SERVICE_ROLE_KEY_HERE"
+        value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yd3lxa2FubnlscXdxeGlnb3puIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODA4NzA3NiwiZXhwIjoyMDkzNjYzMDc2fQ.nRCq0qb1mLQB0LcnVjU26EkZZLZmzWj8aDuxfFzpOlk"
       - key: SUPABASE_ANON_KEY
-        value: "YOUR_ANON_KEY_HERE"
+        value: "sb_publishable_LurXMNnUUffQ7Ca987yZdg_VDOaeRxq"
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
@@ -23,9 +23,11 @@ services:
       - key: ADMIN_URL
         value: https://stockslab-admin.onrender.com
       - key: REDIS_URL
-        value: "YOUR_REDIS_URL_HERE"
+        value: "rediss://default:AVNS_g0bUjO18cC10kZn-k5e@valkey-31947b9e-stockslab.j.aivencloud.com:15432"
+      - key: FINNHUB_API_KEY
+        value: "d86lnn9r01qgiu45vci0d86lnn9r01qgiu45vcig"
       - key: SENTRY_DSN
-        value: "YOUR_SENTRY_DSN_HERE"
+        value: "your_sentry_dsn_url"
 
   # ── Trader App (Static Site) ──
   - type: web
