@@ -218,9 +218,17 @@ for (const [internal, provider] of Object.entries(FINNHUB_MAP)) {
   FINNHUB_REVERSE[provider.toLowerCase()] = internal;
 }
 
+// Build Binance reverse map — canonical entries first, then aliases only if not already set
+// This ensures btcusdt → BTCUSDT (not BITCOIN)
 for (const [internal, provider] of Object.entries(BINANCE_MAP)) {
-  BINANCE_REVERSE[provider] = internal;
-  BINANCE_REVERSE[provider.toUpperCase()] = internal;
+  // Canonical entries (e.g., BTCUSDT → btcusdt) always take priority
+  const isCanonical = internal.endsWith('USDT');
+  if (isCanonical || !BINANCE_REVERSE[provider]) {
+    BINANCE_REVERSE[provider] = internal;
+  }
+  if (isCanonical || !BINANCE_REVERSE[provider.toUpperCase()]) {
+    BINANCE_REVERSE[provider.toUpperCase()] = internal;
+  }
 }
 
 // ── Active instruments (populated from DB on startup) ──

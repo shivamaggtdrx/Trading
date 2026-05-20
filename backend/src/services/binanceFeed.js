@@ -16,7 +16,8 @@ const EventEmitter = require('events');
 const { feedLogger } = require('../core/monitoring/logger');
 const { fromBinanceSymbol, getAllBinanceSymbols } = require('./symbolMap');
 
-const BINANCE_WS_URL = 'wss://stream.binance.com:9443/ws/!miniTicker@arr';
+// Base URL — we build a combined stream URL dynamically per-symbol
+const BINANCE_WS_BASE = 'wss://stream.binance.com:9443/stream?streams=';
 
 class BinanceFeed extends EventEmitter {
   constructor() {
@@ -55,6 +56,9 @@ class BinanceFeed extends EventEmitter {
     feedLogger.info(`[BINANCE] Starting Binance feed for ${this.activeSymbols.size} crypto pairs...`);
     feedLogger.info(`[BINANCE] Active pairs: ${Array.from(this.activeSymbols).join(', ')}`);
 
+    // Build combined stream URL for all our symbols (e.g., btcusdt@miniTicker/ethusdt@miniTicker/...)
+    this.streamUrl = BINANCE_WS_BASE + Array.from(this.activeSymbols).map(s => `${s}@miniTicker`).join('/');
+
     this._connect();
   }
 
@@ -65,9 +69,9 @@ class BinanceFeed extends EventEmitter {
     if (this.status === 'CONNECTED' || this.status === 'CONNECTING') return;
 
     this.status = 'CONNECTING';
-    feedLogger.info('[BINANCE WS] Connecting to Binance public stream...');
+    feedLogger.info('[BINANCE WS] Connecting to Binance combined stream...');
 
-    this.ws = new WebSocket(BINANCE_WS_URL);
+    this.ws = new WebSocket(this.streamUrl);
 
     this.ws.on('open', () => {
       feedLogger.info('[BINANCE WS] ✅ Connected to Binance public stream!');
@@ -119,9 +123,21 @@ class BinanceFeed extends EventEmitter {
    */
   _handleMessage(rawData) {
     try {
-      const tickers = JSON.parse(rawData.toString());
+      const msg = JSON.parse(rawData.toString());
 
-      if (!Array.isArray(tickers)) return;
+      // Binance combined stream wraps data as { stream: "btcusdt@miniTicker", data: {...} }
+      // Individual stream sends the ticker directly as an object or array
+      let tickers;
+      if (msg.data) {
+        // Combined stream format
+        tickers = Array.isArray(msg.data) ? msg.data : [msg.data];
+      } else if (Array.isArray(msg)) {
+        tickers = msg;
+      } else if (msg.s) {
+        tickers = [msg];
+      } else {
+        return;
+      }
 
       for (const ticker of tickers) {
         // Filter: only process symbols we care about

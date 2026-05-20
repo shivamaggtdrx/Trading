@@ -32,6 +32,11 @@ const lastEmitTime = new Map(); // symbol → timestamp
 // ── Track per-symbol last known prices (for stale detection) ──
 const lastKnownPrices = new Map(); // symbol → { price, timestamp }
 
+// ── Pending DB updates (batched every 5s to avoid hammering Supabase) ──
+const pendingDbUpdates = new Map(); // symbol → tick data
+let dbFlushInterval = null;
+const DB_FLUSH_INTERVAL_MS = 5000; // Flush to DB every 5 seconds
+
 /**
  * Handle a normalized tick from any source
  */
@@ -65,7 +70,23 @@ function handleTick(tick) {
     }
   }
 
-  // 2. Heavy pipeline processing (candles, limits, risk, margin) handled asynchronously
+  // 2. Queue for periodic DB flush (only for live data, not simulator)
+  if (!tick._debug || tick._debug.source !== 'local_simulator') {
+    pendingDbUpdates.set(tick.symbol, {
+      last_price: tick.ltp || tick.price,
+      bid_price: tick.bid || tick.ltp || tick.price,
+      ask_price: tick.ask || tick.ltp || tick.price,
+      day_open: tick.open || 0,
+      day_high: tick.high || 0,
+      day_low: tick.low || 0,
+      change_amount: tick.change || 0,
+      change_percent: tick.changePercent || tick.change_percent || 0,
+      volume: Math.floor(tick.volume || 0),
+      last_price_update: new Date().toISOString(),
+    });
+  }
+
+  // 3. Heavy pipeline processing (candles, limits, risk, margin) handled asynchronously
   setImmediate(() => {
     try {
       candleAggregator.processTickForCandles(tick);
@@ -76,6 +97,59 @@ function handleTick(tick) {
       feedLogger.error(`Pipeline execution failed for ${tick.symbol}: ${err.message}`);
     }
   });
+}
+
+/**
+ * Flush pending price updates to database in batch
+ * Runs every DB_FLUSH_INTERVAL_MS to avoid hammering Supabase
+ */
+async function flushPricesToDb() {
+  if (pendingDbUpdates.size === 0) return;
+
+  try {
+    const { supabaseAdmin } = require('../config/supabase');
+    const updates = new Map(pendingDbUpdates);
+    pendingDbUpdates.clear();
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Batch update: one update per symbol
+    const promises = [];
+    for (const [symbol, data] of updates) {
+      promises.push(
+        supabaseAdmin
+          .from('instruments')
+          .update(data)
+          .eq('symbol', symbol)
+          .then((result) => {
+            if (result.error) {
+              errorCount++;
+              feedLogger.error(`[DB FLUSH] Error updating ${symbol}: ${result.error.message}`);
+            } else {
+              successCount++;
+            }
+          })
+          .catch(err => {
+            errorCount++;
+            feedLogger.error(`[DB FLUSH] Exception updating ${symbol}: ${err.message}`);
+          })
+      );
+    }
+
+    // Execute in batches of 20 to avoid overwhelming the DB
+    const BATCH_SIZE = 20;
+    for (let i = 0; i < promises.length; i += BATCH_SIZE) {
+      await Promise.allSettled(promises.slice(i, i + BATCH_SIZE));
+    }
+
+    // Log summary (only periodically to avoid log spam)
+    if (errorCount > 0) {
+      feedLogger.warn(`[DB FLUSH] ${successCount} updated, ${errorCount} errors out of ${updates.size} symbols`);
+    }
+  } catch (err) {
+    feedLogger.error(`[DB FLUSH] Failed to flush prices: ${err.message}`);
+  }
 }
 
 /**
@@ -219,12 +293,17 @@ async function initPriceEngine() {
     }
   }, 30000);
 
-  // 6. Log summary
+  // 6. Start periodic DB price flush (updates instruments table with live prices)
+  dbFlushInterval = setInterval(flushPricesToDb, DB_FLUSH_INTERVAL_MS);
+  feedLogger.info(`[PRICE ENGINE] 💾 DB price flush active (every ${DB_FLUSH_INTERVAL_MS / 1000}s)`);
+
+  // 7. Log summary
   feedLogger.info('═══════════════════════════════════════════════');
   feedLogger.info('  Price Engine Initialized — ALL FREE');
   feedLogger.info(`  🇮🇳 NSE India: ${indianStocks.length > 0 ? 'ACTIVE' : 'NO SYMBOLS'} (free, no key)`);
   feedLogger.info(`  🌍 Finnhub:   ${finnhubApiKey ? 'ACTIVE' : 'DISABLED (no key)'} (free tier)`);
   feedLogger.info(`  ₿  Binance:   ACTIVE (free, no key)`);
+  feedLogger.info(`  💾 DB Flush:  every ${DB_FLUSH_INTERVAL_MS / 1000}s`);
   feedLogger.info(`  🔧 Dev Sim:   ${process.env.NODE_ENV !== 'production' ? 'STANDBY' : 'DISABLED'}`);
   feedLogger.info('═══════════════════════════════════════════════');
 }
@@ -241,6 +320,12 @@ function stopPriceEngine() {
     clearInterval(watchdogInterval);
     watchdogInterval = null;
   }
+  if (dbFlushInterval) {
+    clearInterval(dbFlushInterval);
+    dbFlushInterval = null;
+  }
+  // Final flush before shutdown
+  flushPricesToDb();
   nseFeed.stop();
   finnhubFeed.stop();
   binanceFeed.stop();
