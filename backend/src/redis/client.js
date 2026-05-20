@@ -18,6 +18,8 @@ function parseRedisUrl(url) {
       host: parsed.hostname,
       port: parseInt(parsed.port) || 6379,
       maxRetriesPerRequest: null, // Required by BullMQ
+      keepAlive: 10000,
+      pingInterval: 10000, // Send application-level PINGs every 10s
       retryStrategy: (times) => {
         if (times % 10 === 0) {
           console.warn(`🔄 Redis reconnecting: attempt #${times}`);

@@ -200,10 +200,10 @@ class FinnhubFeed extends EventEmitter {
     const allFinnhubSymbols = getAllFinnhubSymbols()
       .filter(s => !s.endsWith('.NS') && !s.endsWith('.BO') && !s.startsWith('^NSE') && s !== '^NSEI' && s !== '^NSEBANK');
 
-    // Poll interval: 3 seconds for near-real-time experience
+    // Poll interval: 3 seconds
     const POLL_INTERVAL_MS = 3000;
-    // Max symbols per poll cycle (rate limit: ~50 calls/min on free tier)
-    const BATCH_SIZE = 10;
+    // Max symbols per poll cycle (rate limit: ~60 calls/min on free tier => 3 per 3 seconds = 60/min)
+    const BATCH_SIZE = 3;
     let batchIndex = 0;
 
     this.pollInterval = setInterval(async () => {

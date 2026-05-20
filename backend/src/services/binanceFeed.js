@@ -16,8 +16,8 @@ const EventEmitter = require('events');
 const { feedLogger } = require('../core/monitoring/logger');
 const { fromBinanceSymbol, getAllBinanceSymbols } = require('./symbolMap');
 
-// Base URL — we build a combined stream URL dynamically per-symbol
-const BINANCE_WS_BASE = 'wss://stream.binance.com:9443/stream?streams=';
+// Base URL — data-stream endpoints are more reliable for cloud/US IPs
+const BINANCE_WS_BASE = 'wss://data-stream.binance.com/stream?streams=';
 
 class BinanceFeed extends EventEmitter {
   constructor() {
