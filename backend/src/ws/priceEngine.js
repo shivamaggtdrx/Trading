@@ -43,6 +43,7 @@ function handleTick(tick) {
     lastEmitTime.set(tick.symbol, now);
     try {
       const io = getIO();
+      feedLogger.info(`[SOCKET EMIT] ${tick.symbol} ${tick.price || tick.ltp}`);
       io.of('/market').to(`feed:${tick.symbol}`).emit('MARKET:TICK', tick);
     } catch (err) {
       // Ignore if Socket.io is not ready yet
@@ -141,6 +142,12 @@ function initPriceEngine() {
 
   const clientId = process.env.UPSTOX_CLIENT_ID || '';
   const clientSecret = process.env.UPSTOX_CLIENT_SECRET || '';
+  const accessToken = process.env.UPSTOX_ACCESS_TOKEN || '';
+
+  feedLogger.info('\n[UPSTOX CONFIG]');
+  feedLogger.info(`client_id: ${clientId && !clientId.includes('YOUR_') && !clientId.includes('PLACEHOLDER') ? 'present' : 'missing'}`);
+  feedLogger.info(`client_secret: ${clientSecret && !clientSecret.includes('YOUR_') && !clientSecret.includes('PLACEHOLDER') ? 'present' : 'missing'}`);
+  feedLogger.info(`access_token: ${accessToken ? 'present' : 'missing'}`);
 
   const hasUpstoxCreds = clientId && clientSecret 
     && !clientId.includes('YOUR_') 
@@ -148,17 +155,21 @@ function initPriceEngine() {
     && !clientSecret.includes('YOUR_')
     && !clientSecret.includes('PLACEHOLDER');
 
+  if (!hasUpstoxCreds || !accessToken) {
+    feedLogger.error('\n[UPSTOX CONFIG ERROR]');
+    feedLogger.error('Missing:');
+    if (!hasUpstoxCreds) feedLogger.error('- UPSTOX_CLIENT_ID / UPSTOX_CLIENT_SECRET (or they are placeholders)');
+    if (!accessToken) feedLogger.error('- UPSTOX_ACCESS_TOKEN');
+    feedLogger.error('Failing fast due to missing credentials. Do not silently switch to mock mode.');
+    process.exit(1);
+  }
+
   // Hook stream callbacks
   upstoxStream.on('tick', handleTick);
 
-  if (hasUpstoxCreds) {
-    activeFeed = 'upstox';
-    feedLogger.info('Starting Upstox Live Streaming client...');
-    upstoxStream.start();
-  } else {
-    activeFeed = 'mock';
-    feedLogger.warn('No valid Upstox credentials found. Fallback mode.');
-  }
+  activeFeed = 'upstox';
+  feedLogger.info('Starting Upstox Live Streaming client...');
+  upstoxStream.start();
 
   // Always boot dev simulator as backup (it enforces dev env check internally)
   startMockFeed();

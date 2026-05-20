@@ -204,12 +204,14 @@ class UpstoxStream extends EventEmitter {
       // 2. Validate token
       const isValid = await validateAccessToken(token);
       if (!isValid) {
+        feedLogger.error('[UPSTOX TOKEN INVALID]');
         throw new Error('Upstox access token is invalid or expired.');
       }
 
       // 3. Get WebSocket Authorized Connection URL
+      feedLogger.info('[UPSTOX CONNECTING]');
       feedLogger.info('Requesting authorized WebSocket redirect URL from Upstox...');
-      const authResponse = await axios.get('https://api.upstox.com/v2/feed/market-data-feed/authorize', {
+      const authResponse = await axios.get('https://api.upstox.com/v3/feed/market-data-feed/authorize', {
         headers: {
           'Accept': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -244,6 +246,7 @@ class UpstoxStream extends EventEmitter {
     });
 
     this.ws.on('open', () => {
+      feedLogger.info('[UPSTOX CONNECTED]');
       feedLogger.info('Upstox WebSocket connection successfully opened!');
       this.status = 'CONNECTED';
       this.reconnectAttempts = 0;
@@ -263,6 +266,7 @@ class UpstoxStream extends EventEmitter {
     });
 
     this.ws.on('close', (code, reason) => {
+      feedLogger.info('[UPSTOX CLOSED]');
       feedLogger.warn(`Upstox WebSocket closed (Code: ${code}, Reason: ${reason || 'None'})`);
       this.status = 'DISCONNECTED';
       this.ws = null;
@@ -276,6 +280,7 @@ class UpstoxStream extends EventEmitter {
     });
 
     this.ws.on('error', (err) => {
+      feedLogger.error('[UPSTOX ERROR]');
       feedLogger.error('Upstox WebSocket error occurred:', err);
       this.stats.errorsEncountered++;
       this.stats.lastError = err.message;
@@ -296,31 +301,24 @@ class UpstoxStream extends EventEmitter {
 
     feedLogger.info(`Subscribing to ${keys.length} Upstox instruments...`);
     
-    // Chunk keys into arrays of max 100 items (Upstox limit)
-    const chunkSize = 100;
-    for (let i = 0; i < keys.length; i += chunkSize) {
-      const chunk = keys.slice(i, i + chunkSize);
-      const subscriptionPayload = {
-        guid: `sub_${Date.now()}_${i}`,
-        method: 'sub',
-        data: {
-          mode: 'full', // 'full' mode provides high/low/open/close, close, volume, LTP
-          instrumentKeys: chunk
-        }
-      };
-
-      try {
-        // Upstox expects the subscription JSON to be sent as a Binary frame (Buffer)
-        const payloadBuffer = Buffer.from(JSON.stringify(subscriptionPayload));
-        this.ws.send(payloadBuffer);
-        feedLogger.info(`Upstox subscription payload sent for chunk ${i/chunkSize + 1}`);
-      } catch (err) {
-        feedLogger.error('Failed to send Upstox subscription payload:', err);
-        this.stats.errorsEncountered++;
+    const subscriptionPayload = {
+      guid: `sub_${Date.now()}`,
+      method: 'sub',
+      data: {
+        mode: 'full', // 'full' mode provides high/low/open/close, close, volume, LTP
+        instrumentKeys: keys
       }
+    };
+
+    try {
+      this.ws.send(JSON.stringify(subscriptionPayload));
+      this.stats.activeSubscriptions = keys.length;
+      feedLogger.info('[UPSTOX SUBSCRIBED]');
+      feedLogger.info('Upstox subscription payload sent successfully.');
+    } catch (err) {
+      feedLogger.error('Failed to send Upstox subscription payload:', err);
+      this.stats.errorsEncountered++;
     }
-    
-    this.stats.activeSubscriptions = keys.length;
   }
 
   /**
@@ -352,6 +350,7 @@ class UpstoxStream extends EventEmitter {
         // Extract tick parameters safely
         const tick = this._parseFeedObject(symbol, key, feed);
         if (tick) {
+          feedLogger.info(`[TICK RECEIVED] ${tick.symbol} ${tick.price || tick.ltp}`);
           this.latestTicks.set(symbol, tick);
           this.emit('tick', tick);
         }
