@@ -29,8 +29,7 @@ router.get('/debug', async (req, res) => {
       wsRooms,
       env: {
         NODE_ENV: process.env.NODE_ENV,
-        hasClientCode: !!process.env.ANGEL_ONE_CLIENT_CODE,
-        clientCode: process.env.ANGEL_ONE_CLIENT_CODE,
+        hasFinnhubKey: !!process.env.FINNHUB_API_KEY,
       }
     });
   } catch (err) {

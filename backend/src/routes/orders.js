@@ -1,7 +1,6 @@
 const router = require('express').Router();
 const { supabaseAdmin } = require('../config/supabase');
 const { authenticateUser } = require('../middleware/auth');
-const { upstoxStream } = require('../services/upstoxStream');
 const { enqueueOrder } = require('../core/queues/orderQueue');
 const { validateOrder } = require('../core/risk/validator');
 const { v4: uuidv4 } = require('uuid');
@@ -24,13 +23,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'symbol, side, order_type, and quantity are required' });
     }
 
-    // Check if the broker is active and healthy (when Upstox credentials are configured)
-    const hasUpstoxCreds = process.env.UPSTOX_CLIENT_ID && process.env.UPSTOX_CLIENT_SECRET;
-    if (hasUpstoxCreds && upstoxStream.status !== 'CONNECTED') {
-      if (process.env.NODE_ENV === 'production') {
-        return res.status(503).json({ error: 'Order execution is temporarily degraded. Broker connection is currently offline. Please try again in a few minutes.' });
-      }
-    }
+    // Feed health is checked passively — orders always proceed
+    // Price data comes from multiple providers (Finnhub + Binance)
 
     // Check if trading is enabled for user
     if (!profile.trading_enabled) {
@@ -80,11 +74,13 @@ router.post('/', async (req, res) => {
 
     const sp = spreadProfile || { base_spread_pct: 0.05, slippage_min_pct: 0, slippage_max_pct: 0.05, execution_delay_min_ms: 0, execution_delay_max_ms: 200, house_favor_pct: 70 };
 
-    // Get latest tick from memory (fallback to DB last_price if not available)
-    const latestTick = upstoxStream.getLatestTick(symbol.toUpperCase());
-    const referencePrice = latestTick ? latestTick.ltp : instrument.last_price;
-    const bidPrice = latestTick && latestTick.bid > 0 ? latestTick.bid : referencePrice;
-    const askPrice = latestTick && latestTick.ask > 0 ? latestTick.ask : referencePrice;
+    // Reference price from instrument (continuously updated by price engine ticks)
+    const referencePrice = instrument.last_price || 0;
+    if (referencePrice <= 0) {
+      return res.status(400).json({ error: 'No price available for this instrument. Market data may be loading.' });
+    }
+    const bidPrice = referencePrice;
+    const askPrice = referencePrice;
 
     // Apply spread markup from tier
     const spreadAmount = referencePrice * (sp.base_spread_pct / 100);

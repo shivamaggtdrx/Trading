@@ -1,12 +1,19 @@
 /**
  * Price Engine
  * 
- * Central market data broker that connects to Upstox streaming service,
- * throttles and broadcasts live ticks to active Socket.IO rooms,
+ * Central market data broker that connects to multiple FREE feed providers:
+ * - NSE India Direct (Indian Stocks & Indices — FREE, no key needed)
+ * - Finnhub (US Stocks, Forex, Commodities — FREE with API key)
+ * - Binance (Crypto — FREE, no key needed)
+ * 
+ * Throttles and broadcasts live ticks to active Socket.IO rooms,
  * and feeds ticks into the backend candle, execution, and risk pipelines.
  */
 
-const { upstoxStream } = require('../services/upstoxStream');
+const { nseFeed } = require('../services/nseFeed');
+const { finnhubFeed } = require('../services/finnhubFeed');
+const { binanceFeed } = require('../services/binanceFeed');
+const { loadFromDatabase: loadSymbolMap, getInstrumentsBySegment } = require('../services/symbolMap');
 const candleAggregator = require('./candleAggregator');
 const executionEngine = require('./executionEngine');
 const { getIO } = require('./socketServer');
@@ -14,14 +21,16 @@ const { cacheTickPrice } = require('../core/pnl/mtmCalculator');
 const { processTick: processOHLC } = require('./feed/ohlcAggregator');
 const { feedLogger } = require('../core/monitoring/logger');
 
-let activeFeed = null;
 let mockInterval = null;
 let lastLiveTickTime = 0;
 
 // ── Tick throttle: max 1 emit per symbol per 250ms ──
-// Prevents flooding the Socket.IO bus when Upstox sends high-frequency updates.
+// Prevents flooding the Socket.IO bus when providers send high-frequency updates.
 const TICK_THROTTLE_MS = 250;
 const lastEmitTime = new Map(); // symbol → timestamp
+
+// ── Track per-symbol last known prices (for stale detection) ──
+const lastKnownPrices = new Map(); // symbol → { price, timestamp }
 
 /**
  * Handle a normalized tick from any source
@@ -29,10 +38,17 @@ const lastEmitTime = new Map(); // symbol → timestamp
 function handleTick(tick) {
   if (!tick || !tick.symbol) return;
 
-  // Track live tick timestamps to control backup simulator
-  if (tick._debug?.source !== 'local_simulator') {
+  // Track live tick timestamps
+  if (!tick._debug || tick._debug.source !== 'local_simulator') {
     lastLiveTickTime = Date.now();
   }
+
+  // Update last known price
+  lastKnownPrices.set(tick.symbol, {
+    price: tick.price || tick.ltp,
+    timestamp: Date.now(),
+    source: tick._debug?.source || 'unknown',
+  });
 
   // 1. Throttle Socket.IO broadcasts
   const now = Date.now();
@@ -43,7 +59,6 @@ function handleTick(tick) {
     lastEmitTime.set(tick.symbol, now);
     try {
       const io = getIO();
-      feedLogger.info(`[SOCKET EMIT] ${tick.symbol} ${tick.price || tick.ltp}`);
       io.of('/market').to(`feed:${tick.symbol}`).emit('MARKET:TICK', tick);
     } catch (err) {
       // Ignore if Socket.io is not ready yet
@@ -137,102 +152,85 @@ let watchdogInterval = null;
 /**
  * Initialize the Price Engine
  */
-function initPriceEngine() {
-  feedLogger.info('Initializing Price Engine with Upstox Feed...');
+async function initPriceEngine() {
+  feedLogger.info('═══════════════════════════════════════════════');
+  feedLogger.info('  Initializing Multi-Provider Price Engine');
+  feedLogger.info('  All providers are FREE — zero cost');
+  feedLogger.info('═══════════════════════════════════════════════');
 
-  const clientId = process.env.UPSTOX_CLIENT_ID || '';
-  const clientSecret = process.env.UPSTOX_CLIENT_SECRET || '';
-  const accessToken = process.env.UPSTOX_ACCESS_TOKEN || '';
+  // 1. Load symbol mappings from database
+  await loadSymbolMap();
 
-  feedLogger.info('\n[UPSTOX CONFIG]');
-  feedLogger.info(`client_id: ${clientId && !clientId.includes('YOUR_') && !clientId.includes('PLACEHOLDER') ? 'present' : 'missing'}`);
-  feedLogger.info(`client_secret: ${clientSecret && !clientSecret.includes('YOUR_') && !clientSecret.includes('PLACEHOLDER') ? 'present' : 'missing'}`);
-  feedLogger.info(`access_token: ${accessToken ? 'present' : 'missing'}`);
+  // Get instruments by segment to route to the right provider
+  const segmented = getInstrumentsBySegment();
+  
+  // ── Indian Stocks: NSE India Direct (FREE, no key) ──
+  const nseEquities = segmented['nse_equity'] || [];
+  const foFutures = segmented['fo_futures'] || [];
+  const mcxSymbols = segmented['mcx'] || [];
+  const indianStocks = [...new Set([...nseEquities, ...foFutures, ...mcxSymbols])];
+  const indianIndices = ['NIFTY50', 'BANKNIFTY'];
 
-  const hasUpstoxCreds = clientId && clientSecret 
-    && !clientId.includes('YOUR_') 
-    && !clientId.includes('PLACEHOLDER')
-    && !clientSecret.includes('YOUR_')
-    && !clientSecret.includes('PLACEHOLDER');
-
-  if (!hasUpstoxCreds || !accessToken) {
-    feedLogger.error('\n[UPSTOX CONFIG ERROR]');
-    feedLogger.error('Missing:');
-    if (!hasUpstoxCreds) feedLogger.error('- UPSTOX_CLIENT_ID / UPSTOX_CLIENT_SECRET (or they are placeholders)');
-    if (!accessToken) feedLogger.error('- UPSTOX_ACCESS_TOKEN');
-    feedLogger.error('Failing fast due to missing credentials. Do not silently switch to mock mode.');
-    process.exit(1);
+  if (indianStocks.length > 0 || indianIndices.length > 0) {
+    feedLogger.info(`[PRICE ENGINE] 🇮🇳 Starting NSE India feed (FREE — no key needed)`);
+    feedLogger.info(`[PRICE ENGINE]    ${indianStocks.length} equities + ${indianIndices.length} indices`);
+    nseFeed.on('tick', handleTick);
+    await nseFeed.start(indianStocks, indianIndices);
   }
 
-  // Hook stream callbacks
-  upstoxStream.on('tick', handleTick);
+  // ── US Stocks, Forex, Commodities: Finnhub (FREE with API key) ──
+  const finnhubApiKey = process.env.FINNHUB_API_KEY || '';
+  const forexSymbols = segmented['forex'] || [];
+  const usEquities = segmented['us_equity'] || [];
+  
+  if (finnhubApiKey && finnhubApiKey !== 'your_finnhub_api_key_here') {
+    feedLogger.info('[PRICE ENGINE] 🌍 Starting Finnhub feed (FREE — US stocks, forex, commodities)');
+    finnhubFeed.on('tick', handleTick);
+    await finnhubFeed.start(finnhubApiKey);
+  } else {
+    if (forexSymbols.length > 0 || usEquities.length > 0) {
+      feedLogger.warn('[PRICE ENGINE] ⚠️ FINNHUB_API_KEY missing — US stocks & forex feed disabled');
+      feedLogger.warn('[PRICE ENGINE] Get a free API key at https://finnhub.io');
+    }
+  }
 
-  activeFeed = 'upstox';
-  feedLogger.info('Starting Upstox Live Streaming client...');
-  upstoxStream.start();
+  // ── Crypto: Binance (FREE, no key needed) ──
+  feedLogger.info('[PRICE ENGINE] ₿ Starting Binance feed (FREE — no key needed)');
+  binanceFeed.on('tick', handleTick);
+  binanceFeed.start();
 
-  // Always boot dev simulator as backup (it enforces dev env check internally)
+  // 4. Always boot dev simulator as backup (it enforces dev env check internally)
   startMockFeed();
 
-  // Watchdog & Fallback Polling
-  watchdogInterval = setInterval(async () => {
-    if (activeFeed !== 'upstox') return;
-
+  // 5. Watchdog — monitor feed health
+  watchdogInterval = setInterval(() => {
     const timeSinceLastTick = Date.now() - lastLiveTickTime;
 
-    // > 60s: trigger reconnect
-    if (timeSinceLastTick > 60000 && timeSinceLastTick <= 120000) {
-      feedLogger.warn(`Watchdog: No ticks received in ${Math.round(timeSinceLastTick / 1000)}s. Triggering Upstox reconnect...`);
-      upstoxStream.stop();
-      upstoxStream.start();
-    }
-    
-    // > 120s: trigger Yahoo Finance fallback polling
-    if (timeSinceLastTick > 120000) {
-      feedLogger.warn(`Watchdog: Upstox down for > 2m. Fetching fallback prices from Yahoo Finance...`);
-      try {
-        const { supabaseAdmin } = require('../config/supabase');
-        const { data: instruments } = await supabaseAdmin
-          .from('instruments')
-          .select('symbol')
-          .eq('is_active', true);
+    // Log health status every 60s
+    if (timeSinceLastTick > 60000) {
+      feedLogger.warn(`[WATCHDOG] No live ticks received in ${Math.round(timeSinceLastTick / 1000)}s`);
 
-        if (!instruments) return;
-
-        const yahooFinance = require('yahoo-finance2').default;
-        for (const inst of instruments) {
-          // Try adding .NS or .BO for Indian stocks
-          const yfSymbol = inst.symbol.includes('-') ? inst.symbol : `${inst.symbol}.NS`;
-          try {
-            const quote = await yahooFinance.quote(yfSymbol);
-            if (quote && quote.regularMarketPrice) {
-              const tick = {
-                symbol: inst.symbol,
-                exchange: 'NSE',
-                price: quote.regularMarketPrice,
-                ltp: quote.regularMarketPrice,
-                bid: quote.bid || quote.regularMarketPrice,
-                ask: quote.ask || quote.regularMarketPrice,
-                change: quote.regularMarketChange || 0,
-                changePercent: quote.regularMarketChangePercent || 0,
-                timestamp: Date.now(),
-                _debug: { source: 'yahoo_fallback' }
-              };
-              handleTick(tick);
-            }
-          } catch (yfErr) {
-            // Ignore individual fetch errors
-          }
-        }
-      } catch (err) {
-        feedLogger.error('Yahoo Finance fallback error:', err);
+      // Try reconnecting Finnhub if it's been > 2 minutes
+      if (timeSinceLastTick > 120000 && finnhubApiKey) {
+        feedLogger.warn('[WATCHDOG] Attempting Finnhub reconnect...');
+        finnhubFeed.stop();
+        finnhubFeed.start(finnhubApiKey);
       }
     }
-  }, 30000); // Check every 30s
+  }, 30000);
+
+  // 6. Log summary
+  feedLogger.info('═══════════════════════════════════════════════');
+  feedLogger.info('  Price Engine Initialized — ALL FREE');
+  feedLogger.info(`  🇮🇳 NSE India: ${indianStocks.length > 0 ? 'ACTIVE' : 'NO SYMBOLS'} (free, no key)`);
+  feedLogger.info(`  🌍 Finnhub:   ${finnhubApiKey ? 'ACTIVE' : 'DISABLED (no key)'} (free tier)`);
+  feedLogger.info(`  ₿  Binance:   ACTIVE (free, no key)`);
+  feedLogger.info(`  🔧 Dev Sim:   ${process.env.NODE_ENV !== 'production' ? 'STANDBY' : 'DISABLED'}`);
+  feedLogger.info('═══════════════════════════════════════════════');
 }
 
 /**
- * Stop Price Simulation & Stream
+ * Stop Price Engine
  */
 function stopPriceEngine() {
   if (mockInterval) {
@@ -243,12 +241,28 @@ function stopPriceEngine() {
     clearInterval(watchdogInterval);
     watchdogInterval = null;
   }
-  upstoxStream.stop();
+  nseFeed.stop();
+  finnhubFeed.stop();
+  binanceFeed.stop();
   feedLogger.info('Price Engine shut down successfully.');
+}
+
+/**
+ * Get feed status for health checks
+ */
+function getFeedStatus() {
+  return {
+    nse: nseFeed.getStatus(),
+    finnhub: finnhubFeed.getStatus(),
+    binance: binanceFeed.getStatus(),
+    lastLiveTickAge: Date.now() - lastLiveTickTime,
+    totalSymbolsTracked: lastKnownPrices.size,
+  };
 }
 
 module.exports = {
   initPriceEngine,
   stopPriceEngine,
+  getFeedStatus,
   stopPriceSimulation: stopPriceEngine // maintaining legacy naming compatibility
 };

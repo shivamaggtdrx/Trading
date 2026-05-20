@@ -84,7 +84,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan(IS_PROD ? 'combined' : 'dev'));
 
-const { upstoxStream } = require('./services/upstoxStream');
+const { getFeedStatus } = require('./ws/priceEngine');
 
 // ── Health Check (minimal for cron-job.org) ──
 app.get('/health', (req, res) => {
@@ -93,26 +93,36 @@ app.get('/health', (req, res) => {
 
 // ── Ready Check (degraded state detection) ──
 app.get('/ready', (req, res) => {
-  const hasUpstoxCreds = process.env.UPSTOX_CLIENT_ID && process.env.UPSTOX_CLIENT_SECRET;
-  
-  if (hasUpstoxCreds) {
-    if (upstoxStream.status === 'CONNECTED') {
-      res.status(200).json({ status: 'ready', broker: 'upstox', stream: 'online' });
-    } else if (upstoxStream.status === 'CONNECTING') {
-      res.status(503).json({ status: 'degraded', broker: 'upstox', stream: 'connecting' });
+  try {
+    const feedStatus = getFeedStatus();
+    const hasFinnhub = process.env.FINNHUB_API_KEY && process.env.FINNHUB_API_KEY !== 'your_finnhub_api_key_here';
+    const isLiveRecentlyActive = feedStatus.lastLiveTickAge < 60000; // Received a tick in last 60s
+    
+    if (isLiveRecentlyActive) {
+      res.status(200).json({
+        status: 'ready',
+        feeds: {
+          nse_india: feedStatus.nse.status,
+          finnhub: hasFinnhub ? feedStatus.finnhub.wsStatus : 'disabled',
+          binance: feedStatus.binance.status,
+        },
+        symbolsTracked: feedStatus.totalSymbolsTracked,
+      });
+    } else if (process.env.NODE_ENV !== 'production') {
+      res.status(200).json({ status: 'ready', feeds: { mode: 'development_simulator' } });
     } else {
-      if (process.env.NODE_ENV !== 'production') {
-        res.status(200).json({ status: 'ready', broker: 'local_mock' });
-      } else {
-        res.status(503).json({ status: 'degraded', broker: 'upstox', stream: 'offline', error: upstoxStream.stats.lastError || 'Disconnected' });
-      }
+      res.status(503).json({
+        status: 'degraded',
+        feeds: {
+          nse_india: feedStatus.nse.status,
+          finnhub: hasFinnhub ? feedStatus.finnhub.wsStatus : 'no_api_key',
+          binance: feedStatus.binance.status,
+        },
+        lastTickAge: `${Math.round(feedStatus.lastLiveTickAge / 1000)}s ago`,
+      });
     }
-  } else {
-    if (process.env.NODE_ENV !== 'production') {
-      res.status(200).json({ status: 'ready', broker: 'local_mock' });
-    } else {
-      res.status(503).json({ status: 'degraded', broker: 'upstox', error: 'Upstox credentials not configured' });
-    }
+  } catch (err) {
+    res.status(503).json({ status: 'degraded', error: err.message });
   }
 });
 

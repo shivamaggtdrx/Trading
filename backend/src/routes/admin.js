@@ -1302,14 +1302,15 @@ router.get('/system-health', async (req, res) => {
       wsClientCount = getWssClientCount ? getWssClientCount() : 0;
     } catch { /* priceEngine may not export this yet */ }
 
-    // Get market feed status from Yahoo feed debug stats
+    // Get market feed status from multi-provider price engine
     let feedLatency = 0;
     let feedStatus = 'unknown';
     try {
-      const yahooFeed = require('../ws/yahooFeed');
-      const stats = yahooFeed.getDebugStats();
-      feedStatus = stats.connected ? 'operational' : 'disconnected';
-      feedLatency = stats.connected ? 5000 : 0; // Yahoo polls every 5s
+      const { getFeedStatus } = require('../ws/priceEngine');
+      const status = getFeedStatus();
+      const isActive = status.lastLiveTickAge < 60000;
+      feedStatus = isActive ? 'operational' : 'degraded';
+      feedLatency = status.lastLiveTickAge;
     } catch { feedStatus = 'unknown'; }
 
     res.json({
@@ -1321,7 +1322,7 @@ router.get('/system-health', async (req, res) => {
       marketFeed: {
         status: feedStatus,
         latency: feedLatency,
-        source: 'Yahoo Finance'
+        source: 'Finnhub + Binance'
       },
       system: {
         cpu: cpuUsage,

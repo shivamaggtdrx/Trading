@@ -348,92 +348,14 @@ function formatTimeAgo(dateStr) {
   return `${days} day${days > 1 ? 's' : ''} ago`;
 }
 
-const { getAuthUrl, exchangeCodeForToken } = require('../services/upstoxAuth');
-const { upstoxStream } = require('../services/upstoxStream');
-
-/**
- * GET /api/auth/upstox
- * Redirects admin/system initiator to Upstox login
- */
-router.get('/upstox', (req, res) => {
-  try {
-    const url = getAuthUrl();
-    res.redirect(url);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * GET /api/auth/upstox/callback
- * Upstox OAuth callback endpoint
- */
-router.get('/upstox/callback', async (req, res) => {
-  const { code } = req.query;
-  if (!code) {
-    return res.status(400).json({ error: 'Authorization code is missing' });
-  }
-
-  try {
-    const token = await exchangeCodeForToken(code);
-    
-    // Start stream immediately in the background
-    upstoxStream.start();
-    
-    res.send(`
-      <html>
-        <head>
-          <title>Upstox Authenticated</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #0d1117; color: #c9d1d9; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-            .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 40px; text-align: center; max-width: 400px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-            h1 { color: #58a6ff; margin-top: 0; }
-            p { margin-bottom: 24px; line-height: 1.5; }
-            .btn { background-color: #238636; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; transition: background-color 0.2s; }
-            .btn:hover { background-color: #2ea043; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <h1>Success!</h1>
-            <p>Upstox connection has been authorized and the live market data stream has been successfully started.</p>
-            <a class="btn" href="javascript:window.close()">Close Window</a>
-          </div>
-        </body>
-      </html>
-    `);
-  } catch (err) {
-    res.status(500).send(`
-      <html>
-        <head>
-          <title>Authentication Failed</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #0d1117; color: #c9d1d9; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-            .card { background-color: #161b22; border: 1px solid #f85149; border-radius: 12px; padding: 40px; text-align: center; max-width: 400px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-            h1 { color: #f85149; margin-top: 0; }
-            p { margin-bottom: 24px; line-height: 1.5; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <h1>Failed!</h1>
-            <p>Upstox authentication failed: ${err.message}</p>
-          </div>
-        </body>
-      </html>
-    `);
-  }
-});
-
 /**
  * GET /api/auth/system/debug
- * Exposes live diagnostics for connection monitoring
+ * Exposes live diagnostics for feed connection monitoring
  */
 router.get('/system/debug', async (req, res) => {
   try {
     const { redisClient } = require('../redis/client');
-    const token = await getAccessToken();
-    const hasToken = !!token;
+    const { getFeedStatus } = require('../ws/priceEngine');
     
     // Check Redis connection status
     let redisStatus = 'OFFLINE';
@@ -441,22 +363,17 @@ router.get('/system/debug', async (req, res) => {
       redisStatus = redisClient.status || (redisClient.connected ? 'CONNECTED' : 'UNKNOWN');
     }
 
+    const feedStatus = getFeedStatus();
+
     res.json({
       timestamp: Date.now(),
       status: 'success',
       diagnostics: {
-        upstox: {
-          connectionStatus: upstoxStream.status,
-          hasAccessToken: hasToken,
-          credentialsConfigured: !!(process.env.UPSTOX_CLIENT_ID && process.env.UPSTOX_CLIENT_SECRET),
-          statistics: {
-            ticksReceived: upstoxStream.stats.ticksReceived,
-            activeSubscriptions: upstoxStream.stats.activeSubscriptions,
-            lastTickTime: upstoxStream.stats.lastTickTime ? new Date(upstoxStream.stats.lastTickTime).toISOString() : null,
-            errorsCount: upstoxStream.stats.errorsEncountered,
-            lastError: upstoxStream.stats.lastError || null,
-            connectionEstablishedAt: upstoxStream.stats.connectionEstablishedAt ? new Date(upstoxStream.stats.connectionEstablishedAt).toISOString() : null
-          }
+        feeds: {
+          finnhub: feedStatus.finnhub,
+          binance: feedStatus.binance,
+          lastLiveTickAge: feedStatus.lastLiveTickAge,
+          totalSymbolsTracked: feedStatus.totalSymbolsTracked,
         },
         redis: {
           status: redisStatus

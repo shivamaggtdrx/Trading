@@ -1,7 +1,7 @@
 /**
  * Tick Normalizer
  * 
- * Standardizes raw ticks from any feed source (Angel One, Yahoo, future providers)
+ * Standardizes raw ticks from any feed source (Finnhub, Binance, future providers)
  * into a consistent format with server-side timestamps and validation.
  * 
  * CRITICAL: This runs on EVERY tick. Must be fast and non-blocking.
@@ -54,7 +54,7 @@ function normalizeTick(rawTick) {
     feedTimestamp: feedTimestamp,
     feedLatencyMs: feedLatencyMs,
     sequence: tickSequence,
-    // Pass-through fields for frontend display (from Yahoo/Angel feed)
+    // Pass-through fields for frontend display (from Finnhub/Binance feed)
     change: rawTick.change || 0,
     change_percent: rawTick.change_percent || 0,
     high: rawTick.high || 0,
