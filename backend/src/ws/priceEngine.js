@@ -19,6 +19,7 @@ const executionEngine = require('./executionEngine');
 const { getIO } = require('./socketServer');
 const { cacheTickPrice } = require('../core/pnl/mtmCalculator');
 const { processTick: processOHLC } = require('./feed/ohlcAggregator');
+const { updateAnchor, startAnimator, stopAnimator, getAnimatorStats } = require('./priceAnimator');
 const { feedLogger } = require('../core/monitoring/logger');
 
 let mockInterval = null;
@@ -55,19 +56,17 @@ function handleTick(tick) {
     source: tick._debug?.source || 'unknown',
   });
 
-  // 1. Throttle Socket.IO broadcasts
-  const now = Date.now();
-  const lastEmit = lastEmitTime.get(tick.symbol) || 0;
-  const shouldEmit = (now - lastEmit) >= TICK_THROTTLE_MS;
+  // 1. Update price animator anchor (the animator handles high-frequency Socket.IO emissions)
+  if (!tick._debug || tick._debug.source !== 'local_simulator') {
+    updateAnchor(tick);
+  }
 
-  if (shouldEmit) {
-    lastEmitTime.set(tick.symbol, now);
-    try {
-      const io = getIO();
-      io.of('/market').to(`feed:${tick.symbol}`).emit('MARKET:TICK', tick);
-    } catch (err) {
-      // Ignore if Socket.io is not ready yet
-    }
+  // Also emit directly for the real tick (so backend pipelines get the exact price)
+  try {
+    const io = getIO();
+    io.of('/market').to(`feed:${tick.symbol}`).emit('MARKET:TICK', tick);
+  } catch (err) {
+    // Ignore if Socket.io is not ready yet
   }
 
   // 2. Queue for periodic DB flush (only for live data, not simulator)
@@ -297,13 +296,17 @@ async function initPriceEngine() {
   dbFlushInterval = setInterval(flushPricesToDb, DB_FLUSH_INTERVAL_MS);
   feedLogger.info(`[PRICE ENGINE] 💾 DB price flush active (every ${DB_FLUSH_INTERVAL_MS / 1000}s)`);
 
-  // 7. Log summary
+  // 7. Start high-frequency price animator (makes UI feel like Zerodha)
+  startAnimator();
+
+  // 8. Log summary
   feedLogger.info('═══════════════════════════════════════════════');
   feedLogger.info('  Price Engine Initialized — ALL FREE');
   feedLogger.info(`  🇮🇳 NSE India: ${indianStocks.length > 0 ? 'ACTIVE' : 'NO SYMBOLS'} (free, no key)`);
   feedLogger.info(`  🌍 Finnhub:   ${finnhubApiKey ? 'ACTIVE' : 'DISABLED (no key)'} (free tier)`);
   feedLogger.info(`  ₿  Binance:   ACTIVE (free, no key)`);
   feedLogger.info(`  💾 DB Flush:  every ${DB_FLUSH_INTERVAL_MS / 1000}s`);
+  feedLogger.info(`  ⚡ Animator:  ~7-8 ticks/sec per symbol (Zerodha-speed)`);
   feedLogger.info(`  🔧 Dev Sim:   ${process.env.NODE_ENV !== 'production' ? 'STANDBY' : 'DISABLED'}`);
   feedLogger.info('═══════════════════════════════════════════════');
 }
@@ -326,6 +329,7 @@ function stopPriceEngine() {
   }
   // Final flush before shutdown
   flushPricesToDb();
+  stopAnimator();
   nseFeed.stop();
   finnhubFeed.stop();
   binanceFeed.stop();
