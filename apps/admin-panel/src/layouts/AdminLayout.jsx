@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -60,7 +61,8 @@ import {
   Crown,
   Sliders,
   Lock,
-  Gauge
+  Menu,
+  X
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -180,6 +182,7 @@ const DEPT_CONFIG = {
 export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const dept = user?.department || 'admin';
   const deptCfg = DEPT_CONFIG[dept] || DEPT_CONFIG.admin;
@@ -198,8 +201,19 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      {/* Mobile Sidebar Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 z-20 bg-gray-900/50 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col fixed inset-y-0 z-10">
+      <aside className={cn(
+        "w-64 bg-white border-r border-gray-200 flex flex-col fixed inset-y-0 z-30 transition-transform duration-200 ease-in-out lg:translate-x-0",
+        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
         <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
           <span className="text-lg font-bold text-gray-900 tracking-tight">
             Trade<span className={deptCfg.activeText}>X</span>
@@ -207,6 +221,13 @@ export default function AdminLayout() {
           <span className={`text-xs font-bold px-2 py-1 rounded-full bg-gradient-to-r ${deptCfg.accentFrom} ${deptCfg.accentTo} text-white`}>
             {deptCfg.label}
           </span>
+          {/* Close button for mobile */}
+          <button 
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="p-1 rounded-md text-gray-400 hover:text-gray-500 lg:hidden"
+          >
+            <X className="h-6 w-6" />
+          </button>
         </div>
         
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
@@ -216,6 +237,7 @@ export default function AdminLayout() {
               <NavLink
                 key={item.name}
                 to={item.href}
+                onClick={() => setIsMobileMenuOpen(false)}
                 className={({ isActive }) =>
                   cn(
                     'group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
@@ -244,12 +266,20 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main Layout */}
-      <div className="flex-1 flex flex-col pl-64 min-w-0">
+      <div className="flex-1 flex flex-col lg:pl-64 min-w-0">
         {/* Top Header */}
         <header className="h-16 bg-white border-b border-gray-200 sticky top-0 z-10 flex-shrink-0">
-          <div className="h-full px-8 flex items-center justify-between">
+          <div className="h-full px-4 sm:px-8 flex items-center justify-between">
+            {/* Hamburger (Mobile) */}
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 -ml-2 mr-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 lg:hidden focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+            >
+              <Menu className="h-6 w-6" aria-hidden="true" />
+            </button>
+
             {/* Search */}
-            <div className="flex-1 min-w-0 max-w-md">
+            <div className="flex-1 min-w-0 max-w-md hidden sm:block">
               <div className="relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Search className="h-4 w-4 text-gray-400" aria-hidden="true" />
@@ -263,8 +293,8 @@ export default function AdminLayout() {
             </div>
 
             {/* Profile & Notifications */}
-            <div className="ml-4 flex items-center md:ml-6 space-x-4">
-              <div className="relative">
+            <div className="ml-auto flex items-center space-x-2 sm:space-x-4">
+              <div className="relative hidden sm:block">
                 <button className="bg-white p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none relative group">
                   <span className="sr-only">View notifications</span>
                   <Bell className="h-5 w-5" aria-hidden="true" />
@@ -285,8 +315,8 @@ export default function AdminLayout() {
                 </button>
               </div>
               
-              <div className="flex items-center gap-3">
-                <div className="text-right">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="text-right hidden sm:block">
                   <div className="text-sm font-medium text-gray-900">{user?.name || 'Admin'}</div>
                   <div className="text-xs text-gray-500">{user?.role || 'Unknown'}</div>
                 </div>
@@ -303,7 +333,7 @@ export default function AdminLayout() {
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto">
-          <div className="px-8 py-8 h-full">
+          <div className="p-4 sm:px-8 sm:py-8 h-full">
             <Outlet />
           </div>
         </main>

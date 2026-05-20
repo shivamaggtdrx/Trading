@@ -65,6 +65,34 @@ function updateAnchor(tick) {
 
 
 /**
+ * Check if market is currently open in IST
+ */
+function isMarketOpen(exchange) {
+  const now = new Date();
+  const istTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
+  const day = istTime.getDay();
+  const hours = istTime.getHours();
+  const minutes = istTime.getMinutes();
+  const timeInMinutes = hours * 60 + minutes;
+
+  if (exchange === 'NSE' || exchange === 'NSE_INDEX') {
+    if (day === 0 || day === 6) return false; // Weekend closed
+    const startMins = 9 * 60 + 15; // 09:15
+    const endMins = 15 * 60 + 30; // 15:30
+    return timeInMinutes >= startMins && timeInMinutes <= endMins;
+  }
+  
+  if (exchange === 'MCX') {
+    if (day === 0 || day === 6) return false; // Weekend closed
+    const startMins = 9 * 60; // 09:00
+    const endMins = 23 * 60 + 30; // 23:30
+    return timeInMinutes >= startMins && timeInMinutes <= endMins;
+  }
+  
+  return true; // Crypto/Forex open 24/7 or unhandled markets
+}
+
+/**
  * Start the high-frequency price animator
  */
 function startAnimator() {
@@ -95,10 +123,11 @@ function startAnimator() {
         // Only animate if someone is actually watching this symbol
         if (!hasMarketWatchers && !hasAdminWatchers) continue;
 
-
-
         // Skip animation for exchanges that aren't approved (e.g., Finnhub)
         if (!ANIMATABLE_EXCHANGES.has(anchor.exchange)) continue;
+
+        // Skip if market is closed
+        if (!isMarketOpen(anchor.exchange)) continue;
 
         // Generate realistic micro-variation
         const microTick = generateMicroTick(symbol, anchor);

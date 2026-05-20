@@ -14,13 +14,61 @@ import {
   Bell,
   Moon,
   Smartphone,
+  Activity,
+  Map,
+  Network as NetworkIcon
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import { useTradeStore } from '../../store/useTradeStore';
 import { cn } from '../../utils/helpers';
+
+const MarketStatusIndicator = ({ exchange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    const checkStatus = () => {
+      const now = new Date();
+      const istTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
+      const day = istTime.getDay();
+      const hours = istTime.getHours();
+      const minutes = istTime.getMinutes();
+      const timeInMinutes = hours * 60 + minutes;
+
+      if (exchange === 'NSE') {
+        if (day === 0 || day === 6) { setIsOpen(false); return; }
+        const startMins = 9 * 60 + 15;
+        const endMins = 15 * 60 + 30;
+        setIsOpen(timeInMinutes >= startMins && timeInMinutes <= endMins);
+      } else if (exchange === 'MCX') {
+        if (day === 0 || day === 6) { setIsOpen(false); return; }
+        const startMins = 9 * 60;
+        const endMins = 23 * 60 + 30;
+        setIsOpen(timeInMinutes >= startMins && timeInMinutes <= endMins);
+      } else {
+        setIsOpen(true);
+      }
+    };
+    
+    checkStatus();
+    const interval = setInterval(checkStatus, 60000);
+    return () => clearInterval(interval);
+  }, [exchange]);
+
+  return isOpen ? (
+    <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 rounded-md border border-emerald-100">
+      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+      <span className="text-sm font-bold text-emerald-700">Open</span>
+    </div>
+  ) : (
+    <div className="flex items-center gap-1.5 px-2 py-1 bg-red-50 rounded-md border border-red-100">
+      <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+      <span className="text-sm font-bold text-red-700">Closed</span>
+    </div>
+  );
+};
 
 export default function Profile() {
   const { user, logout } = useTradeStore();
@@ -128,9 +176,56 @@ export default function Profile() {
           </Card>
         </div>
 
+        {/* Market Status */}
+        <div>
+          <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5 mt-2">
+            Market Status
+          </h3>
+          <Card padding="p-0">
+            <div className="divide-y divide-border/20">
+              <div className="flex items-center justify-between px-3 py-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+                    <Activity size={15} strokeWidth={1.8} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-text-primary">NSE / BSE</p>
+                    <p className="text-sm text-text-muted mt-0.5">09:15 - 15:30 IST</p>
+                  </div>
+                </div>
+                <MarketStatusIndicator exchange="NSE" />
+              </div>
+              <div className="flex items-center justify-between px-3 py-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
+                    <Map size={15} strokeWidth={1.8} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-text-primary">MCX</p>
+                    <p className="text-sm text-text-muted mt-0.5">09:00 - 23:30 IST</p>
+                  </div>
+                </div>
+                <MarketStatusIndicator exchange="MCX" />
+              </div>
+              <div className="flex items-center justify-between px-3 py-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                    <NetworkIcon size={15} strokeWidth={1.8} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-text-primary">Forex / Crypto</p>
+                    <p className="text-sm text-text-muted mt-0.5">24 / 7</p>
+                  </div>
+                </div>
+                <MarketStatusIndicator exchange="CRYPTO" />
+              </div>
+            </div>
+          </Card>
+        </div>
+
         {/* Menu Sections */}
         {menuSections.map((section) => (
-          <div key={section.title}>
+          <div key={section.title} className="mt-2">
             <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
               {section.title}
             </h3>
@@ -164,17 +259,19 @@ export default function Profile() {
         ))}
 
         {/* Logout */}
-        <Card padding="p-0">
-          <button onClick={() => { logout(); navigate('/login'); }} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-red-50/50 active:bg-red-50 transition-colors touch-active-subtle rounded-xl">
-            <div className="w-8 h-8 bg-red-500/8 rounded-xl flex items-center justify-center">
-              <LogOut size={15} className="text-red-500" strokeWidth={1.8} />
-            </div>
-            <span className="text-sm font-semibold text-red-500">Sign Out</span>
-          </button>
-        </Card>
+        <div className="mt-2">
+          <Card padding="p-0">
+            <button onClick={() => { logout(); navigate('/login'); }} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-red-50/50 active:bg-red-50 transition-colors touch-active-subtle rounded-xl">
+              <div className="w-8 h-8 bg-red-500/8 rounded-xl flex items-center justify-center">
+                <LogOut size={15} className="text-red-500" strokeWidth={1.8} />
+              </div>
+              <span className="text-sm font-semibold text-red-500">Sign Out</span>
+            </button>
+          </Card>
+        </div>
 
         {/* App Version */}
-        <p className="text-center text-sm text-text-muted/60 py-1">
+        <p className="text-center text-sm text-text-muted/60 py-1 mt-2">
           Stocks Lab v1.0.0 · Built for traders
         </p>
       </div>
