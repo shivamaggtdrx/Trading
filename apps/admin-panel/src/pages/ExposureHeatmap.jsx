@@ -13,8 +13,20 @@ export default function ExposureHeatmap() {
   const fetchHeatmap = async () => {
     try {
       setLoading(true);
-      const { heatmap } = await adminApi.getExposureHeatmap();
-      setHeatmapData(heatmap || []);
+      const { heatmap } = await adminApi.getRiskHeatmap();
+      
+      const mappedData = (heatmap || []).map(d => {
+        const pct = Math.abs(d.exposure) / 1000; // max limit assumed 100,000
+        return {
+          ...d,
+          exposurePct: Math.min(Math.round(pct), 100),
+          disabled: pct > 100,
+          direction: d.exposure > 0 ? 'long' : d.exposure < 0 ? 'short' : '-',
+          netQty: Math.round(d.exposure / 100) // approx qty
+        };
+      });
+
+      setHeatmapData(mappedData);
       setLastUpdated(new Date());
     } catch (err) {
       console.error('Failed to fetch exposure heatmap', err);

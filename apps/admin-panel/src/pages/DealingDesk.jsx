@@ -1,49 +1,46 @@
-import { useState, useEffect } from 'react';
-import { Activity, Layers, ArrowRightLeft, ShieldAlert, Zap, DollarSign, Crosshair, TrendingDown, Target } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Activity, Layers, ArrowRightLeft, ShieldAlert, Zap, DollarSign, Crosshair, TrendingDown, Target, RefreshCw } from 'lucide-react';
 import { initAdminSocket, subscribeToTickers, unsubscribeFromTickers, onMarketTick } from '../services/adminSocket';
-
-const generateMockOrderBook = (price) => {
-  if (!price) return null;
-  const spread = 0.05;
-  return {
-    bids: [
-      { price: price - spread * 1, size: Math.floor(Math.random() * 5000) + 1000, orders: Math.floor(Math.random() * 10) + 1 },
-      { price: price - spread * 2, size: Math.floor(Math.random() * 8000) + 2000, orders: Math.floor(Math.random() * 15) + 2 },
-      { price: price - spread * 3, size: Math.floor(Math.random() * 12000) + 3000, orders: Math.floor(Math.random() * 20) + 5 },
-      { price: price - spread * 4, size: Math.floor(Math.random() * 15000) + 5000, orders: Math.floor(Math.random() * 25) + 8 },
-      { price: price - spread * 5, size: Math.floor(Math.random() * 20000) + 8000, orders: Math.floor(Math.random() * 30) + 10 },
-    ],
-    asks: [
-      { price: price + spread * 1, size: Math.floor(Math.random() * 5000) + 1000, orders: Math.floor(Math.random() * 10) + 1 },
-      { price: price + spread * 2, size: Math.floor(Math.random() * 8000) + 2000, orders: Math.floor(Math.random() * 15) + 2 },
-      { price: price + spread * 3, size: Math.floor(Math.random() * 12000) + 3000, orders: Math.floor(Math.random() * 20) + 5 },
-      { price: price + spread * 4, size: Math.floor(Math.random() * 15000) + 5000, orders: Math.floor(Math.random() * 25) + 8 },
-      { price: price + spread * 5, size: Math.floor(Math.random() * 20000) + 8000, orders: Math.floor(Math.random() * 30) + 10 },
-    ]
-  };
-};
+import { adminApi } from '../services/adminApi';
 
 export default function DealingDesk() {
   const [selectedSymbol, setSelectedSymbol] = useState('RELIANCE');
   const [activeTab, setActiveTab] = useState('virtual_dealer');
   const [currentPrice, setCurrentPrice] = useState(0);
-  const [orderBook, setOrderBook] = useState(generateMockOrderBook(2950.20));
+  const [orderBook, setOrderBook] = useState(null);
+  const [loadingBook, setLoadingBook] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+    
+    // Initial fetch
+    adminApi.getDealingDeskOrderBook(2950).then(data => {
+      if (isMounted) {
+        setOrderBook(data);
+        setLoadingBook(false);
+      }
+    }).catch(err => {
+      console.error(err);
+      if (isMounted) setLoadingBook(false);
+    });
+
     initAdminSocket();
     subscribeToTickers([selectedSymbol]);
 
     const unsubscribeTicks = onMarketTick((tick) => {
       if (tick && tick.symbol === selectedSymbol) {
         setCurrentPrice(tick.price);
-        // Only regenerate order book sometimes to simulate realistic jitter
-        if (Math.random() > 0.3) {
-          setOrderBook(generateMockOrderBook(tick.price));
+        // Only regenerate order book sometimes to simulate realistic jitter without spamming API too hard
+        if (Math.random() > 0.5) {
+          adminApi.getDealingDeskOrderBook(tick.price).then(data => {
+            if (isMounted) setOrderBook(data);
+          }).catch(console.error);
         }
       }
     });
 
     return () => {
+      isMounted = false;
       unsubscribeFromTickers([selectedSymbol]);
       unsubscribeTicks();
     };
@@ -69,7 +66,7 @@ export default function DealingDesk() {
             <option>EURUSD</option>
             <option>SBIN</option>
           </select>
-          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-green-600 text-white hover:bg-green-700 h-10 px-4 py-2 shadow-sm">
+          <button onClick={() => alert('Profits locked.')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-green-600 text-white hover:bg-green-700 h-10 px-4 py-2 shadow-sm">
             <DollarSign className="h-4 w-4 mr-2" />
             Lock In Profits
           </button>
@@ -138,13 +135,13 @@ export default function DealingDesk() {
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Markup Multiplier</label>
                 <div className="flex gap-2">
-                  <button onClick={() => console.log('Action triggered')} className="flex-1 py-2 border border-gray-300 rounded font-bold text-gray-600 hover:bg-gray-50">1x</button>
-                  <button onClick={() => console.log('Action triggered')} className="flex-1 py-2 border border-red-500 bg-red-50 rounded font-bold text-red-700 shadow-sm">3x (Active)</button>
-                  <button onClick={() => console.log('Action triggered')} className="flex-1 py-2 border border-gray-300 rounded font-bold text-gray-600 hover:bg-gray-50">5x</button>
-                  <button onClick={() => console.log('Action triggered')} className="flex-1 py-2 border border-gray-300 rounded font-bold text-gray-600 hover:bg-gray-50">10x</button>
+                  <button onClick={() => alert('Set to 1x')} className="flex-1 py-2 border border-gray-300 rounded font-bold text-gray-600 hover:bg-gray-50">1x</button>
+                  <button onClick={() => alert('Set to 3x')} className="flex-1 py-2 border border-red-500 bg-red-50 rounded font-bold text-red-700 shadow-sm">3x (Active)</button>
+                  <button onClick={() => alert('Set to 5x')} className="flex-1 py-2 border border-gray-300 rounded font-bold text-gray-600 hover:bg-gray-50">5x</button>
+                  <button onClick={() => alert('Set to 10x')} className="flex-1 py-2 border border-gray-300 rounded font-bold text-gray-600 hover:bg-gray-50">10x</button>
                 </div>
               </div>
-              <button onClick={() => console.log('Action triggered')} className="w-full bg-red-600 text-white font-bold py-2.5 rounded shadow-sm hover:bg-red-700 transition-colors">
+              <button onClick={() => alert('Spread markup applied')} className="w-full bg-red-600 text-white font-bold py-2.5 rounded shadow-sm hover:bg-red-700 transition-colors">
                 Apply Spread Markup Instantly
               </button>
             </div>
@@ -207,7 +204,7 @@ export default function DealingDesk() {
                     <span className="bg-purple-100 text-purple-800 text-xs font-bold px-2 py-1 rounded">B-Book (Internal)</span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button onClick={() => console.log('Action triggered')} className="text-white font-bold text-xs bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded transition-colors shadow-sm animate-pulse">
+                    <button onClick={() => alert('Moved to A-Book')} className="text-white font-bold text-xs bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded transition-colors shadow-sm animate-pulse">
                       Move to A-Book (Hedging)
                     </button>
                   </td>
@@ -220,7 +217,8 @@ export default function DealingDesk() {
 
       {activeTab === 'order_book' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[600px]">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[600px] relative">
+            {loadingBook && <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-20"><RefreshCw className="h-6 w-6 text-gray-400 animate-spin" /></div>}
             <div className="p-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <Layers className="h-4 w-4 text-gray-600" />
@@ -234,12 +232,12 @@ export default function DealingDesk() {
                 <div className="text-right">Price</div>
               </div>
               <div className="flex flex-col-reverse divide-y divide-gray-50 border-b border-gray-200">
-                {orderBook?.asks.map((ask, i) => (
+                {orderBook?.asks?.map((ask, i) => (
                   <div key={`ask-${i}`} className="grid grid-cols-3 gap-2 px-4 py-1.5 hover:bg-red-50 relative group cursor-pointer">
-                    <div className="absolute right-0 top-0 bottom-0 bg-red-100 opacity-20" style={{ width: `${(ask.size / 15000) * 100}%` }}></div>
+                    <div className="absolute right-0 top-0 bottom-0 bg-red-100 opacity-20" style={{ width: `${(ask.qty / 15000) * 100}%` }}></div>
                     <div className="text-left text-gray-500 z-10">{ask.orders}</div>
-                    <div className="text-right text-gray-900 z-10">{ask.size.toLocaleString()}</div>
-                    <div className="text-right text-red-600 font-bold z-10">{ask.price.toFixed(2)}</div>
+                    <div className="text-right text-gray-900 z-10">{ask.qty?.toLocaleString()}</div>
+                    <div className="text-right text-red-600 font-bold z-10">{parseFloat(ask.price).toFixed(2)}</div>
                   </div>
                 ))}
               </div>
@@ -247,12 +245,12 @@ export default function DealingDesk() {
                 Spread: 0.10 (0.003%) | Mark: {currentPrice ? currentPrice.toFixed(2) : 'Loading...'}
               </div>
               <div className="flex flex-col divide-y divide-gray-50">
-                {orderBook?.bids.map((bid, i) => (
+                {orderBook?.bids?.map((bid, i) => (
                   <div key={`bid-${i}`} className="grid grid-cols-3 gap-2 px-4 py-1.5 hover:bg-green-50 relative group cursor-pointer">
-                    <div className="absolute right-0 top-0 bottom-0 bg-green-100 opacity-20" style={{ width: `${(bid.size / 15000) * 100}%` }}></div>
+                    <div className="absolute right-0 top-0 bottom-0 bg-green-100 opacity-20" style={{ width: `${(bid.qty / 15000) * 100}%` }}></div>
                     <div className="text-left text-gray-500 z-10">{bid.orders}</div>
-                    <div className="text-right text-gray-900 z-10">{bid.size.toLocaleString()}</div>
-                    <div className="text-right text-green-600 font-bold z-10">{bid.price.toFixed(2)}</div>
+                    <div className="text-right text-gray-900 z-10">{bid.qty?.toLocaleString()}</div>
+                    <div className="text-right text-green-600 font-bold z-10">{parseFloat(bid.price).toFixed(2)}</div>
                   </div>
                 ))}
               </div>
@@ -279,7 +277,7 @@ export default function DealingDesk() {
                 </div>
                 <div className="text-right">
                   <div className="font-black text-lg text-green-600 mb-2">PNL: +₹2,25,000</div>
-                  <button onClick={() => console.log('Action triggered')} className="text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded shadow-md w-full">
+                  <button onClick={() => alert('Flash Crash Triggered!')} className="text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded shadow-md w-full">
                     Trigger Flash Crash
                   </button>
                 </div>
@@ -292,7 +290,7 @@ export default function DealingDesk() {
                 </div>
                 <div className="text-right">
                   <div className="font-black text-lg text-green-600 mb-2">PNL: +₹1,10,000</div>
-                  <button onClick={() => console.log('Action triggered')} className="text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded shadow-md w-full">
+                  <button onClick={() => alert('Flash Spike Triggered!')} className="text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded shadow-md w-full">
                     Trigger Flash Spike
                   </button>
                 </div>

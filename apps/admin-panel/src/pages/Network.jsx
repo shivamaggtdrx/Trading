@@ -1,13 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, TrendingUp, DollarSign, Search, ShieldCheck, ChevronRight } from 'lucide-react';
-
-const masters = [
-  { id: 'MST-001', name: 'Ramesh Trading Co.', clients: 45, creditLimit: 5000000, m2m: 125000, brokerage: 45000, status: 'Active' },
-  { id: 'MST-002', name: 'Gujarat Equity Desk', clients: 112, creditLimit: 20000000, m2m: -450000, brokerage: 180000, status: 'Active' },
-  { id: 'MST-003', name: 'Delhi Alpha Group', clients: 18, creditLimit: 1000000, m2m: 5000, brokerage: 12000, status: 'Warning' },
-];
+import { adminApi } from '../services/adminApi';
 
 export default function Network() {
+  const [masters, setMasters] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi.getNetworkNodes()
+      .then(res => {
+        setMasters(res.nodes || res.data || []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -15,7 +22,7 @@ export default function Network() {
           <h1 className="text-2xl font-bold text-gray-900">Master / Sub-Broker Network</h1>
           <p className="text-sm text-gray-500 mt-1">Manage B2B partners, credit limits, and weekly settlements.</p>
         </div>
-        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
+        <button onClick={() => alert('Add Master Account coming soon')} className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
           <Users className="h-4 w-4 mr-2" />
           Add Master Account
         </button>
@@ -28,7 +35,7 @@ export default function Network() {
           </div>
           <div className="ml-4">
             <h3 className="text-sm font-medium text-gray-500">Total Masters</h3>
-            <div className="text-2xl font-bold text-gray-900">24</div>
+            <div className="text-2xl font-bold text-gray-900">{masters.length}</div>
           </div>
         </div>
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex items-center">
@@ -37,7 +44,7 @@ export default function Network() {
           </div>
           <div className="ml-4">
             <h3 className="text-sm font-medium text-gray-500">Net Master M2M</h3>
-            <div className="text-2xl font-bold text-green-600">+₹18,45,000</div>
+            <div className="text-2xl font-bold text-green-600">+₹0</div>
           </div>
         </div>
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex items-center">
@@ -46,7 +53,7 @@ export default function Network() {
           </div>
           <div className="ml-4">
             <h3 className="text-sm font-medium text-gray-500">Weekly Settlement Pending</h3>
-            <div className="text-2xl font-bold text-gray-900">₹4,20,000</div>
+            <div className="text-2xl font-bold text-gray-900">₹0</div>
           </div>
         </div>
       </div>
@@ -72,7 +79,7 @@ export default function Network() {
               <tr>
                 <th className="px-6 py-3 font-semibold">Master ID</th>
                 <th className="px-6 py-3 font-semibold">Entity Name</th>
-                <th className="px-6 py-3 font-semibold text-center">Active Clients</th>
+                <th className="px-6 py-3 font-semibold text-center">Revenue Share</th>
                 <th className="px-6 py-3 font-semibold text-right">Credit Limit (INR)</th>
                 <th className="px-6 py-3 font-semibold text-right">Net M2M (INR)</th>
                 <th className="px-6 py-3 font-semibold text-right">Brokerage Generated</th>
@@ -81,27 +88,23 @@ export default function Network() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {masters.map((master) => (
+              {masters.length === 0 ? (
+                <tr><td colSpan="8" className="p-6 text-center text-gray-500">No network nodes found.</td></tr>
+              ) : masters.map((master) => (
                 <tr key={master.id} className="hover:bg-blue-50/50 group">
-                  <td className="px-6 py-4 font-bold text-gray-900">{master.id}</td>
+                  <td className="px-6 py-4 font-bold text-gray-900">{master.id.slice(0,8)}</td>
                   <td className="px-6 py-4 font-bold text-blue-600 hover:underline cursor-pointer">{master.name}</td>
-                  <td className="px-6 py-4 text-center font-bold text-gray-700 bg-gray-50/50">{master.clients}</td>
-                  <td className="px-6 py-4 text-right font-medium text-gray-900">₹{master.creditLimit.toLocaleString('en-IN')}</td>
-                  <td className="px-6 py-4 text-right font-bold">
-                    <span className={master.m2m > 0 ? 'text-green-600' : 'text-red-600'}>
-                      {master.m2m > 0 ? '+' : ''}₹{master.m2m.toLocaleString('en-IN')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right font-medium text-gray-900">₹{master.brokerage.toLocaleString('en-IN')}</td>
+                  <td className="px-6 py-4 text-center font-bold text-gray-700 bg-gray-50/50">{master.revenue_share_pct || 0}%</td>
+                  <td className="px-6 py-4 text-right font-medium text-gray-900">₹0</td>
+                  <td className="px-6 py-4 text-right font-bold text-gray-400">₹0</td>
+                  <td className="px-6 py-4 text-right font-medium text-gray-900">₹0</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${
-                      master.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                    }`}>
-                      {master.status}
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-green-100 text-green-700">
+                      Active
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button onClick={() => console.log('Action triggered')} className="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors inline-flex items-center">
+                    <button onClick={() => alert('Settlement not implemented')} className="text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors inline-flex items-center">
                       Settle Account <ChevronRight className="h-3 w-3 ml-1" />
                     </button>
                   </td>

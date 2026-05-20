@@ -1,12 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Plus, Send, BarChart2, Users } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 export default function CampaignManager() {
-  const campaigns = [
-    { id: 1, name: 'Diwali Zero Brokerage Offer', audience: 'All Active Clients', sent: 12500, openRate: '45%', clickRate: '12%', status: 'Active' },
-    { id: 2, name: 'Onboarding Welcome Drip', audience: 'New Signups', sent: 450, openRate: '68%', clickRate: '25%', status: 'Automated' },
-    { id: 3, name: 'Inactive Account Reminder', audience: 'Dormant (>60 days)', sent: 3200, openRate: '18%', clickRate: '2%', status: 'Completed' },
-  ];
+  const [campaigns, setCampaigns] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi.getCrmModule('campaigns')
+      .then(res => {
+        setCampaigns(res.campaigns || res.data || []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-8 text-center text-gray-500 font-medium">Loading Campaigns...</div>;
 
   return (
     <div className="space-y-6">

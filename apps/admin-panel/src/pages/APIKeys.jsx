@@ -1,20 +1,67 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Key, Copy, CheckCircle, Search, ShieldAlert, Activity } from 'lucide-react';
-
-const apiKeys = [
-  { id: 'API-9901', name: 'QuantFund Alpha', user: 'TDX-88210', key: 'pk_live_8f9d...21a1', status: 'Active', reqPerSec: 50, lastUsed: 'Just now' },
-  { id: 'API-9902', name: 'HFT Bot 1', user: 'TDX-82491', key: 'pk_live_2b4c...9f2e', status: 'Active', reqPerSec: 100, lastUsed: '5 mins ago' },
-  { id: 'API-9903', name: 'Reporting Webhook', user: 'MST-001', key: 'pk_test_7c1a...4b3d', status: 'Revoked', reqPerSec: 5, lastUsed: '2 days ago' },
-];
+import { adminApi } from '../services/adminApi';
 
 export default function APIKeys() {
   const [copied, setCopied] = useState(null);
+  const [apiKeys, setApiKeys] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  const fetchKeys = async () => {
+    try {
+      setLoading(true);
+      const res = await adminApi.getCrmModule('api-keys');
+      setApiKeys(res || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchKeys();
+  }, []);
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
     setCopied(text);
     setTimeout(() => setCopied(null), 2000);
   };
+
+  const handleRevoke = async (id) => {
+    if (window.confirm('Revoke this API Key?')) {
+      try {
+        await adminApi.updateCrmModule('api-keys', id, { status: 'Revoked' });
+        fetchKeys();
+      } catch (err) {
+        alert('Failed to revoke API key');
+      }
+    }
+  };
+
+  const handleGenerate = async () => {
+    const name = window.prompt('Enter application name for new API key:');
+    if (!name) return;
+    try {
+      await adminApi.updateCrmModule('api-keys', 'new', {
+        name,
+        user_id: 'System',
+        key: `pk_live_${Math.random().toString(36).substring(2, 10)}`,
+        req_per_sec: 10,
+        status: 'Active'
+      });
+      fetchKeys();
+    } catch (err) {
+      alert('Failed to generate API key');
+    }
+  };
+
+  const filteredKeys = apiKeys.filter(api => 
+    api.name?.toLowerCase().includes(search.toLowerCase()) || 
+    api.key?.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -23,7 +70,7 @@ export default function APIKeys() {
           <h1 className="text-2xl font-bold text-gray-900">API & Algorithmic Trading</h1>
           <p className="text-sm text-gray-500 mt-1">Manage FIX/REST API connections, rate limits, and webhook integrations.</p>
         </div>
-        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
+        <button onClick={handleGenerate} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
           <Key className="h-4 w-4 mr-2" />
           Generate New API Key
         </button>
@@ -45,7 +92,7 @@ export default function APIKeys() {
           </div>
           <div>
             <h3 className="text-sm font-bold text-gray-500">Active Keys</h3>
-            <div className="text-2xl font-black text-gray-900">42</div>
+            <div className="text-2xl font-black text-gray-900">{apiKeys.filter(k => k.status === 'Active').length}</div>
           </div>
         </div>
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex items-center gap-4">
@@ -69,6 +116,8 @@ export default function APIKeys() {
             <input
               type="text"
               placeholder="Search API Name or Key..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
               className="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
             />
           </div>
@@ -78,9 +127,8 @@ export default function APIKeys() {
           <table className="w-full text-sm text-left whitespace-nowrap">
             <thead className="text-[11px] text-gray-500 uppercase bg-gray-100 border-b border-gray-200 tracking-wider">
               <tr>
-                <th className="px-6 py-3 font-semibold">Key ID</th>
                 <th className="px-6 py-3 font-semibold">App Name</th>
-                <th className="px-6 py-3 font-semibold">Owner (User/Master)</th>
+                <th className="px-6 py-3 font-semibold">Owner</th>
                 <th className="px-6 py-3 font-semibold">API Key Token</th>
                 <th className="px-6 py-3 font-semibold text-center">Rate Limit (Req/s)</th>
                 <th className="px-6 py-3 font-semibold">Last Used</th>
@@ -89,11 +137,14 @@ export default function APIKeys() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {apiKeys.map((api) => (
+              {loading ? (
+                <tr><td colSpan="7" className="text-center py-8 text-gray-500">Loading API keys...</td></tr>
+              ) : filteredKeys.length === 0 ? (
+                <tr><td colSpan="7" className="text-center py-8 text-gray-500">No API keys found.</td></tr>
+              ) : filteredKeys.map((api) => (
                 <tr key={api.id} className="hover:bg-gray-50 group">
-                  <td className="px-6 py-4 font-bold text-gray-900">{api.id}</td>
                   <td className="px-6 py-4 font-bold text-gray-900">{api.name}</td>
-                  <td className="px-6 py-4 text-blue-600 hover:underline cursor-pointer font-bold">{api.user}</td>
+                  <td className="px-6 py-4 text-blue-600 hover:underline cursor-pointer font-bold">{api.user_id}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <code className="bg-gray-100 px-2 py-1 rounded text-xs font-mono text-gray-600">{api.key}</code>
@@ -106,8 +157,8 @@ export default function APIKeys() {
                       </button>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-center font-bold text-gray-700 bg-gray-50/50">{api.reqPerSec}</td>
-                  <td className="px-6 py-4 text-gray-600 text-xs">{api.lastUsed}</td>
+                  <td className="px-6 py-4 text-center font-bold text-gray-700 bg-gray-50/50">{api.req_per_sec || api.reqPerSec}</td>
+                  <td className="px-6 py-4 text-gray-600 text-xs">{api.last_used ? new Date(api.last_used).toLocaleString() : 'Never'}</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
                       api.status === 'Active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
@@ -117,7 +168,7 @@ export default function APIKeys() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     {api.status === 'Active' ? (
-                      <button onClick={() => console.log('Action triggered')} className="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded transition-colors">
+                      <button onClick={() => handleRevoke(api.id)} className="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded transition-colors">
                         Revoke Key
                       </button>
                     ) : (

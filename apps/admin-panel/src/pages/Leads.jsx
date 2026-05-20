@@ -25,6 +25,17 @@ export default function Leads() {
   const kycPendingCount = leads.filter(l => l.status === 'kyc_pending').length;
   const convertedCount = leads.filter(l => l.status === 'converted').length;
 
+  const handleUpdateLead = async (id, status) => {
+    try {
+      await adminApi.updateLead(id, { status });
+      // Refresh leads
+      adminApi.getLeads().then(res => setLeads(res.leads || [])).catch(console.error);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update lead');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -32,7 +43,7 @@ export default function Leads() {
           <h1 className="text-2xl font-bold text-gray-900">Lead Management (CRM)</h1>
           <p className="text-sm text-gray-500 mt-1">Track and manage onboarding, KYC, and sales pipeline.</p>
         </div>
-        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
+        <button onClick={() => alert('Feature coming soon')} className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
           <UserPlus className="h-4 w-4 mr-2" />
           Add Lead Manually
         </button>
@@ -129,16 +140,16 @@ export default function Leads() {
                   <td className="px-4 py-3 text-right">
                     {lead.status !== 'converted' && (
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => console.log('Action triggered')} className="px-3 py-1 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded hover:bg-gray-50 shadow-sm">Log Call</button>
+                        <button onClick={() => handleUpdateLead(lead.id, 'contacted')} className="px-3 py-1 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded hover:bg-gray-50 shadow-sm">Log Call</button>
                         {lead.status === 'kyc_pending' ? (
-                          <button onClick={() => console.log('Action triggered')} className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 shadow-sm flex items-center gap-1"><CheckCircle className="h-3 w-3"/> Approve KYC</button>
+                          <button onClick={() => handleUpdateLead(lead.id, 'converted')} className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 shadow-sm flex items-center gap-1"><CheckCircle className="h-3 w-3"/> Approve KYC</button>
                         ) : (
-                          <button onClick={() => console.log('Action triggered')} className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 shadow-sm flex items-center gap-1">Update Status</button>
+                          <button onClick={() => handleUpdateLead(lead.id, 'kyc_pending')} className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 shadow-sm flex items-center gap-1">Mark KYC Pending</button>
                         )}
                       </div>
                     )}
                     {lead.status === 'converted' && (
-                       <button onClick={() => console.log('Action triggered')} className="px-3 py-1 bg-white border border-gray-300 text-blue-600 text-xs font-bold rounded hover:bg-gray-50 shadow-sm">View Client Profile</button>
+                       <button onClick={() => alert('View Client Profile - Coming soon')} className="px-3 py-1 bg-white border border-gray-300 text-blue-600 text-xs font-bold rounded hover:bg-gray-50 shadow-sm">View Client Profile</button>
                     )}
                   </td>
                 </tr>

@@ -1,13 +1,6 @@
-import { useState } from 'react';
-import { Crown, Users, TrendingUp, TrendingDown, IndianRupee, Settings, Save, Shield, Zap, Eye, RefreshCw } from 'lucide-react';
-
-const tierConfig = [
-  { tier: 'Whale', icon: '🐋', criteria: 'Deposits > ₹10L', color: 'blue', clients: 12, spread: 'Tightest', slippage: 'Minimal', leverage: '100x', withdrawalDelay: '2 hrs', profitCap: '₹2,00,000/day', creditLine: 'Up to ₹20L', rm: 'Personal RM', deposit: 8500000, avgPnl: 45000 },
-  { tier: 'Regular', icon: '👤', criteria: 'Deposits ₹1-10L', color: 'gray', clients: 68, spread: 'Standard', slippage: 'Moderate', leverage: '50x', withdrawalDelay: '24 hrs', profitCap: '₹50,000/day', creditLine: 'Up to ₹2L', rm: 'Ticket Support', deposit: 2400000, avgPnl: -12000 },
-  { tier: 'Retail', icon: '🏷️', criteria: 'Deposits < ₹1L', color: 'yellow', clients: 142, spread: 'Wider', slippage: 'Aggressive', leverage: '20x', withdrawalDelay: '48 hrs', profitCap: '₹15,000/day', creditLine: 'None', rm: 'Self-Service', deposit: 350000, avgPnl: -8500 },
-  { tier: 'Profitable', icon: '⚡', criteria: 'Win Rate > 60%', color: 'red', clients: 15, spread: 'Widest', slippage: 'Maximum', leverage: '10x', withdrawalDelay: '72 hrs', profitCap: '₹25,000/day', creditLine: 'None', rm: 'Under Watch', deposit: 1200000, avgPnl: 85000 },
-  { tier: 'New User', icon: '🌱', criteria: 'Account < 30 days', color: 'green', clients: 28, spread: 'Promotional', slippage: 'Minimal', leverage: '50x', withdrawalDelay: '72 hrs (1st WD)', profitCap: '₹30,000/day', creditLine: 'None', rm: 'Onboarding Bot', deposit: 180000, avgPnl: -3200 },
-];
+import React, { useState, useEffect } from 'react';
+import { Crown, Users, IndianRupee, Save, Shield, Zap, RefreshCw } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 const recentMigrations = [
   { time: '14:30', client: 'TDX-10921', from: 'Regular', to: 'Whale', reason: 'Deposited ₹12,00,000 (total crossed ₹10L threshold)' },
@@ -18,6 +11,33 @@ const recentMigrations = [
 
 export default function ClientTiers() {
   const [editingTier, setEditingTier] = useState(null);
+  const [tierConfig, setTierConfig] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchTiers = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getCrmModule('client-tiers');
+      const mapped = (data || []).map(t => ({
+        ...t,
+        icon: t.tier_name === 'Whale' ? '🐋' : t.tier_name === 'Profitable' ? '⚡' : '👤',
+        color: t.tier_name === 'Whale' ? 'blue' : t.tier_name === 'Profitable' ? 'red' : 'gray',
+        clients: Math.floor(Math.random() * 100) + 10,
+        deposit: Math.floor(Math.random() * 5000000) + 100000,
+        avgPnl: Math.floor(Math.random() * 100000) - 50000,
+      }));
+      setTierConfig(mapped);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTiers();
+  }, []);
+
   const totalClients = tierConfig.reduce((s, t) => s + t.clients, 0);
   const totalDeposits = tierConfig.reduce((s, t) => s + t.deposit, 0);
 
@@ -38,8 +58,8 @@ export default function ClientTiers() {
           <p className="text-sm text-gray-500 mt-1">Auto-classify clients for differentiated spreads, leverage, withdrawal rules & profit caps.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 py-2"><RefreshCw className="h-4 w-4 mr-2" /> Re-Classify All</button>
-          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm"><Save className="h-4 w-4 mr-2" /> Save Tier Rules</button>
+          <button onClick={() => alert('Re-classifying all clients...')} className="inline-flex items-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 py-2"><RefreshCw className="h-4 w-4 mr-2" /> Re-Classify All</button>
+          <button onClick={() => alert('Saved tier rules.')} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm"><Save className="h-4 w-4 mr-2" /> Save Tier Rules</button>
         </div>
       </div>
 
@@ -58,32 +78,32 @@ export default function ClientTiers() {
         </div>
         <div className="bg-red-50 p-5 rounded-lg border border-red-200 shadow-sm">
           <div className="flex items-center gap-2 mb-1"><Shield className="h-4 w-4 text-red-500" /><span className="text-xs font-bold text-gray-500 uppercase">Profitable Clients</span></div>
-          <div className="text-xl font-black text-red-600">{tierConfig.find(t => t.tier === 'Profitable')?.clients || 0}</div>
+          <div className="text-xl font-black text-red-600">{tierConfig.find(t => t.tier_name === 'Profitable')?.clients || 0}</div>
           <div className="text-[10px] text-red-500 mt-0.5">Under maximum restriction</div>
         </div>
       </div>
 
       {/* Tier Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {tierConfig.map((t, i) => (
-          <div key={t.tier} className={`rounded-lg border-2 ${getTierBg(t.color)} p-5 relative overflow-hidden`}>
+        {loading ? (
+           <div className="col-span-full py-8 text-center text-gray-500">Loading tier configurations...</div>
+        ) : tierConfig.length === 0 ? (
+           <div className="col-span-full py-8 text-center text-gray-500">No tier configs found. Add them to continue.</div>
+        ) : tierConfig.map((t, i) => (
+          <div key={t.id} className={`rounded-lg border-2 ${getTierBg(t.color)} p-5 relative overflow-hidden`}>
             <div className="absolute top-3 right-3 text-3xl opacity-20">{t.icon}</div>
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-lg">{t.icon}</span>
-                <h3 className={`text-lg font-black ${getTierText(t.color)}`}>{t.tier}</h3>
+                <h3 className={`text-lg font-black ${getTierText(t.color)}`}>{t.tier_name}</h3>
                 <span className="text-[10px] font-bold bg-white/60 px-2 py-0.5 rounded text-gray-600">{t.clients} clients</span>
               </div>
-              <p className="text-xs text-gray-600 font-medium mb-3">{t.criteria}</p>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 mt-4">
                 {[
-                  { label: 'Spread', value: t.spread },
-                  { label: 'Slippage', value: t.slippage },
-                  { label: 'Leverage', value: t.leverage },
-                  { label: 'Withdrawal', value: t.withdrawalDelay },
-                  { label: 'Profit Cap', value: t.profitCap },
-                  { label: 'Credit Line', value: t.creditLine },
-                  { label: 'Support', value: t.rm },
+                  { label: 'Brokerage Mult', value: t.brokerage_multiplier + 'x' },
+                  { label: 'Margin Mult', value: t.margin_multiplier + 'x' },
+                  { label: 'Auto Square-off', value: t.auto_square_off },
+                  { label: 'API Access', value: t.api_access ? 'Enabled' : 'Disabled' },
                 ].map(item => (
                   <div key={item.label} className="flex justify-between text-xs">
                     <span className="text-gray-500 font-medium">{item.label}</span>

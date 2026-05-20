@@ -28,5 +28,5 @@
 - [x] Added dark-mode shimmer variant for skeleton loaders
 - [x] Updated BottomNav active indicator to brand orange (#f06428) for visual consistency
 - [x] Confirmed existing `Skeleton.jsx` (MarketItemSkeleton, PositionCardSkeleton, WalletCardSkeleton) already in place
-- [ ] Add pull-to-refresh on Positions, Orders, Markets pages
+- [x] Add pull-to-refresh on Positions, Orders, Markets pages
 - [ ] Add page transition slide-in animations between routes

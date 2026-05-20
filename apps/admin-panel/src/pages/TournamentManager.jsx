@@ -1,16 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Trophy, Users, Calendar, Plus, Target, DollarSign, X } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 export default function TournamentManager() {
   const [showCreate, setShowCreate] = useState(false);
+  const [tournaments, setTournaments] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const tournaments = [
-    { id: 'T-101', name: 'Diwali Options Trading League', status: 'Active', participants: 450, prizePool: '₹5,00,000', end: '15 Nov 2023', minBalance: '₹50,000' },
-    { id: 'T-102', name: 'Weekly Scalping Challenge', status: 'Registration', participants: 120, prizePool: '₹50,000', end: '30 Oct 2023', minBalance: '₹10,000' },
-    { id: 'T-103', name: 'NIFTY Kings September', status: 'Completed', participants: 850, prizePool: '₹2,50,000', end: '30 Sep 2023', minBalance: '₹25,000' },
-  ];
+  useEffect(() => {
+    adminApi.getCrmModule('tournaments')
+      .then(res => {
+        setTournaments(res.tournaments || res.data || []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleManage = (t) => alert(`Managing "${t.name}"\n\nStatus: ${t.status}\nParticipants: ${t.participants}\nPrize Pool: ${t.prizePool}\nEnds: ${t.end}`);
+
+  if (loading) return <div className="p-8 text-center text-gray-500 font-medium">Loading Tournaments...</div>;
 
   return (
     <div className="space-y-6">

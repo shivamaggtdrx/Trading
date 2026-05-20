@@ -1,13 +1,6 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, Shield, AlertTriangle, Play, Pause, ToggleLeft, ToggleRight, Save, RefreshCw, Globe, TrendingUp, Ban } from 'lucide-react';
-
-const marketSessions = [
-  { segment: 'NSE / BSE Equity', preOpen: '09:00', open: '09:15', close: '15:30', postClose: '15:40', status: 'open', color: 'blue' },
-  { segment: 'NSE F&O', preOpen: '09:00', open: '09:15', close: '15:30', postClose: '15:40', status: 'open', color: 'purple' },
-  { segment: 'MCX Commodities', preOpen: '09:00', open: '09:00', close: '23:30', postClose: '23:55', status: 'open', color: 'amber' },
-  { segment: 'Currency (USDINR)', preOpen: '09:00', open: '09:00', close: '17:00', postClose: '17:15', status: 'closed', color: 'cyan' },
-  { segment: 'International Forex', preOpen: 'N/A', open: '00:00', close: '23:59', postClose: 'N/A', status: 'open', color: 'green' },
-];
+import { adminApi } from '../services/adminApi';
 
 const circuitBreakers = [
   { instrument: 'NIFTY50', upperLimit: 5, lowerLimit: 5, currentTrigger: 'None', lastTriggered: 'Never', enabled: true },
@@ -33,11 +26,44 @@ const holidays = [
 ];
 
 export default function MarketControl() {
-  const [sessions, setSessions] = useState(marketSessions);
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [breakers, setBreakers] = useState(circuitBreakers);
 
-  const toggleSession = (index) => {
-    setSessions(prev => prev.map((s, i) => i === index ? { ...s, status: s.status === 'open' ? 'closed' : 'open' } : s));
+  const fetchSessions = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getCrmModule('market-control');
+      const mapped = (data || []).map(s => ({
+        id: s.id,
+        segment: s.session_name,
+        preOpen: '09:00',
+        open: s.open_time,
+        close: s.close_time,
+        postClose: '16:00',
+        status: s.status?.toLowerCase() || 'closed',
+        color: 'blue'
+      }));
+      setSessions(mapped);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSessions();
+  }, []);
+
+  const toggleSession = async (session) => {
+    try {
+      const newStatus = session.status === 'open' ? 'Closed' : 'Open';
+      await adminApi.updateCrmModule('market-control', session.id, { status: newStatus });
+      fetchSessions();
+    } catch (err) {
+      alert('Failed to update session');
+    }
   };
 
   const toggleBreaker = (index) => {
@@ -108,14 +134,18 @@ export default function MarketControl() {
             <span className="text-[10px] font-bold text-gray-400">IST (UTC+5:30)</span>
           </div>
           <div className="divide-y divide-gray-100">
-            {sessions.map((session, i) => (
-              <div key={session.segment} className="p-4 hover:bg-gray-50">
+            {loading ? (
+              <div className="p-8 text-center text-gray-500">Loading market sessions...</div>
+            ) : sessions.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">No market sessions defined.</div>
+            ) : sessions.map((session, i) => (
+              <div key={session.id} className="p-4 hover:bg-gray-50">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${session.status === 'open' ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
                     <span className="text-sm font-bold text-gray-900">{session.segment}</span>
                   </div>
-                  <button onClick={() => toggleSession(i)} className="touch-active-subtle">
+                  <button onClick={() => toggleSession(session)} className="touch-active-subtle">
                     {session.status === 'open' ? (
                       <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded border border-green-200">
                         <Play className="h-3 w-3" /> OPEN

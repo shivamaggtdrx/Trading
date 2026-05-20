@@ -1,18 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Mail, MessageSquare, Save, Settings, Variable, Edit3 } from 'lucide-react';
-
-const templates = [
-  { id: 'tpl_welcome', name: 'Welcome Email', type: 'Email', subject: 'Welcome to TradeX, {{client_name}}!' },
-  { id: 'tpl_margin_warn', name: 'Margin Warning (80%)', type: 'SMS', subject: 'N/A' },
-  { id: 'tpl_margin_crit', name: 'Margin Critical (90%)', type: 'Email', subject: 'URGENT: Margin Critical for {{client_id}}' },
-  { id: 'tpl_kyc_appr', name: 'KYC Approved', type: 'Email', subject: 'Your Account is Active!' },
-  { id: 'tpl_kyc_rej', name: 'KYC Rejected', type: 'Email', subject: 'Action Required: KYC Update' },
-  { id: 'tpl_wd_proc', name: 'Withdrawal Processed', type: 'SMS', subject: 'N/A' },
-];
+import { adminApi } from '../services/adminApi';
 
 export default function Templates() {
-  const [activeTemplate, setActiveTemplate] = useState(templates[0]);
-  const [content, setContent] = useState('Hi {{client_name}},\n\nWelcome to TradeX. Your account ID is {{client_id}}. You can now fund your wallet and start trading.\n\nRegards,\nTradeX Team');
+  const [templates, setTemplates] = useState([]);
+  const [activeTemplate, setActiveTemplate] = useState(null);
+  const [content, setContent] = useState('');
+  const [subject, setSubject] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi.getNotificationTemplates()
+      .then(res => {
+        const tpls = res.templates || res.data || [];
+        setTemplates(tpls);
+        if (tpls.length > 0) {
+          setActiveTemplate(tpls[0]);
+          setContent(tpls[0].body_template || '');
+          setSubject(tpls[0].subject_template || '');
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleTemplateSelect = (tpl) => {
+    setActiveTemplate(tpl);
+    setContent(tpl.body_template || '');
+    setSubject(tpl.subject_template || '');
+  };
+
+  if (loading) return <div className="p-8 text-center text-gray-500 font-medium">Loading Templates...</div>;
+  if (!activeTemplate) return <div className="p-8 text-center text-gray-500 font-medium">No templates found.</div>;
 
   return (
     <div className="space-y-6">
@@ -21,7 +40,7 @@ export default function Templates() {
           <h1 className="text-2xl font-bold text-gray-900">SMS / Email Templates</h1>
           <p className="text-sm text-gray-500 mt-1">Manage automated communication sent to clients.</p>
         </div>
-        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-6 py-2 shadow-sm">
+        <button onClick={() => alert('Save coming soon')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-6 py-2 shadow-sm">
           <Save className="h-4 w-4 mr-2" />
           Save Template
         </button>
@@ -31,23 +50,23 @@ export default function Templates() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-900">System Templates</h2>
-            <button onClick={() => console.log('Action triggered')} className="text-xs font-bold text-blue-600 hover:text-blue-800">+ New</button>
+            <button onClick={() => alert('New coming soon')} className="text-xs font-bold text-blue-600 hover:text-blue-800">+ New</button>
           </div>
           <div className="divide-y divide-gray-100">
             {templates.map(tpl => (
               <button 
                 key={tpl.id} 
-                onClick={() => setActiveTemplate(tpl)}
+                onClick={() => handleTemplateSelect(tpl)}
                 className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${activeTemplate.id === tpl.id ? 'bg-blue-50 border-l-4 border-blue-600' : 'border-l-4 border-transparent'}`}
               >
                 <div className="flex justify-between items-center mb-1">
                   <span className={`font-bold text-sm ${activeTemplate.id === tpl.id ? 'text-blue-900' : 'text-gray-900'}`}>{tpl.name}</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${tpl.type === 'Email' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
-                    {tpl.type === 'Email' ? <Mail className="h-3 w-3 inline mr-1"/> : <MessageSquare className="h-3 w-3 inline mr-1"/>}
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${tpl.type === 'email' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
+                    {tpl.type === 'email' ? <Mail className="h-3 w-3 inline mr-1"/> : <MessageSquare className="h-3 w-3 inline mr-1"/>}
                     {tpl.type}
                   </span>
                 </div>
-                <div className="text-xs text-gray-500 truncate">ID: {tpl.id}</div>
+                <div className="text-xs text-gray-500 truncate">ID: {tpl.id.slice(0,8)}</div>
               </button>
             ))}
           </div>
@@ -68,25 +87,24 @@ export default function Templates() {
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Channel</label>
-                  <select value={activeTemplate.type} className="w-full px-3 py-2 border border-gray-300 rounded text-sm font-medium focus:ring-blue-500">
-                    <option>Email</option>
-                    <option>SMS</option>
-                    <option>Push Notification</option>
+                  <select value={activeTemplate.type} disabled className="w-full px-3 py-2 border border-gray-300 bg-gray-50 rounded text-sm font-medium">
+                    <option value="email">Email</option>
+                    <option value="sms">SMS</option>
+                    <option value="push">Push Notification</option>
                   </select>
                 </div>
               </div>
 
-              {activeTemplate.type === 'Email' && (
+              {activeTemplate.type === 'email' && (
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Email Subject</label>
-                  <input type="text" defaultValue={activeTemplate.subject} className="w-full px-3 py-2 border border-gray-300 rounded text-sm font-medium focus:ring-blue-500" />
+                  <input type="text" value={subject} onChange={e => setSubject(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm font-medium focus:ring-blue-500" />
                 </div>
               )}
 
               <div>
                 <div className="flex justify-between items-end mb-1">
                   <label className="block text-sm font-bold text-gray-700">Message Body</label>
-                  <button onClick={() => console.log('Action triggered')} className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"><Variable className="h-3 w-3"/> Insert Variable</button>
                 </div>
                 <textarea 
                   rows="10" 

@@ -1,22 +1,67 @@
-import React, { useState } from 'react';
-import { Shield, Search, MapPin, Monitor, Globe, Ban, CheckCircle, Plus, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Shield, Search, MapPin, Monitor, Globe, Ban, CheckCircle, Plus, X, Loader2 } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 export default function IPWhitelist() {
   const [showAddRule, setShowAddRule] = useState(false);
-  const [logins, setLogins] = useState([
-    { id: 1, client: 'TDX-101', ip: '103.45.67.89', location: 'Mumbai, IN', device: 'Chrome / Windows', time: '2 mins ago', status: 'Allowed' },
-    { id: 2, client: 'TDX-102', ip: '185.20.10.5', location: 'London, UK', device: 'Safari / macOS', time: '15 mins ago', status: 'Flagged' },
-    { id: 3, client: 'TDX-103', ip: '45.112.33.1', location: 'Delhi, IN', device: 'App / Android', time: '1 hour ago', status: 'Allowed' },
-    { id: 4, client: 'TDX-104', ip: '92.38.176.2', location: 'Moscow, RU', device: 'Firefox / Linux', time: '3 hours ago', status: 'Flagged' },
-  ]);
+  const [logins, setLogins] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [newRule, setNewRule] = useState({ ip_address: '', action: 'allow', note: '' });
+  const [saving, setSaving] = useState(false);
 
-  const handleAllow = (id) => {
-    setLogins(logins.map(l => l.id === id ? { ...l, status: 'Allowed' } : l));
+  useEffect(() => {
+    fetchWhitelist();
+  }, []);
+
+  const fetchWhitelist = async () => {
+    try {
+      setLoading(true);
+      const res = await adminApi.getCrmModule('ip-whitelist');
+      setLogins(res.ip_whitelist || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleBlock = (id, ip) => {
+  const handleAllow = async (id) => {
+    try {
+      await adminApi.updateCrmModule('ip-whitelist', id, { action: 'allow' });
+      fetchWhitelist();
+    } catch (err) {
+      alert('Failed to update status');
+    }
+  };
+
+  const handleBlock = async (id, ip) => {
     if (window.confirm(`Block IP ${ip}? This client will be unable to login from this address.`)) {
-      setLogins(logins.map(l => l.id === id ? { ...l, status: 'Blocked' } : l));
+      try {
+        await adminApi.updateCrmModule('ip-whitelist', id, { action: 'block' });
+        fetchWhitelist();
+      } catch (err) {
+        alert('Failed to block IP');
+      }
+    }
+  };
+
+  const handleAddRule = async () => {
+    if (!newRule.ip_address) return alert('IP Address is required');
+    try {
+      setSaving(true);
+      await adminApi.createCrmModule('ip-whitelist', {
+        ip_address: newRule.ip_address,
+        action: newRule.action,
+        note: newRule.note,
+        client_id: 'SYSTEM'
+      });
+      setShowAddRule(false);
+      setNewRule({ ip_address: '', action: 'allow', note: '' });
+      fetchWhitelist();
+    } catch (err) {
+      alert('Failed to add IP rule');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -40,8 +85,8 @@ export default function IPWhitelist() {
             <div className="flex items-center gap-3">
                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><Globe className="w-5 h-5" /></div>
                <div>
-                  <div className="text-sm text-gray-500 font-medium">Active Countries</div>
-                  <div className="text-xl font-bold">12</div>
+                  <div className="text-sm text-gray-500 font-medium">Total Rules</div>
+                  <div className="text-xl font-bold">{logins.length}</div>
                </div>
             </div>
          </div>
@@ -49,8 +94,8 @@ export default function IPWhitelist() {
             <div className="flex items-center gap-3">
                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600"><Monitor className="w-5 h-5" /></div>
                <div>
-                  <div className="text-sm text-gray-500 font-medium">Suspicious Logins</div>
-                  <div className="text-xl font-bold">{logins.filter(l => l.status === 'Flagged').length} flagged today</div>
+                  <div className="text-sm text-gray-500 font-medium">Flagged Logins</div>
+                  <div className="text-xl font-bold">{logins.filter(l => l.action === 'flagged').length}</div>
                </div>
             </div>
          </div>
@@ -59,7 +104,7 @@ export default function IPWhitelist() {
                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600"><CheckCircle className="w-5 h-5" /></div>
                <div>
                   <div className="text-sm text-gray-500 font-medium">Blocked IPs</div>
-                  <div className="text-xl font-bold">{logins.filter(l => l.status === 'Blocked').length}</div>
+                  <div className="text-xl font-bold">{logins.filter(l => l.action === 'block').length}</div>
                </div>
             </div>
          </div>
@@ -73,14 +118,6 @@ export default function IPWhitelist() {
               <input type="text" placeholder="Search by IP, Client ID..." className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <select className="border border-gray-300 rounded-lg text-sm px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option>All Status</option>
-              <option>Allowed</option>
-              <option>Flagged</option>
-              <option>Blocked</option>
-            </select>
-          </div>
         </div>
         
         <div className="overflow-x-auto">
@@ -89,43 +126,43 @@ export default function IPWhitelist() {
               <tr>
                 <th className="py-3 px-4">Client ID</th>
                 <th className="py-3 px-4">IP Address</th>
-                <th className="py-3 px-4">Location</th>
-                <th className="py-3 px-4">Device / Browser</th>
-                <th className="py-3 px-4">Time</th>
+                <th className="py-3 px-4">Note</th>
+                <th className="py-3 px-4">Added On</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {logins.map((item) => (
-                <tr key={item.id} className={`hover:bg-gray-50 transition-colors ${item.status === 'Blocked' ? 'opacity-50' : ''}`}>
-                  <td className="py-3 px-4 font-medium text-gray-900">{item.client}</td>
-                  <td className="py-3 px-4 font-mono text-xs">{item.ip}</td>
+              {loading ? (
+                <tr><td colSpan="6" className="p-6 text-center text-gray-500">Loading rules...</td></tr>
+              ) : logins.length === 0 ? (
+                <tr><td colSpan="6" className="p-6 text-center text-gray-500">No IP rules configured.</td></tr>
+              ) : logins.map((item) => (
+                <tr key={item.id} className={`hover:bg-gray-50 transition-colors ${item.action === 'block' ? 'opacity-50' : ''}`}>
+                  <td className="py-3 px-4 font-medium text-gray-900">{item.client_id || 'System'}</td>
+                  <td className="py-3 px-4 font-mono text-xs font-bold">{item.ip_address}</td>
+                  <td className="py-3 px-4 text-gray-600">{item.note || '-'}</td>
+                  <td className="py-3 px-4 text-gray-500">{new Date(item.created_at).toLocaleString()}</td>
                   <td className="py-3 px-4">
-                     <span className="flex items-center gap-1 text-gray-600"><MapPin className="w-3 h-3"/> {item.location}</span>
-                  </td>
-                  <td className="py-3 px-4 text-gray-600">{item.device}</td>
-                  <td className="py-3 px-4 text-gray-500">{item.time}</td>
-                  <td className="py-3 px-4">
-                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                       item.status === 'Allowed' ? 'bg-green-100 text-green-700' :
-                       item.status === 'Blocked' ? 'bg-red-100 text-red-700' :
+                     <span className={`px-2 py-1 rounded-full text-xs font-medium uppercase tracking-wide ${
+                       item.action === 'allow' ? 'bg-green-100 text-green-700' :
+                       item.action === 'block' ? 'bg-red-100 text-red-700' :
                        'bg-orange-100 text-orange-700'
                      }`}>
-                        {item.status}
+                        {item.action || 'Unknown'}
                      </span>
                   </td>
                   <td className="py-3 px-4 text-right space-x-2">
-                     {item.status === 'Flagged' && (
+                     {item.action === 'flagged' && (
                         <>
                            <button onClick={() => handleAllow(item.id)} className="text-green-600 hover:underline font-medium text-xs">Allow</button>
-                           <button onClick={() => handleBlock(item.id, item.ip)} className="text-red-600 hover:underline font-medium text-xs">Block IP</button>
+                           <button onClick={() => handleBlock(item.id, item.ip_address)} className="text-red-600 hover:underline font-medium text-xs">Block</button>
                         </>
                      )}
-                     {item.status === 'Allowed' && (
-                        <button onClick={() => handleBlock(item.id, item.ip)} className="text-red-600 hover:underline font-medium text-xs">Block IP</button>
+                     {item.action === 'allow' && (
+                        <button onClick={() => handleBlock(item.id, item.ip_address)} className="text-red-600 hover:underline font-medium text-xs">Block IP</button>
                      )}
-                     {item.status === 'Blocked' && (
+                     {item.action === 'block' && (
                         <button onClick={() => handleAllow(item.id)} className="text-blue-600 hover:underline font-medium text-xs">Unblock</button>
                      )}
                   </td>
@@ -146,24 +183,42 @@ export default function IPWhitelist() {
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">IP Address or CIDR Range</label>
-                <input type="text" placeholder="e.g. 103.45.67.0/24" className="w-full border border-gray-300 rounded-lg text-sm px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">IP Address</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. 103.45.67.12" 
+                  value={newRule.ip_address}
+                  onChange={e => setNewRule({...newRule, ip_address: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg text-sm px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
-                <select className="w-full border border-gray-300 rounded-lg text-sm px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option>Allow (Whitelist)</option>
-                  <option>Block (Blacklist)</option>
+                <select 
+                  value={newRule.action}
+                  onChange={e => setNewRule({...newRule, action: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg text-sm px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="allow">Allow (Whitelist)</option>
+                  <option value="block">Block (Blacklist)</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
-                <input type="text" placeholder="e.g. Office VPN" className="w-full border border-gray-300 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input 
+                  type="text" 
+                  placeholder="e.g. Office VPN" 
+                  value={newRule.note}
+                  onChange={e => setNewRule({...newRule, note: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                />
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
               <button onClick={() => setShowAddRule(false)} className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-              <button onClick={() => { alert('IP rule created successfully.'); setShowAddRule(false); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm">Add Rule</button>
+              <button onClick={handleAddRule} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm disabled:opacity-50">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Rule'}
+              </button>
             </div>
           </div>
         </div>

@@ -1,19 +1,42 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, IndianRupee, Percent, Gift, ChevronRight, ChevronDown } from 'lucide-react';
-
-const referrals = [
-  { id: 'REF-001', referrer: 'TDX-82491', invited: 'TDX-10966', status: 'active', earned: 15000.00, date: '2026-04-10' },
-  { id: 'REF-002', referrer: 'TDX-82491', invited: 'TDX-10944', status: 'active', earned: 4550.00, date: '2026-04-12' },
-  { id: 'REF-003', referrer: 'TDX-10880', invited: 'TDX-10955', status: 'pending', earned: 0.00, date: '2026-05-01' },
-];
+import { adminApi } from '../services/adminApi';
 
 export default function Referrals() {
   const [activeTab, setActiveTab] = useState('list');
-  const [expandedNodes, setExpandedNodes] = useState({ 'TDX-82491': true });
+  const [expandedNodes, setExpandedNodes] = useState({});
+  const [stats, setStats] = useState({
+    totalReferrals: 0,
+    totalPaidOut: 0,
+    currentCommission: 'Loading...',
+    activity: [],
+    hierarchyNodes: []
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi.getReferralStats()
+      .then(res => {
+        setStats(res);
+        // Expand the first master node by default if there is one
+        const masters = res.hierarchyNodes.filter(n => !n.referred_by);
+        if (masters.length > 0) {
+          setExpandedNodes({ [masters[0].client_id]: true });
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   const toggleNode = (id) => {
     setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
   };
+
+  if (loading) return <div className="p-8 text-center text-gray-500 font-medium">Loading Referral Stats...</div>;
+
+  // Reconstruct tree helper
+  const getChildren = (clientId) => stats.hierarchyNodes.filter(n => n.profiles?.client_id === clientId);
+  const masters = stats.hierarchyNodes.filter(n => !n.referred_by);
 
   return (
     <div className="space-y-6">
@@ -32,7 +55,7 @@ export default function Referrals() {
           </div>
           <div className="ml-4">
             <h3 className="text-sm font-medium text-gray-500">Total Referrals</h3>
-            <div className="text-2xl font-bold text-gray-900">1,204</div>
+            <div className="text-2xl font-bold text-gray-900">{stats.totalReferrals.toLocaleString()}</div>
           </div>
         </div>
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex items-center">
@@ -41,7 +64,7 @@ export default function Referrals() {
           </div>
           <div className="ml-4">
             <h3 className="text-sm font-medium text-gray-500">Total Paid Out</h3>
-            <div className="text-2xl font-bold text-gray-900">₹45,29,000.00</div>
+            <div className="text-2xl font-bold text-gray-900">₹{stats.totalPaidOut.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
           </div>
         </div>
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex items-center">
@@ -50,8 +73,8 @@ export default function Referrals() {
           </div>
           <div className="ml-4">
             <h3 className="text-sm font-medium text-gray-500">Current Commission</h3>
-            <div className="text-2xl font-bold text-gray-900">15%</div>
-            <div className="text-xs text-gray-500 mt-1">of trading fees</div>
+            <div className="text-2xl font-bold text-gray-900">{stats.currentCommission}</div>
+            <div className="text-xs text-gray-500 mt-1">active structure</div>
           </div>
         </div>
       </div>
@@ -96,14 +119,14 @@ export default function Referrals() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {referrals.map((ref) => (
+                {stats.activity.map((ref) => (
                   <tr key={ref.id} className="hover:bg-blue-50/50">
                     <td className="px-6 py-4 font-medium text-gray-900">{ref.id}</td>
                     <td className="px-6 py-4 text-blue-600 hover:underline cursor-pointer font-medium">{ref.referrer}</td>
                     <td className="px-6 py-4 text-blue-600 hover:underline cursor-pointer font-medium">{ref.invited}</td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        ref.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                        ref.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                       }`}>
                         {ref.status}
                       </span>
@@ -124,47 +147,32 @@ export default function Referrals() {
             <h3 className="text-sm font-medium text-gray-700 mb-4">Master Affiliates Network</h3>
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 font-mono text-sm">
               <ul className="space-y-2">
-                <li>
-                  <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded" onClick={() => toggleNode('TDX-82491')}>
-                    {expandedNodes['TDX-82491'] ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
-                    <span className="font-bold text-blue-600">TDX-82491 (Master)</span>
-                    <span className="text-xs text-gray-500 ml-2">Total Earned: ₹5,42,000</span>
-                  </div>
-                  {expandedNodes['TDX-82491'] && (
-                    <ul className="pl-6 mt-2 space-y-2 border-l-2 border-gray-200 ml-2">
-                      <li>
-                        <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded" onClick={() => toggleNode('TDX-10966')}>
-                          {expandedNodes['TDX-10966'] ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
-                          <span className="font-medium text-gray-900">TDX-10966 (Sub-affiliate)</span>
-                          <span className="text-xs text-gray-500 ml-2">Generated: ₹15,000</span>
-                        </div>
-                        {expandedNodes['TDX-10966'] && (
-                          <ul className="pl-6 mt-2 space-y-2 border-l-2 border-gray-200 ml-2">
-                            <li className="flex items-center gap-2 text-gray-600 p-1">
+                {masters.map(master => (
+                  <li key={master.client_id}>
+                    <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded" onClick={() => toggleNode(master.client_id)}>
+                      {expandedNodes[master.client_id] ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
+                      <span className="font-bold text-blue-600">{master.client_id} (Master)</span>
+                    </div>
+                    {expandedNodes[master.client_id] && (
+                      <ul className="pl-6 mt-2 space-y-2 border-l-2 border-gray-200 ml-2">
+                        {getChildren(master.client_id).map(child => (
+                          <li key={child.client_id} className="flex flex-col gap-1 text-gray-600 p-1">
+                            <div className="flex items-center gap-2">
                               <span className="w-4 border-b-2 border-gray-200 inline-block"></span>
-                              TDX-11020 (Trader)
-                            </li>
-                            <li className="flex items-center gap-2 text-gray-600 p-1">
-                              <span className="w-4 border-b-2 border-gray-200 inline-block"></span>
-                              TDX-11050 (Trader)
-                            </li>
-                          </ul>
+                              {child.client_id} (Trader)
+                            </div>
+                          </li>
+                        ))}
+                        {getChildren(master.client_id).length === 0 && (
+                          <li className="text-gray-400 italic text-xs ml-6">No active referrals yet</li>
                         )}
-                      </li>
-                      <li className="flex items-center gap-2 text-gray-600 p-1">
-                        <span className="w-4 border-b-2 border-gray-200 inline-block"></span>
-                        TDX-10944 (Trader)
-                      </li>
-                    </ul>
-                  )}
-                </li>
-                <li>
-                  <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded mt-4" onClick={() => toggleNode('TDX-10880')}>
-                    {expandedNodes['TDX-10880'] ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
-                    <span className="font-bold text-blue-600">TDX-10880 (Master)</span>
-                    <span className="text-xs text-gray-500 ml-2">Total Earned: ₹1,20,000</span>
-                  </div>
-                </li>
+                      </ul>
+                    )}
+                  </li>
+                ))}
+                {masters.length === 0 && (
+                  <li className="text-gray-400 italic text-sm">No master affiliates found</li>
+                )}
               </ul>
             </div>
           </div>

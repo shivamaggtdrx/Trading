@@ -1,13 +1,6 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sliders, Save, Users, TrendingUp, IndianRupee, Zap, AlertTriangle, RefreshCw } from 'lucide-react';
-
-const spreadProfiles = [
-  { tier: 'Whale', criteria: 'Deposit > ₹10L', clients: 12, equitySpread: 0.02, foSpread: 0.03, forexSpread: 0.5, metalSpread: 0.15, color: 'blue' },
-  { tier: 'Regular', criteria: 'Deposit ₹1-10L', clients: 68, equitySpread: 0.05, foSpread: 0.08, forexSpread: 1.2, metalSpread: 0.30, color: 'gray' },
-  { tier: 'Retail', criteria: 'Deposit < ₹1L', clients: 142, equitySpread: 0.10, foSpread: 0.15, forexSpread: 2.0, metalSpread: 0.50, color: 'yellow' },
-  { tier: 'Profitable', criteria: 'Win Rate > 60%', clients: 15, equitySpread: 0.15, foSpread: 0.20, forexSpread: 3.0, metalSpread: 0.80, color: 'red' },
-  { tier: 'Scalper', criteria: 'Hold < 5 min avg', clients: 35, equitySpread: 0.08, foSpread: 0.12, forexSpread: 1.8, metalSpread: 0.40, color: 'purple' },
-];
+import { adminApi } from '../services/adminApi';
 
 const slippageRules = [
   { range: '< ₹50,000', delay: '0-100ms', slippage: 'Minimal (0-0.01%)', favorHouse: '60%', description: 'Retain new users with fair execution' },
@@ -24,10 +17,38 @@ const revenueImpact = [
 ];
 
 export default function SmartSpread() {
-  const [profiles, setProfiles] = useState(spreadProfiles);
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [editingTier, setEditingTier] = useState(null);
   const [newsMultiplier, setNewsMultiplier] = useState(3);
   const [volatilityAutoWiden, setVolatilityAutoWiden] = useState(true);
+
+  const fetchProfiles = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getCrmModule('smart-spread');
+      const mapped = (data || []).map(p => ({
+        id: p.id,
+        tier: p.profile_name,
+        criteria: p.status,
+        clients: p.active_clients,
+        equitySpread: parseFloat(p.base_spread) || 0.05,
+        foSpread: parseFloat(p.base_spread) * 1.5 || 0.08,
+        forexSpread: parseFloat(p.base_spread) * 10 || 1.2,
+        metalSpread: parseFloat(p.base_spread) * 5 || 0.3,
+        color: p.profile_name.includes('VIP') ? 'blue' : 'gray'
+      }));
+      setProfiles(mapped);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
 
   const getTierColor = (color) => ({
     blue: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -44,7 +65,7 @@ export default function SmartSpread() {
           <h1 className="text-2xl font-bold text-gray-900">Smart Spread & Slippage Engine</h1>
           <p className="text-sm text-gray-500 mt-1">Per-client dynamic spreads based on tier profiling. Maximize revenue per trade.</p>
         </div>
-        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm"><Save className="h-4 w-4 mr-2" /> Save All Rules</button>
+        <button onClick={() => alert('Saved all rules')} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm"><Save className="h-4 w-4 mr-2" /> Save All Rules</button>
       </div>
 
       {/* Revenue Impact */}
@@ -68,9 +89,9 @@ export default function SmartSpread() {
           <table className="w-full text-sm text-left whitespace-nowrap">
             <thead className="text-[11px] text-gray-500 uppercase bg-gray-100 border-b border-gray-200 tracking-wider">
               <tr>
-                <th className="px-4 py-3 font-semibold">Tier</th>
-                <th className="px-4 py-3 font-semibold">Criteria</th>
-                <th className="px-4 py-3 font-semibold text-center">Clients</th>
+                <th className="px-4 py-3 font-semibold">Profile Name</th>
+                <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 font-semibold text-center">Active Clients</th>
                 <th className="px-4 py-3 font-semibold text-center">Equity (%)</th>
                 <th className="px-4 py-3 font-semibold text-center">F&O (%)</th>
                 <th className="px-4 py-3 font-semibold text-center">Forex (pips)</th>
@@ -79,8 +100,12 @@ export default function SmartSpread() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {profiles.map((p, i) => (
-                <tr key={p.tier} className="hover:bg-gray-50">
+              {loading ? (
+                <tr><td colSpan="8" className="p-8 text-center text-gray-500">Loading spread profiles...</td></tr>
+              ) : profiles.length === 0 ? (
+                <tr><td colSpan="8" className="p-8 text-center text-gray-500">No spread profiles found.</td></tr>
+              ) : profiles.map((p, i) => (
+                <tr key={p.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3"><span className={`text-xs font-bold px-2.5 py-1 rounded border ${getTierColor(p.color)}`}>{p.tier}</span></td>
                   <td className="px-4 py-3 text-xs text-gray-600 font-medium">{p.criteria}</td>
                   <td className="px-4 py-3 text-center font-bold text-gray-900">{p.clients}</td>

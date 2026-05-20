@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, CheckCircle2, AlertCircle, Clock, FileText, RotateCcw } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 export default function EODSettlement() {
   const [status, setStatus] = useState('idle'); // idle, running, completed
+  const [reports, setReports] = useState([]);
+  const [currentReport, setCurrentReport] = useState(null);
+
+  useEffect(() => {
+    adminApi.getEodReports()
+      .then(res => setReports(res.reports || []))
+      .catch(console.error);
+  }, [status]);
 
   const steps = [
     { id: 1, name: 'Halt Trading Services', status: status === 'completed' ? 'done' : status === 'running' ? 'done' : 'pending' },
@@ -13,17 +22,37 @@ export default function EODSettlement() {
     { id: 6, name: 'Generate Settlement Reports', status: status === 'completed' ? 'done' : 'pending' },
   ];
 
-  const handleStart = () => {
+  const handleStart = async () => {
      if (window.confirm('Start EOD settlement process? Trading will be halted during this process.')) {
        setStatus('running');
-       setTimeout(() => setStatus('completed'), 3000);
+       try {
+         const res = await adminApi.runEodSettlement();
+         setCurrentReport(res.report);
+         setStatus('completed');
+       } catch (err) {
+         console.error('Failed to run EOD', err);
+         alert('EOD Settlement Failed. Check logs.');
+         setStatus('idle');
+       }
      }
   };
 
   const handleReset = () => {
     if (window.confirm('Reset settlement process? This will allow you to run it again.')) {
       setStatus('idle');
+      setCurrentReport(null);
     }
+  };
+
+  const showPreviousReports = () => {
+    if (reports.length === 0) return alert('No previous reports found.');
+    const reportList = reports.map(r => `• ${new Date(r.settlement_date).toLocaleDateString()} — Settled ✓ (ID: ${r.id})`).join('\n');
+    alert(`Previous Settlement Reports:\n\n${reportList}`);
+  };
+
+  const showCurrentReport = () => {
+    if (!currentReport) return;
+    alert(`Settlement Report\n\nTotal Clients Settled: ${currentReport.totalClients}\nProfit Credited: ₹${currentReport.profitCredited.toLocaleString('en-IN')}\nLosses Debited: ₹${currentReport.lossesDebited.toLocaleString('en-IN')}\nBrokerage Collected: ₹${currentReport.brokerageCollected.toLocaleString('en-IN')}\nPenalties Applied: ₹${currentReport.penaltiesApplied.toLocaleString('en-IN')}\n\nSettlement ID: ${currentReport.settlementId}`);
   };
 
   return (
@@ -40,7 +69,7 @@ export default function EODSettlement() {
               Reset
             </button>
           )}
-          <button onClick={() => alert('Previous Settlement Reports:\n\n• 24 Oct 2023 — Settled ✓\n• 23 Oct 2023 — Settled ✓\n• 22 Oct 2023 — Settled ✓\n• 21 Oct 2023 — Settled ✓')} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <button onClick={showPreviousReports} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
             <FileText className="w-4 h-4" />
             Previous Reports
           </button>
@@ -50,7 +79,7 @@ export default function EODSettlement() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
          <div className="flex items-center justify-between mb-8 border-b border-gray-100 pb-6">
             <div>
-               <h2 className="text-lg font-bold text-gray-900">Settlement Cycle: 25 Oct 2023</h2>
+               <h2 className="text-lg font-bold text-gray-900">Settlement Cycle: {new Date().toLocaleDateString()}</h2>
                <p className="text-sm text-gray-500">Status: {status === 'idle' ? 'Ready to Start' : status === 'running' ? 'Processing...' : 'Completed successfully'}</p>
             </div>
             {status === 'idle' && (
@@ -60,13 +89,13 @@ export default function EODSettlement() {
                </button>
             )}
             {status === 'running' && (
-               <button onClick={() => console.log('Action triggered')} disabled className="flex items-center gap-2 px-6 py-3 bg-blue-400 text-white rounded-lg font-medium cursor-wait shadow-sm transition-all">
+               <button disabled className="flex items-center gap-2 px-6 py-3 bg-blue-400 text-white rounded-lg font-medium cursor-wait shadow-sm transition-all">
                   <Clock className="w-5 h-5 animate-spin" />
                   Processing...
                </button>
             )}
             {status === 'completed' && (
-               <button onClick={() => alert('Settlement Report for 25 Oct 2023\n\nTotal Clients Settled: 1,245\nProfit Credited: ₹12,45,000\nLosses Debited: ₹8,32,000\nBrokerage Collected: ₹2,15,000\nPenalties Applied: ₹45,000\n\nSettlement ID: STL-20231025')} className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 shadow-sm transition-all">
+               <button onClick={showCurrentReport} className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 shadow-sm transition-all">
                   <CheckCircle2 className="w-5 h-5" />
                   View Settlement Report
                </button>

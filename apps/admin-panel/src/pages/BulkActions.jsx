@@ -1,11 +1,13 @@
-import { useState } from 'react';
-import { Users, Upload, CheckCircle, Ban, ArrowRightLeft, MessageSquare } from 'lucide-react';
+import React, { useState } from 'react';
+import { Users, Upload, CheckCircle, Ban, ArrowRightLeft, MessageSquare, RefreshCw } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 export default function BulkActions() {
   const [actionType, setActionType] = useState('block');
   const [userIds, setUserIds] = useState('');
   const [amount, setAmount] = useState('');
   const [narration, setNarration] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const actions = [
     { id: 'block', label: 'Block Accounts', icon: Ban, color: 'red' },
@@ -17,7 +19,7 @@ export default function BulkActions() {
   const parsedIds = userIds.split(',').map(id => id.trim()).filter(id => id.length > 0);
   const selectedCount = parsedIds.length;
 
-  const handleExecute = () => {
+  const handleExecute = async () => {
     if (selectedCount === 0) return;
     
     let confirmMsg = `Are you sure you want to ${actionType} ${selectedCount} user(s)?\n\nTarget IDs: ${parsedIds.slice(0, 3).join(', ')}${parsedIds.length > 3 ? '...' : ''}`;
@@ -31,10 +33,25 @@ export default function BulkActions() {
     }
 
     if (window.confirm(confirmMsg)) {
-      alert(`Bulk action "${actionType}" executed successfully for ${selectedCount} users.`);
-      setUserIds('');
-      setAmount('');
-      setNarration('');
+      try {
+        setLoading(true);
+        const res = await adminApi.executeBulkAction({
+          action: actionType,
+          target: parsedIds.join(','),
+          count: selectedCount,
+          amount: actionType === 'credit' ? amount : undefined,
+          narration: actionType === 'credit' ? narration : undefined
+        });
+        alert(res.message || `Bulk action "${actionType}" executed successfully for ${selectedCount} users.`);
+        setUserIds('');
+        setAmount('');
+        setNarration('');
+      } catch (err) {
+        alert('Failed to execute bulk action');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -45,7 +62,8 @@ export default function BulkActions() {
         <p className="text-sm text-gray-500 mt-1">Perform actions on multiple users simultaneously via CSV upload or ID list.</p>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 max-w-4xl">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 max-w-4xl relative">
+        {loading && <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center rounded-lg z-10"><RefreshCw className="h-8 w-8 text-blue-500 animate-spin" /></div>}
         <h2 className="text-sm font-bold text-gray-900 mb-4">1. Select Action Type</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {actions.map(act => {
@@ -106,9 +124,9 @@ export default function BulkActions() {
           </div>
           <button 
              onClick={handleExecute}
-             disabled={selectedCount === 0}
+             disabled={selectedCount === 0 || loading}
              className="bg-blue-600 text-white font-bold px-8 py-2.5 rounded-md hover:bg-blue-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-            Review & Execute Bulk Action
+            {loading ? 'Executing...' : 'Review & Execute Bulk Action'}
           </button>
         </div>
       </div>

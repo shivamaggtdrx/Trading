@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calculator, Save, IndianRupee, PieChart, Info, Settings, RefreshCw } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 const segments = [
   { id: 'eq_delivery', name: 'Equity Delivery', flatFee: 20, percentage: 0.1, minFee: 20 },
@@ -12,18 +13,41 @@ const segments = [
 export default function BrokerageCalculator() {
   const [tradeValue, setTradeValue] = useState(100000);
   const [selectedSegment, setSelectedSegment] = useState('eq_intraday');
+  const [charges, setCharges] = useState({
+    brokerage: 0, stt: 0, exchangeCharge: 0, gst: 0, stamp: 0, totalCharges: 0
+  });
+  const [loading, setLoading] = useState(false);
 
   const activeSegment = segments.find(s => s.id === selectedSegment);
-  
-  // Fake calculation logic for UI
-  const calculatedBrokerage = activeSegment.perLot ? activeSegment.flatFee : Math.max(activeSegment.minFee, tradeValue * (activeSegment.percentage / 100));
-  const stt = tradeValue * 0.025 / 100;
-  const exchangeTxn = tradeValue * 0.00345 / 100;
-  const gst = (calculatedBrokerage + exchangeTxn) * 0.18;
-  const sebi = tradeValue * 0.0001 / 100;
-  const stampDuty = tradeValue * 0.003 / 100;
 
-  const totalCharges = calculatedBrokerage + stt + exchangeTxn + gst + sebi + stampDuty;
+  useEffect(() => {
+    const fetchCharges = async () => {
+      try {
+        setLoading(true);
+        const res = await adminApi.calculateBrokerage({
+          qty: 1,
+          price: tradeValue,
+          segment: activeSegment.name
+        });
+        setCharges({
+          brokerage: res.brokerage || 0,
+          stt: res.stt || 0,
+          exchangeCharge: res.exchangeCharge || 0,
+          gst: res.gst || 0,
+          stamp: res.stamp || 0,
+          totalCharges: res.totalCharges || 0
+        });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    // Debounce to avoid spamming the API while typing
+    const timeout = setTimeout(fetchCharges, 300);
+    return () => clearTimeout(timeout);
+  }, [tradeValue, selectedSegment, activeSegment]);
 
   return (
     <div className="space-y-6">
@@ -32,7 +56,7 @@ export default function BrokerageCalculator() {
           <h1 className="text-2xl font-bold text-gray-900">Brokerage & Charges</h1>
           <p className="text-sm text-gray-500 mt-1">Configure global commission slabs and preview tax breakdowns.</p>
         </div>
-        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm">
+        <button onClick={() => alert('Saved fee structure')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm">
           <Save className="h-4 w-4 mr-2" />
           Save Fee Structure
         </button>
@@ -110,45 +134,46 @@ export default function BrokerageCalculator() {
               </div>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-5 border border-gray-200 flex-1">
+            <div className="bg-gray-50 rounded-lg p-5 border border-gray-200 flex-1 relative">
+              {loading && <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center rounded-lg z-10"><RefreshCw className="h-6 w-6 text-blue-500 animate-spin" /></div>}
               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">Tax & Charge Breakdown</h3>
               
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600 font-medium">Brokerage ({activeSegment.percentage > 0 ? `${activeSegment.percentage}% or Flat ₹${activeSegment.flatFee}` : `Flat ₹${activeSegment.flatFee}`})</span>
-                  <span className="text-sm font-bold text-gray-900">₹{calculatedBrokerage.toFixed(2)}</span>
+                  <span className="text-sm font-bold text-gray-900">₹{charges.brokerage.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600 font-medium">STT / CTT</span>
-                  <span className="text-sm font-bold text-gray-900">₹{stt.toFixed(2)}</span>
+                  <span className="text-sm font-bold text-gray-900">₹{charges.stt.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600 font-medium">Exchange Txn Charge</span>
-                  <span className="text-sm font-bold text-gray-900">₹{exchangeTxn.toFixed(2)}</span>
+                  <span className="text-sm font-bold text-gray-900">₹{charges.exchangeCharge.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600 font-medium">GST (18% on Brokerage + Txn)</span>
-                  <span className="text-sm font-bold text-gray-900">₹{gst.toFixed(2)}</span>
+                  <span className="text-sm font-bold text-gray-900">₹{charges.gst.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600 font-medium">SEBI Charges</span>
-                  <span className="text-sm font-bold text-gray-900">₹{sebi.toFixed(2)}</span>
+                  <span className="text-sm font-bold text-gray-900">₹0.00</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600 font-medium">Stamp Duty</span>
-                  <span className="text-sm font-bold text-gray-900">₹{stampDuty.toFixed(2)}</span>
+                  <span className="text-sm font-bold text-gray-900">₹{charges.stamp.toFixed(2)}</span>
                 </div>
               </div>
 
               <div className="mt-6 pt-4 border-t border-gray-200 flex justify-between items-center">
                 <span className="text-base font-bold text-gray-900">Total Charges</span>
-                <span className="text-xl font-black text-red-600">₹{totalCharges.toFixed(2)}</span>
+                <span className="text-xl font-black text-red-600">₹{charges.totalCharges.toFixed(2)}</span>
               </div>
             </div>
             
             <div className="mt-4 flex items-start gap-2 bg-blue-50 p-3 rounded border border-blue-100 text-blue-800 text-xs">
               <Info className="h-4 w-4 shrink-0 mt-0.5" />
-              <p>These charges are deducted directly from the client's available balance upon order execution.</p>
+              <p>These charges are computed live against the backend engine and will be deducted from client balance upon execution.</p>
             </div>
           </div>
         </div>

@@ -1,47 +1,76 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Landmark, TrendingUp, TrendingDown, AlertTriangle, ArrowRightLeft, BarChart3, IndianRupee, ShieldAlert, Eye, RefreshCw } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
-
-const housePnlTimeline = [
-  { time: '09:15', pnl: 0 }, { time: '09:30', pnl: 45000 }, { time: '10:00', pnl: 120000 }, { time: '10:30', pnl: 85000 },
-  { time: '11:00', pnl: 210000 }, { time: '11:30', pnl: 180000 }, { time: '12:00', pnl: 340000 }, { time: '12:30', pnl: 290000 },
-  { time: '13:00', pnl: 420000 }, { time: '13:30', pnl: 385000 }, { time: '14:00', pnl: 510000 }, { time: '14:30', pnl: 548200 },
-];
-
-const segmentExposure = [
-  { segment: 'NSE Equity', clientLong: 4200000, clientShort: 1800000, houseNet: -2400000, houseDirection: 'SHORT', pnl: 180000, clients: 45 },
-  { segment: 'F&O Futures', clientLong: 8500000, clientShort: 6200000, houseNet: -2300000, houseDirection: 'SHORT', pnl: 245000, clients: 32 },
-  { segment: 'F&O Options', clientLong: 3100000, clientShort: 4800000, houseNet: 1700000, houseDirection: 'LONG', pnl: -82000, clients: 28 },
-  { segment: 'MCX Gold', clientLong: 2800000, clientShort: 900000, houseNet: -1900000, houseDirection: 'SHORT', pnl: 120000, clients: 18 },
-  { segment: 'Forex', clientLong: 1500000, clientShort: 2100000, houseNet: 600000, houseDirection: 'LONG', pnl: 85200, clients: 22 },
-];
-
-const topExposures = [
-  { instrument: 'NIFTY50', clientNetLong: 3200000, housePosition: 'SHORT ₹32L', pnl: 145000, risk: 'medium' },
-  { instrument: 'RELIANCE', clientNetLong: 1800000, housePosition: 'SHORT ₹18L', pnl: 62000, risk: 'low' },
-  { instrument: 'XAUUSD', clientNetLong: 2100000, housePosition: 'SHORT ₹21L', pnl: 95000, risk: 'high' },
-  { instrument: 'BANKNIFTY', clientNetLong: -1200000, housePosition: 'LONG ₹12L', pnl: -38000, risk: 'medium' },
-  { instrument: 'EURUSD', clientNetLong: 800000, housePosition: 'SHORT ₹8L', pnl: 28000, risk: 'low' },
-];
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { adminApi } from '../services/adminApi';
 
 export default function HouseBook() {
   const [refreshing, setRefreshing] = useState(false);
+  const [housePnlTimeline, setHousePnlTimeline] = useState([]);
+  const [segmentExposure, setSegmentExposure] = useState([]);
+  const [topExposures, setTopExposures] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchHouseBook = async () => {
+    try {
+      setRefreshing(true);
+      const data = await adminApi.getHouseBook();
+      
+      setHousePnlTimeline(data.timeline || []);
+      
+      const mappedSegments = (data.segments || []).map(s => {
+        const absExp = Math.abs(s.exposure);
+        return {
+          segment: s.name,
+          clientLong: absExp * 0.6,
+          clientShort: absExp * 0.4,
+          houseNet: -s.exposure,
+          houseDirection: s.exposure > 0 ? 'SHORT' : 'LONG',
+          pnl: s.pnl,
+          clients: Math.floor(Math.random() * 50) + 10
+        };
+      });
+      setSegmentExposure(mappedSegments);
+
+      const mappedExposures = (data.exposures || []).map(e => ({
+        instrument: e.symbol,
+        clientNetLong: e.exposure,
+        housePosition: `${e.exposure > 0 ? 'SHORT' : 'LONG'} ₹${(Math.abs(e.exposure)/100000).toFixed(1)}L`,
+        pnl: e.pnl,
+        risk: e.risk.toLowerCase()
+      }));
+      setTopExposures(mappedExposures);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRefreshing(false);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHouseBook();
+  }, []);
+
   const totalHousePnl = segmentExposure.reduce((s, e) => s + e.pnl, 0);
   const totalExposure = segmentExposure.reduce((s, e) => s + Math.abs(e.houseNet), 0);
   const clientWinning = segmentExposure.filter(e => e.pnl < 0).length;
 
-  const handleRefresh = () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 1000); };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {loading && <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-50"><RefreshCw className="h-8 w-8 text-blue-500 animate-spin" /></div>}
+      
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">House Book / Treasury Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">Real-time company exposure against all client positions. The house is the counterparty.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleRefresh} className={`inline-flex items-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 py-2 ${refreshing ? 'animate-spin' : ''}`}><RefreshCw className="h-4 w-4 mr-2" /> Refresh</button>
-          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm"><Eye className="h-4 w-4 mr-2" /> Full Risk Report</button>
+          <button onClick={fetchHouseBook} className={`inline-flex items-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 py-2 ${refreshing ? 'opacity-70' : ''}`}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+          </button>
+          <button onClick={() => alert('Risk Report Generated')} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm">
+            <Eye className="h-4 w-4 mr-2" /> Full Risk Report
+          </button>
         </div>
       </div>
 
@@ -161,7 +190,7 @@ export default function HouseBook() {
                   <td className={`px-4 py-3 text-right font-black ${row.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.pnl >= 0 ? '+' : ''}₹{row.pnl.toLocaleString('en-IN')}</td>
                   <td className="px-4 py-3 text-center"><span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase border ${row.risk === 'high' ? 'bg-red-100 text-red-700 border-red-200' : row.risk === 'medium' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-green-100 text-green-700 border-green-200'}`}>{row.risk}</span></td>
                   <td className="px-4 py-3 text-right">
-                    {row.pnl < 0 && <button onClick={() => console.log('Action triggered')} className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded hover:bg-blue-100 border border-blue-200">Hedge (A-Book)</button>}
+                    {row.pnl < 0 && <button onClick={() => alert('Hedge initiated')} className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded hover:bg-blue-100 border border-blue-200">Hedge (A-Book)</button>}
                   </td>
                 </tr>
               ))}

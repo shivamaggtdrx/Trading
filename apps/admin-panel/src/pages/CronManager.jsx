@@ -1,18 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Clock, Play, Pause, FileEdit, Plus, Activity, X } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 export default function CronManager() {
-  const [jobs, setJobs] = useState([
-    { id: 1, name: 'EOD Settlement & M2M', schedule: '0 16 * * *', lastRun: 'Today, 16:00', nextRun: 'Tomorrow, 16:00', status: 'Active', type: 'System' },
-    { id: 2, name: 'Daily Brokerage Report', schedule: '30 23 * * *', lastRun: 'Yesterday, 23:30', nextRun: 'Today, 23:30', status: 'Active', type: 'Report' },
-    { id: 3, name: 'Auto-Square Off (Intraday)', schedule: '15 15 * * *', lastRun: 'Today, 15:15', nextRun: 'Tomorrow, 15:15', status: 'Active', type: 'Risk' },
-    { id: 4, name: 'Database Backup', schedule: '0 2 * * *', lastRun: 'Today, 02:00', nextRun: 'Tomorrow, 02:00', status: 'Active', type: 'Maintenance' },
-    { id: 5, name: 'Dormant Account Tagging', schedule: '0 0 1 * *', lastRun: '1 Oct, 00:00', nextRun: '1 Nov, 00:00', status: 'Paused', type: 'Maintenance' },
-  ]);
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('All Types');
 
-  const toggleJobStatus = (id) => {
-    setJobs(jobs.map(j => j.id === id ? { ...j, status: j.status === 'Active' ? 'Paused' : 'Active' } : j));
+  const fetchJobs = async () => {
+    try {
+      setLoading(true);
+      const res = await adminApi.getCrmModule('cron-jobs');
+      setJobs(res || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  const toggleJobStatus = async (job) => {
+    const newStatus = job.status === 'Active' ? 'Paused' : 'Active';
+    try {
+      await adminApi.updateCrmModule('cron-jobs', job.id, { status: newStatus });
+      fetchJobs();
+    } catch (err) {
+      alert('Failed to update status');
+    }
   };
 
   const runJobNow = (job) => {
@@ -20,6 +40,12 @@ export default function CronManager() {
       alert(`Job "${job.name}" triggered successfully. Check logs for output.`);
     }
   };
+
+  const filteredJobs = jobs.filter(j => {
+    if (filterType !== 'All Types' && j.type !== filterType) return false;
+    if (search && !j.name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -41,11 +67,11 @@ export default function CronManager() {
           <div className="flex items-center gap-2 flex-1 min-w-[200px]">
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type="text" placeholder="Search jobs..." className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="text" placeholder="Search jobs..." value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
           <div className="flex items-center gap-3">
-             <select className="border border-gray-300 rounded-lg text-sm px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+             <select value={filterType} onChange={e => setFilterType(e.target.value)} className="border border-gray-300 rounded-lg text-sm px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                <option>All Types</option>
                <option>System</option>
                <option>Report</option>
@@ -69,15 +95,19 @@ export default function CronManager() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {jobs.map((item) => (
+              {loading ? (
+                <tr><td colSpan="7" className="text-center py-6 text-gray-500">Loading scheduled jobs...</td></tr>
+              ) : filteredJobs.length === 0 ? (
+                <tr><td colSpan="7" className="text-center py-6 text-gray-500">No scheduled jobs found.</td></tr>
+              ) : filteredJobs.map((item) => (
                 <tr key={item.id} className={`hover:bg-gray-50 transition-colors ${item.status === 'Paused' ? 'opacity-60' : ''}`}>
                   <td className="py-3 px-4 font-medium text-gray-900">{item.name}</td>
                   <td className="py-3 px-4">
                      <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium">{item.type}</span>
                   </td>
                   <td className="py-3 px-4 font-mono text-xs text-blue-600">{item.schedule}</td>
-                  <td className="py-3 px-4 text-gray-500">{item.lastRun}</td>
-                  <td className="py-3 px-4 text-gray-900 font-medium">{item.status === 'Paused' ? '—' : item.nextRun}</td>
+                  <td className="py-3 px-4 text-gray-500">{item.last_run ? new Date(item.last_run).toLocaleString() : 'Never'}</td>
+                  <td className="py-3 px-4 text-gray-900 font-medium">{item.status === 'Paused' ? '—' : (item.next_run ? new Date(item.next_run).toLocaleString() : 'Pending')}</td>
                   <td className="py-3 px-4">
                      <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${item.status === 'Active' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
@@ -91,7 +121,7 @@ export default function CronManager() {
                         <button onClick={() => runJobNow(item)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Run Now">
                            <Play className="w-4 h-4" />
                         </button>
-                        <button onClick={() => toggleJobStatus(item.id)} className={`p-1 rounded ${item.status === 'Active' ? 'text-orange-600 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'}`} title={item.status === 'Active' ? 'Pause' : 'Resume'}>
+                        <button onClick={() => toggleJobStatus(item)} className={`p-1 rounded ${item.status === 'Active' ? 'text-orange-600 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'}`} title={item.status === 'Active' ? 'Pause' : 'Resume'}>
                            {item.status === 'Active' ? <Pause className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                         </button>
                         <button onClick={() => alert(`Editing job: ${item.name}\nSchedule: ${item.schedule}`)} className="p-1 text-gray-600 hover:bg-gray-100 rounded" title="Edit">

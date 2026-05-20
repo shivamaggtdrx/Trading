@@ -281,17 +281,25 @@ router.get('/referrals', authenticateUser, async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
-    // Enrich with trade count for each referral
+    // Enrich with trade count and actual commission earned
     const enrichedReferrals = await Promise.all(
       (referrals || []).map(async (ref) => {
+        // Get total trades
         const { count: tradeCount } = await supabaseAdmin
           .from('trades')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', ref.id);
           
         const trades = tradeCount || 0;
-        // Basic commission logic: ₹10 per trade for example
-        const earned = trades * 10;
+        
+        // Get total earned from this referee
+        const { data: commissions } = await supabaseAdmin
+          .from('referral_commissions')
+          .select('amount_earned')
+          .eq('referrer_id', req.user.id)
+          .eq('referee_id', ref.id);
+          
+        const earned = (commissions || []).reduce((sum, c) => sum + parseFloat(c.amount_earned || 0), 0);
 
         return {
           id: ref.id,

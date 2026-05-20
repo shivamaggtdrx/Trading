@@ -31,17 +31,41 @@ async function request(path, options = {}) {
 export const adminApi = {
   // CRM
   getLeads: () => request('/admin/crm/leads'),
+  updateLead: (id, data) => request(`/admin/crm/leads/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   getClientTiers: () => request('/admin/crm/client-tiers'),
   getApiKeys: () => request('/admin/crm/api-keys'),
   getNetworkNodes: () => request('/admin/crm/network-nodes'),
   getCorporateActions: () => request('/admin/crm/corporate-actions'),
   getNotificationTemplates: () => request('/admin/crm/notification-templates'),
 
-  // Generic CRM Module endpoints
+  // ── CRM & Config ──
   getCrmModule: (module) => request(`/admin/crm/${module}`),
-  createCrmModule: (module, data) => request(`/admin/crm/${module}`, { method: 'POST', body: JSON.stringify(data) }),
-  updateCrmModule: (module, id, data) => request(`/admin/crm/${module}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteCrmModule: (module, id) => request(`/admin/crm/${module}/${id}`, { method: 'DELETE' }),
+  updateCrmModule: (module, id, data) => request(`/admin/crm/${module}/${id}`, {
+    method: id === 'new' ? 'POST' : 'PUT',
+    body: JSON.stringify(data)
+  }),
+  deleteCrmModule: (module, id) => request(`/admin/crm/${module}/${id}`, {
+    method: 'DELETE'
+  }),
+
+  // ── Dynamic & Risk Modules ──
+  calculateBrokerage: (data) => request('/admin/calculate-brokerage', {
+    method: 'POST', body: JSON.stringify(data)
+  }),
+  executeBulkAction: (data) => request('/admin/bulk-execute', {
+    method: 'POST', body: JSON.stringify(data)
+  }),
+  getRiskHeatmap: () => request('/admin/risk/heatmap'),
+  getHouseBook: () => request('/admin/risk/house-book'),
+  getDealingDeskOrderBook: (price) => request(`/admin/dealing-desk/orderbook?price=${price}`),
+
+  // ── Analytics ──
+  getChurnPrediction: () => request('/admin/analytics/churn'),
+  getProfitAttribution: () => request('/admin/analytics/profit'),
+
+  // ── EOD Settlement ──
+  runEodSettlement: () => request('/admin/eod/run', { method: 'POST' }),
+  getEodReports: () => request('/admin/eod/reports'),
 
   // ── Dashboard ──
   getDashboard: () => request('/admin/dashboard'),
@@ -137,4 +161,7 @@ export const adminApi = {
 
   // ── System Health ──
   getSystemHealth: () => request('/admin/system-health'),
+
+  // ── Referrals ──
+  getReferralStats: () => request('/admin/referrals/stats'),
 };

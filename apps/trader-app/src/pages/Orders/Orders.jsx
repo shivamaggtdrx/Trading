@@ -4,6 +4,7 @@ import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { useTradeStore } from '../../store/useTradeStore';
 import { formatCurrency, cn , formatPrice} from '../../utils/helpers';
+import { usePullToRefresh, PullIndicator } from '../../hooks/usePullToRefresh';
 
 const statusConfig = {
   pending: { icon: Clock, label: 'Pending', color: 'text-amber-400', bg: 'bg-amber-500/10' },
@@ -12,13 +13,17 @@ const statusConfig = {
 };
 
 export default function Orders() {
-  const { activeOrderTab, setActiveOrderTab, getFilteredOrders, cancelOrder, orders } = useTradeStore();
+  const { activeOrderTab, setActiveOrderTab, getFilteredOrders, cancelOrder, orders, loadInitialData } = useTradeStore();
   const [cancellingId, setCancellingId] = useState(null);
 
   const filteredOrders = getFilteredOrders();
   const openCount = orders.filter((o) => o.status === 'pending').length;
   const filledCount = orders.filter((o) => o.status === 'filled').length;
   const cancelledCount = orders.filter((o) => o.status === 'cancelled').length;
+
+  const { containerProps, isRefreshing, pullProgress } = usePullToRefresh(async () => {
+    await loadInitialData();
+  });
 
   const handleCancelOrder = () => { if (cancellingId) { cancelOrder(cancellingId); setCancellingId(null); } };
     const fmtTime = (ts) => {
@@ -27,7 +32,8 @@ export default function Orders() {
   };
 
   return (
-    <div className="page-enter bg-surface min-h-screen">
+    <div className="page-enter bg-surface min-h-screen" {...containerProps}>
+      <PullIndicator isRefreshing={isRefreshing} pullProgress={pullProgress} />
       <div className="px-4 pt-4 pb-2">
         <h1 className="text-lg font-bold text-text-primary">Orders</h1>
       </div>

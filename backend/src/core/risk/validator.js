@@ -82,7 +82,9 @@ async function getMaxExposure(symbol) {
 async function updateExposure(symbol, side, quantity) {
   const delta = side === 'buy' ? quantity : -quantity;
   try {
-    await redisClient.incrbyfloat(`exp:symbol:${symbol}`, delta);
+    const key = `exp:symbol:${symbol}`;
+    await redisClient.incrbyfloat(key, delta);
+    await redisClient.expire(key, 86400); // 24h TTL, resets on every trade
   } catch (err) {
     console.error('Failed to update exposure in Redis:', err.message);
   }

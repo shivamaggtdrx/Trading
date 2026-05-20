@@ -26,6 +26,9 @@ const adminRoutes = require('./routes/admin');
 const { initSocketServer } = require('./ws/socketServer');
 const { initPriceEngine } = require('./ws/priceEngine');
 
+// ── Import Cron Jobs ──
+require('./core/cron/referralCron');
+
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy (Render, Cloudflare, etc.) for rate limiting
 const server = createServer(app);

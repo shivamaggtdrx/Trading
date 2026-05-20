@@ -58,7 +58,7 @@ export default function ClientFeedback() {
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center gap-2 text-gray-500 mb-2 text-sm font-medium"><MessageSquare className="w-4 h-4 text-blue-500" /> Total Reviews</div>
-          <div className="text-2xl font-bold text-gray-900">1,248</div>
+          <div className="text-2xl font-bold text-gray-900">{feedbacks.length}</div>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center gap-2 text-gray-500 mb-2 text-sm font-medium"><ThumbsUp className="w-4 h-4 text-green-500" /> Positive (4-5)</div>

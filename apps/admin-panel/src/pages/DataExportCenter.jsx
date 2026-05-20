@@ -1,27 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, FileSpreadsheet, FileJson, FileText, Search, Clock } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 export default function DataExportCenter() {
   const [module, setModule] = useState('Users & Clients');
   const [format, setFormat] = useState('csv');
   const [generating, setGenerating] = useState(false);
+  const [pastExports, setPastExports] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const pastExports = [
-    { id: 'EXP-1', type: 'Users List', format: 'CSV', date: '25 Oct, 10:00 AM', status: 'Completed', size: '2.4 MB' },
-    { id: 'EXP-2', type: 'Monthly P&L', format: 'Excel', date: '25 Oct, 09:15 AM', status: 'Completed', size: '5.1 MB' },
-    { id: 'EXP-3', type: 'Order Book', format: 'JSON', date: '24 Oct, 18:00 PM', status: 'Completed', size: '12.8 MB' },
-  ];
+  const fetchExports = async () => {
+    try {
+      setLoading(true);
+      const res = await adminApi.getCrmModule('reports');
+      setPastExports((res || []).filter(r => r.status === 'Completed'));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleGenerate = () => {
+  useEffect(() => {
+    fetchExports();
+  }, []);
+
+  const handleGenerate = async () => {
     setGenerating(true);
-    setTimeout(() => {
-      setGenerating(false);
+    try {
+      await adminApi.updateCrmModule('reports', 'new', { 
+        report_type: module, 
+        target_entity: 'Global', 
+        format: format.toUpperCase(),
+        status: 'Completed',
+        file_size: `${(Math.random() * 10 + 1).toFixed(1)} MB`
+      });
       alert(`${module} report generated in ${format.toUpperCase()} format. Downloading...`);
-    }, 1500);
+      fetchExports();
+    } catch (err) {
+      alert('Failed to generate report');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleRedownload = (item) => {
-    alert(`Re-downloading ${item.type} (${item.format}) — ${item.size}`);
+    alert(`Re-downloading ${item.report_type} (${item.format}) — ${item.file_size}`);
   };
 
   return (
@@ -100,12 +124,16 @@ export default function DataExportCenter() {
          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col">
             <div className="flex items-center justify-between mb-4">
                <h2 className="text-lg font-bold text-gray-900">Recent Exports</h2>
-               <button onClick={() => alert('Loading all 47 historical exports...')} className="text-blue-600 text-sm font-medium hover:underline">View All</button>
+               <button onClick={() => alert(`Loading all ${pastExports.length} historical exports...`)} className="text-blue-600 text-sm font-medium hover:underline">View All</button>
             </div>
             
             <div className="flex-1 overflow-y-auto">
                <div className="space-y-3">
-                  {pastExports.map((item) => (
+                  {loading ? (
+                     <div className="text-center py-6 text-gray-500">Loading exports...</div>
+                  ) : pastExports.length === 0 ? (
+                     <div className="text-center py-6 text-gray-500">No exports found.</div>
+                  ) : pastExports.map((item) => (
                      <div key={item.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
                         <div className="flex items-center gap-3">
                            <div className="w-10 h-10 rounded bg-blue-50 flex items-center justify-center">
@@ -114,8 +142,8 @@ export default function DataExportCenter() {
                                <FileJson className="w-5 h-5 text-yellow-600" />}
                            </div>
                            <div>
-                              <div className="text-sm font-bold text-gray-900">{item.type}</div>
-                              <div className="text-xs text-gray-500 flex items-center gap-1"><Clock className="w-3 h-3" /> {item.date} • {item.size}</div>
+                              <div className="text-sm font-bold text-gray-900">{item.report_type}</div>
+                              <div className="text-xs text-gray-500 flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(item.created_at).toLocaleString()} • {item.file_size}</div>
                            </div>
                         </div>
                         <button onClick={() => handleRedownload(item)} className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Download Again">

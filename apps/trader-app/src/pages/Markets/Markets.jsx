@@ -6,6 +6,7 @@ import { cn , formatPrice} from '../../utils/helpers';
 import ScriptActionSheet from '../../components/ui/ScriptActionSheet';
 import SideDrawer from '../../components/ui/SideDrawer';
 import InstrumentBrowser from '../../components/ui/InstrumentBrowser';
+import { usePullToRefresh, PullIndicator } from '../../hooks/usePullToRefresh';
 
 // Watchlist persistence
 function getWatchlists() {
@@ -70,7 +71,7 @@ function SwipeableRow({ children, onDelete }) {
 }
 
 export default function Markets() {
-  const { instruments, setSelectedInstrument, user, setOrderSide, updateSubscriptions } = useTradeStore();
+  const { instruments, setSelectedInstrument, user, setOrderSide, updateSubscriptions, loadInitialData } = useTradeStore();
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -78,6 +79,10 @@ export default function Markets() {
   const [actionInstrument, setActionInstrument] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showBrowser, setShowBrowser] = useState(false);
+
+  const { containerProps, isRefreshing, pullProgress } = usePullToRefresh(async () => {
+    await loadInitialData();
+  });
 
   const activeTab = watchlistData.active;
   const activeSymbols = watchlistData.lists[activeTab] || [];
@@ -141,7 +146,8 @@ export default function Markets() {
   const bnUp = (bankNifty?.change || 0) >= 0;
 
   return (
-    <div className="flex flex-col h-full bg-surface min-h-screen">
+    <div className="flex flex-col h-full bg-surface min-h-screen" {...containerProps}>
+      <PullIndicator isRefreshing={isRefreshing} pullProgress={pullProgress} />
       {/* ── Top Ticker Bar ── */}
       <div className="flex items-center justify-between px-3 py-2 bg-surface-2 border-b border-border lg:hidden">
         <div className="flex items-center gap-1">
