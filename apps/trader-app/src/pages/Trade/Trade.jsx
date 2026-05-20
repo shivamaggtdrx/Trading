@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import TradingViewChart from '../../components/ui/TradingViewChart';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -39,13 +38,11 @@ export default function Trade() {
   const setQuantity = useTradeStore(state => state.setQuantity);
   const placeOrder = useTradeStore(state => state.placeOrder);
   const orderLoading = useTradeStore(state => state.orderLoading);
-  const debugStats = useTradeStore(state => state.debugStats);
   const updateSubscriptions = useTradeStore(state => state.updateSubscriptions);
   const navigate = useNavigate();
   const [limitPrice, setLimitPrice] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [orderError, setOrderError] = useState(null);
-  const [activeTimeframe, setActiveTimeframe] = useState(3); // 1H default
 
   // Ensure we're subscribed to the selected instrument's price feed
   useEffect(() => {
@@ -143,106 +140,46 @@ export default function Trade() {
         </div>
       </header>
 
-      {/* Chart Area — Dominant (~55% viewport) */}
-      <div className="relative bg-surface border-b border-border/20" style={{ height: '45vh' }}>
-          {/* Chart Area */}
-          <div className="w-full h-full">
-            <TradingViewChart
-              symbol={instrument.symbol}
-              timeframe={['1m', '5m', '15m', '1H', '4H', 'D', 'W'][activeTimeframe]}
-              isDark={true}
-            />
-          </div>
-
-          {/* OHLC + Bid/Ask/Spread bar */}
-          <div className="absolute top-3 left-3 flex flex-wrap gap-x-2 gap-y-1.5 z-10 pointer-events-none max-w-[80%]">
-            {[
-              { label: 'O', value: instrument.open || instrument.price },
-              { label: 'H', value: instrument.high || instrument.price, color: 'text-emerald-400' },
-              { label: 'L', value: instrument.low || instrument.price, color: 'text-red-400' },
-              { label: 'C', value: instrument.price },
-              { label: 'BID', value: instrument.bid_price, color: 'text-emerald-400' },
-              { label: 'ASK', value: instrument.ask_price, color: 'text-red-400' },
-              { label: 'SPREAD', value: instrument.spread, color: 'text-text-primary' },
-            ].map(item => (
-              <div key={item.label} className="text-[10px] bg-surface/80 dark:bg-surface-2/80 px-1.5 py-0.5 rounded backdrop-blur-sm">
-                <span className="text-text-muted font-bold">{item.label}: </span>
-                <span className={cn('font-bold tabular-nums', item.color || 'text-text-secondary')}>
-                  {item.value !== undefined ? (item.value >= 100 ? item.value.toFixed(2) : item.value.toFixed(4)) : '-'}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Volume indicator */}
-          <div className="absolute top-3 right-3 text-sm">
-            <span className="text-text-muted font-medium">Vol: </span>
-            <span className="font-bold text-text-secondary">{instrument.volume}</span>
-          </div>
-
-          {/* Time frame buttons */}
-          <div className="absolute bottom-2 left-2 right-2 flex gap-1 z-10">
-            {['1m', '5m', '15m', '1H', '4H', 'D', 'W'].map((tf, i) => (
-              <button
-                key={tf}
-                onClick={() => setActiveTimeframe(i)}
-                className={cn(
-                  'flex-1 py-1.5 text-sm font-bold rounded-lg transition-all',
-                  i === activeTimeframe
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'bg-surface-2/80 text-text-muted hover:bg-surface-3 hover:text-text-secondary backdrop-blur-sm'
-                )}
-              >
-                {tf}
-              </button>
-            ))}
-          </div>
-      </div>
-      
-      {/* Latency Debug Panel Overlay */}
-      {debugStats && (
-        <div className="absolute top-16 right-3 bg-black/80 backdrop-blur-md rounded border border-white/10 p-2 text-[10px] font-mono text-white/90 z-40 pointer-events-none shadow-lg">
-          <div className="flex items-center gap-1.5 mb-1">
-            <div className={cn("w-1.5 h-1.5 rounded-full", debugStats.connected ? "bg-emerald-500" : "bg-red-500 animate-pulse")} />
-            <span className={cn("font-bold", debugStats.staleWarning && "text-red-500 animate-pulse")}>
-              {debugStats.staleWarning ? 'STALE FEED' : `WS ${debugStats.connected ? 'LIVE' : 'DOWN'}`}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 opacity-80">
-            <span>Latency:</span>
-            <span className={cn("text-right", instrument._debug?.latencyMs > 500 ? "text-red-400" : "text-emerald-400")}>
-              {instrument._debug?.latencyMs ?? 0}ms
-            </span>
-            <span>Subs:</span>
-            <span className="text-right">{debugStats.subscriptions || 0}</span>
-            <span>Tick/s:</span>
-            <span className="text-right">{debugStats.packetsPerSec || 0}</span>
-            <span>Reconnects:</span>
-            <span className="text-right">{debugStats.reconnects || 0}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Trading Panel Below Chart */}
-      <div className="px-3 space-y-2.5 py-3 pb-44">
-        {/* Price Info Bar — compact */}
-        <div className="grid grid-cols-4 gap-1.5">
+      {/* Compact Price Info Strip (replaces chart) */}
+      <div className="px-3 py-3 bg-surface-2 border-b border-border/30">
+        <div className="grid grid-cols-4 gap-2">
           {[
-            { label: 'High', value: instrument.high, color: 'text-emerald-600' },
-            { label: 'Low', value: instrument.low, color: 'text-red-500' },
-            { label: 'Chg', value: instrument.change, color: instrument.change >= 0 ? 'text-emerald-600' : 'text-red-500' },
-            { label: 'Vol', value: instrument.volume, color: 'text-text-primary' },
-          ].map((item) => (
-            <div key={item.label} className="bg-surface rounded-lg p-2 border border-border/30">
-              <p className="text-[11px] text-text-muted font-bold uppercase tracking-wider">{item.label}</p>
-              <p className={cn('text-base font-extrabold tabular-nums mt-0.5', item.color)} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            { label: 'BID', value: instrument.bid_price, color: 'text-emerald-400' },
+            { label: 'ASK', value: instrument.ask_price, color: 'text-red-400' },
+            { label: 'SPREAD', value: instrument.spread, color: 'text-text-muted' },
+            { label: 'VOL', value: instrument.volume, color: 'text-text-secondary' },
+          ].map(item => (
+            <div key={item.label} className="text-center">
+              <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">{item.label}</p>
+              <p className={cn('text-sm font-bold tabular-nums', item.color)}>
                 {typeof item.value === 'number'
-                  ? (item.value >= 100 ? item.value.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : item.value.toFixed(4))
-                  : item.value}
+                  ? (item.value >= 100 ? item.value.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : item.value.toFixed(item.value < 1 ? 5 : 3))
+                  : '--'}
               </p>
             </div>
           ))}
         </div>
+        <div className="grid grid-cols-4 gap-2 mt-2">
+          {[
+            { label: 'OPEN', value: instrument.open || instrument.day_open },
+            { label: 'HIGH', value: instrument.high || instrument.day_high, color: 'text-emerald-400' },
+            { label: 'LOW', value: instrument.low || instrument.day_low, color: 'text-red-400' },
+            { label: 'CLOSE', value: instrument.price },
+          ].map(item => (
+            <div key={item.label} className="text-center">
+              <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">{item.label}</p>
+              <p className={cn('text-sm font-bold tabular-nums', item.color || 'text-text-primary')}>
+                {typeof item.value === 'number'
+                  ? (item.value >= 100 ? item.value.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : item.value.toFixed(item.value < 1 ? 5 : 3))
+                  : '--'}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Trading Panel */}
+      <div className="px-3 space-y-2.5 py-3 pb-44">
 
         {/* Buy/Sell Toggle — Large impact */}
         <div className="grid grid-cols-2 gap-1.5">

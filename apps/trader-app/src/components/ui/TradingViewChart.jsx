@@ -4,40 +4,65 @@ import { useEffect, useRef, memo } from 'react';
 function toTradingViewSymbol(symbol) {
   if (!symbol) return 'NSE:NIFTY';
 
-  // Crypto (Binance)
+  // Crypto (Binance) — symbols ending in USDT
   if (symbol.endsWith('USDT')) return `BINANCE:${symbol}`;
 
-  // Forex pairs
-  const forexMap = {
-    'EURUSD': 'FX:EURUSD', 'GBPUSD': 'FX:GBPUSD', 'USDJPY': 'FX:USDJPY',
-    'AUDUSD': 'FX:AUDUSD', 'USDCAD': 'FX:USDCAD', 'USDCHF': 'FX:USDCHF',
-    'NZDUSD': 'FX:NZDUSD', 'EURGBP': 'FX:EURGBP', 'EURJPY': 'FX:EURJPY',
-    'GBPJPY': 'FX:GBPJPY', 'USDINR': 'FX:USDINR',
-  };
-  if (forexMap[symbol]) return forexMap[symbol];
+  // ── Direct lookup table (highest priority) ──
+  const directMap = {
+    // Indian Indices
+    'NIFTY50': 'NSE:NIFTY',
+    'NIFTY': 'NSE:NIFTY',
+    'BANKNIFTY': 'NSE:NIFTYBANK',
 
-  // US Stocks
-  const usMap = {
+    // Forex pairs
+    'EURUSD': 'OANDA:EURUSD', 'GBPUSD': 'OANDA:GBPUSD', 'USDJPY': 'OANDA:USDJPY',
+    'AUDUSD': 'OANDA:AUDUSD', 'USDCAD': 'OANDA:USDCAD', 'USDCHF': 'OANDA:USDCHF',
+    'NZDUSD': 'OANDA:NZDUSD', 'EURGBP': 'OANDA:EURGBP', 'EURJPY': 'OANDA:EURJPY',
+    'GBPJPY': 'OANDA:GBPJPY', 'USDINR': 'OANDA:USDINR',
+
+    // Commodities / Metals
+    'XAUUSD': 'OANDA:XAUUSD',    // Gold
+    'XAGUSD': 'OANDA:XAGUSD',    // Silver
+    'GOLD': 'OANDA:XAUUSD',
+    'SILVER': 'OANDA:XAGUSD',
+    'CRUDEOIL': 'TVC:USOIL',
+    'NATURALGAS': 'TVC:NATURALGAS',
+    'COPPER': 'COMEX:HG1!',
+
+    // US Stocks — NASDAQ
     'AAPL': 'NASDAQ:AAPL', 'MSFT': 'NASDAQ:MSFT', 'GOOGL': 'NASDAQ:GOOGL',
     'AMZN': 'NASDAQ:AMZN', 'TSLA': 'NASDAQ:TSLA', 'META': 'NASDAQ:META',
-    'NVDA': 'NASDAQ:NVDA', 'NFLX': 'NASDAQ:NFLX',
-  };
-  if (usMap[symbol]) return usMap[symbol];
+    'NVDA': 'NASDAQ:NVDA', 'NFLX': 'NASDAQ:NFLX', 'AMD': 'NASDAQ:AMD',
+    'INTC': 'NASDAQ:INTC', 'CSCO': 'NASDAQ:CSCO', 'PEP': 'NASDAQ:PEP',
+    'PYPL': 'NASDAQ:PYPL', 'ADBE': 'NASDAQ:ADBE', 'AVGO': 'NASDAQ:AVGO',
+    'COST': 'NASDAQ:COST', 'ABNB': 'NASDAQ:ABNB', 'COIN': 'NASDAQ:COIN',
+    'RIVN': 'NASDAQ:RIVN', 'SOFI': 'NASDAQ:SOFI', 'MRNA': 'NASDAQ:MRNA',
+    'SBUX': 'NASDAQ:SBUX', 'QCOM': 'NASDAQ:QCOM',
+    // US Stocks — NYSE
+    'JPM': 'NYSE:JPM', 'V': 'NYSE:V', 'WMT': 'NYSE:WMT',
+    'DIS': 'NYSE:DIS', 'BA': 'NYSE:BA', 'PFE': 'NYSE:PFE',
+    'KO': 'NYSE:KO', 'NKE': 'NYSE:NKE', 'UBER': 'NYSE:UBER',
+    'CRM': 'NYSE:CRM', 'ORCL': 'NYSE:ORCL', 'SQ': 'NYSE:SQ',
+    'SNAP': 'NYSE:SNAP', 'SHOP': 'NYSE:SHOP', 'PLTR': 'NYSE:PLTR',
+    'JNJ': 'NYSE:JNJ', 'XOM': 'NYSE:XOM', 'CVX': 'NYSE:CVX',
+    'HD': 'NYSE:HD', 'MA': 'NYSE:MA', 'UNH': 'NYSE:UNH',
+    'BAC': 'NYSE:BAC', 'ABBV': 'NYSE:ABBV', 'MCD': 'NYSE:MCD',
+    'LLY': 'NYSE:LLY', 'GS': 'NYSE:GS', 'MS': 'NYSE:MS',
 
-  // Indices
-  const indexMap = {
-    'NIFTY50': 'NSE:NIFTY', 'NIFTY': 'NSE:NIFTY',
-    'BANKNIFTY': 'NSE:BANKNIFTY',
+    // Global Indices
+    'DJI': 'TVC:DJI', 'SPX': 'TVC:SPX', 'IXIC': 'NASDAQ:NDX',
   };
-  if (indexMap[symbol]) return indexMap[symbol];
 
-  // MCX Commodities
-  const mcxMap = {
-    'GOLD': 'MCX:GOLD1!', 'SILVER': 'MCX:SILVER1!',
-    'CRUDEOIL': 'MCX:CRUDEOIL1!', 'NATURALGAS': 'MCX:NATURALGAS1!',
-    'COPPER': 'MCX:COPPER1!',
-  };
-  if (mcxMap[symbol]) return mcxMap[symbol];
+  if (directMap[symbol]) return directMap[symbol];
+
+  // F&O Futures (e.g., NIFTY25JUNFUT → use index chart)
+  if (symbol.includes('FUT')) {
+    if (symbol.startsWith('NIFTY')) return 'NSE:NIFTY';
+    if (symbol.startsWith('BANKNIFTY')) return 'NSE:NIFTYBANK';
+    // For stock futures, strip the FUT suffix and use NSE equity
+    const base = symbol.replace(/\d{2}[A-Z]{3}FUT$/, '');
+    if (base) return `NSE:${base}`;
+  }
 
   // Default: NSE equity
   return `NSE:${symbol}`;

@@ -8,8 +8,8 @@ const CATEGORIES = [
   { key: 'fo_futures', label: 'NSE F&O', icon: '📊', segment: 'fo_futures', desc: 'NIFTY, BANKNIFTY Futures' },
   { key: 'forex', label: 'Forex', icon: '💱', segment: 'forex', desc: 'EUR/USD, GBP/USD, USD/JPY...' },
   { key: 'crypto', label: 'Crypto', icon: '₿', segment: 'crypto', desc: 'BTC, ETH, SOL, DOGE...' },
-  { key: 'indices', label: 'Global Indices', icon: '🌍', segment: null, filter: (i) => ['NIFTY50', 'BANKNIFTY'].includes(i.symbol) || i.segment === 'index', desc: 'NIFTY 50, BANK NIFTY' },
-  { key: 'us_stocks', label: 'USA Market Stocks', icon: '🇺🇸', segment: null, filter: (i) => ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX'].includes(i.symbol), desc: 'AAPL, TSLA, NVDA...' },
+  { key: 'indices', label: 'Global Indices', icon: '🌍', segment: 'global_indices', desc: 'NIFTY 50, BANK NIFTY, S&P 500' },
+  { key: 'us_equity', label: 'USA Market Stocks', icon: '🇺🇸', segment: 'us_equity', desc: 'AAPL, TSLA, NVDA, META...' },
   { key: 'mcx', label: 'Metals & Commodities', icon: '⚡', segment: 'mcx', desc: 'GOLD, SILVER, CRUDE...' },
 ];
 

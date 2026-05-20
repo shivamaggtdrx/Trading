@@ -1,13 +1,21 @@
 import { useState } from 'react';
 import { X, ShoppingCart, Tag, ChevronDown, ChevronUp, Trash2, BarChart2 } from 'lucide-react';
 import { cn } from '../../utils/helpers';
+import { useTradeStore } from '../../store/useTradeStore';
 
 /**
  * Bottom sheet that appears when tapping a script in the market list.
  * Shows: Market Depth (expandable), Buy, Sell, Charts, Delete options.
+ * Reads LIVE data from the store so bid/ask/price updates in real-time.
  */
-export default function ScriptActionSheet({ instrument, onClose, onBuy, onSell, onChart, onDelete }) {
+export default function ScriptActionSheet({ instrument: initialInstrument, onClose, onBuy, onSell, onChart, onDelete }) {
   const [showDepth, setShowDepth] = useState(false);
+
+  // Read LIVE instrument data from the store (not the stale prop snapshot)
+  const liveInstrument = useTradeStore(state =>
+    state.instruments.find(i => i.symbol === initialInstrument?.symbol)
+  );
+  const instrument = liveInstrument || initialInstrument;
 
   if (!instrument) return null;
 
@@ -26,9 +34,12 @@ export default function ScriptActionSheet({ instrument, onClose, onBuy, onSell, 
     return String(v);
   };
 
-  // Get the last tick time — just show current time for now
-  const now = new Date();
-  const ltt = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+  // Get the last tick time — show from instrument timestamp or current
+  const tickTs = instrument.lastTickTime ? new Date(instrument.lastTickTime) : new Date();
+  const ltt = `${tickTs.getHours().toString().padStart(2, '0')}:${tickTs.getMinutes().toString().padStart(2, '0')}:${tickTs.getSeconds().toString().padStart(2, '0')}`;
+
+  // Detect tick direction for bid/ask coloring
+  const tickDir = instrument.tickDirection; // 'up' | 'down' | null
 
   return (
     <>
@@ -44,7 +55,15 @@ export default function ScriptActionSheet({ instrument, onClose, onBuy, onSell, 
 
         {/* Header — Symbol + Close */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <h3 className="text-lg font-bold text-text-primary">{instrument.symbol}</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-bold text-text-primary">{instrument.symbol}</h3>
+            <span className={cn(
+              'text-sm font-bold tabular-nums',
+              (instrument.change || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
+            )}>
+              {fmtPrice(instrument.price)}
+            </span>
+          </div>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-surface-3 transition-colors">
             <X size={20} className="text-text-muted" />
           </button>
@@ -90,11 +109,14 @@ export default function ScriptActionSheet({ instrument, onClose, onBuy, onSell, 
               </div>
             </div>
 
-            {/* Best bid/ask row */}
+            {/* Best bid/ask row — these now update live */}
             <div className="grid grid-cols-5 gap-2">
               <div>
                 <p className="text-[11px] text-text-muted font-medium">Best bid</p>
-                <p className="text-[13px] font-bold text-text-primary tabular-nums">{fmtPrice(instrument.bid_price)}</p>
+                <p className={cn(
+                  'text-[13px] font-bold tabular-nums transition-colors duration-150',
+                  tickDir === 'up' ? 'text-emerald-400' : tickDir === 'down' ? 'text-red-400' : 'text-text-primary'
+                )}>{fmtPrice(instrument.bid_price)}</p>
               </div>
               <div>
                 <p className="text-[11px] text-text-muted font-medium">Bid Qty</p>
@@ -104,7 +126,10 @@ export default function ScriptActionSheet({ instrument, onClose, onBuy, onSell, 
               </div>
               <div>
                 <p className="text-[11px] text-text-muted font-medium">Best ask</p>
-                <p className="text-[13px] font-bold text-text-primary tabular-nums">{fmtPrice(instrument.ask_price)}</p>
+                <p className={cn(
+                  'text-[13px] font-bold tabular-nums transition-colors duration-150',
+                  tickDir === 'up' ? 'text-emerald-400' : tickDir === 'down' ? 'text-red-400' : 'text-text-primary'
+                )}>{fmtPrice(instrument.ask_price)}</p>
               </div>
               <div>
                 <p className="text-[11px] text-text-muted font-medium">Ask Qty</p>
