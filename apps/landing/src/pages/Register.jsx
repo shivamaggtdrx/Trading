@@ -64,7 +64,7 @@ export default function Register() {
 
       setSuccess('Account created successfully! Redirecting to login...');
       setTimeout(() => {
-        window.location.href = 'https://tradex-app.onrender.com/login'; // Redirect to Trader App login
+        window.location.href = 'https://stockslab-app.onrender.com/login'; // Redirect to Trader App login
       }, 2000);
     } catch (err) {
       setError(err.message);
