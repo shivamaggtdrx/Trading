@@ -387,6 +387,17 @@ export function disconnectUserSocket() {
 }
 
 // ── Auth helpers ──
+function getToken() {
+  // Auth uses httpOnly cookies — token isn't directly accessible.
+  // We use the stored user as a proxy for "logged in" state.
+  try {
+    const user = JSON.parse(localStorage.getItem('tradex_user'));
+    return user ? user.id || 'authenticated' : null;
+  } catch {
+    return null;
+  }
+}
+
 export function isLoggedIn() {
   return !!getToken();
 }
