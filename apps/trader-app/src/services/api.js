@@ -294,7 +294,11 @@ export function requestHistoricalCandles(symbol, timeframe) {
 }
 
 export function updatePositionSlTgtWs(positionId, stopLoss, target) {
-  // SL/TGT updates go via REST API now (safer than WS for mutations)
+  // SL/TGT updates go via REST API (safer than WS for mutations)
+  request(`/positions/${positionId}/sl-tgt`, {
+    method: 'PUT',
+    body: JSON.stringify({ stop_loss: stopLoss, target }),
+  }).catch(err => console.error('SL/TGT update failed:', err));
 }
 
 export function subscribeWsSymbols(symbols) {
@@ -396,7 +400,6 @@ export function disconnectUserSocket() {
   _onOrderFilled = null;
   _onPnlUpdate = null;
   _onBroadcast = null;
-  _onPnlUpdate = null;
 }
 
 // ── Auth helpers ──

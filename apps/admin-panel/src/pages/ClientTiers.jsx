@@ -17,7 +17,8 @@ export default function ClientTiers() {
   const fetchTiers = async () => {
     try {
       setLoading(true);
-      const data = await adminApi.getCrmModule('client-tiers');
+      const res = await adminApi.getCrmModule('client-tiers');
+      const data = res?.tiers || res?.client_tiers || [];
       const mapped = (data || []).map(t => ({
         ...t,
         icon: t.tier_name === 'Whale' ? '🐋' : t.tier_name === 'Profitable' ? '⚡' : '👤',

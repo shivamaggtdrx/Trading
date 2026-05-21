@@ -1338,7 +1338,7 @@ router.get('/system-health', async (req, res) => {
       },
       metrics: {
         websockets: wsClientCount,
-        tps: tpsValue,
+        tps: 0,
         pendingWebhooks: 0,
         errorRate: '0.00%'
       }

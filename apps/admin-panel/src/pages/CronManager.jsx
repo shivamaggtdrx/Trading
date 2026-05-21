@@ -13,7 +13,7 @@ export default function CronManager() {
     try {
       setLoading(true);
       const res = await adminApi.getCrmModule('cron-jobs');
-      setJobs(res || []);
+      setJobs(res?.cron_jobs || []);
     } catch (err) {
       console.error(err);
     } finally {

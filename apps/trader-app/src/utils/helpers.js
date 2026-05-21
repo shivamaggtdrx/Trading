@@ -1,8 +1,9 @@
 export function formatCurrency(value, currency = 'INR') {
+  const num = Number(value) || 0;
   if (currency === 'INR') {
-    return '₹' + Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return '₹' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
-  return '$' + Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function formatNumber(value, decimals = 2) {
@@ -10,6 +11,7 @@ export function formatNumber(value, decimals = 2) {
 }
 
 export function formatPercent(value) {
+  if (value == null || isNaN(value)) return '+0.00%';
   const sign = value >= 0 ? '+' : '';
   return sign + value.toFixed(2) + '%';
 }
@@ -22,7 +24,7 @@ export function formatPrice(value, includeCurrency = false) {
     : num.toFixed(num < 1 ? 5 : 4);
   
   if (includeCurrency) {
-    return (num >= 100 ? '₹' : '$') + formatted;
+    return '₹' + formatted;
   }
   return formatted;
 }

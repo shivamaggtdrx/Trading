@@ -13,7 +13,7 @@ export default function DataExportCenter() {
     try {
       setLoading(true);
       const res = await adminApi.getCrmModule('reports');
-      setPastExports((res || []).filter(r => r.status === 'Completed'));
+      setPastExports((res?.reports || []).filter(r => r.status === 'Completed'));
     } catch (err) {
       console.error(err);
     } finally {

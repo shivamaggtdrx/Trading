@@ -115,7 +115,7 @@ export default function Positions() {
                 <div className="flex justify-between text-sm"><span className="text-text-muted">Quantity</span><span className="font-semibold text-text-primary">{pos.quantity}</span></div>
                 <div className="border-t border-border/50 pt-2.5">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-text-muted">Realized P&L</span>
+                    <span className="text-sm text-text-muted">Estimated P&L</span>
                     <span className={cn('font-extrabold text-lg tabular-nums', isProfit ? 'text-emerald-500' : 'text-red-500')}>
                       {isProfit ? '+' : ''}{formatCurrency(pos.pnl || 0)}
                     </span>

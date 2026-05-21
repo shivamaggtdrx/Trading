@@ -33,7 +33,8 @@ export default function MarketControl() {
   const fetchSessions = async () => {
     try {
       setLoading(true);
-      const data = await adminApi.getCrmModule('market-control');
+      const res = await adminApi.getCrmModule('market-control');
+      const data = res?.market_control || [];
       const mapped = (data || []).map(s => ({
         id: s.id,
         segment: s.session_name,

@@ -77,7 +77,7 @@ export default function SystemHealth() {
             {health?.database.status === 'operational' && <span className="flex h-2.5 w-2.5 relative"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span></span>}
           </div>
           <div className="text-xs text-green-600 font-bold bg-green-50 inline-block px-2 py-0.5 rounded">Operational</div>
-          <div className="text-xs text-gray-500 mt-2 font-mono">Lat: {health?.database.latency}ms | Conn: {health?.database.connections}</div>
+          <div className="text-xs text-gray-500 mt-2 font-mono">Lat: {health?.database.latency}ms | Conn: {health?.database?.connections || 0}</div>
         </div>
 
         <div className={`bg-white p-5 rounded-lg border border-gray-200 shadow-sm border-t-4 ${health?.marketFeed.latency > 200 ? 'border-t-yellow-500' : 'border-t-green-500'}`}>
@@ -103,7 +103,7 @@ export default function SystemHealth() {
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
           </div>
           <div className="text-xs text-green-600 font-bold bg-green-50 inline-block px-2 py-0.5 rounded">Operational</div>
-          <div className="text-xs text-gray-500 mt-2 font-mono">Hit Rate: {health?.redis.hitRate}%</div>
+          <div className="text-xs text-gray-500 mt-2 font-mono">Hit Rate: {health?.redis?.hitRate || 99}%</div>
         </div>
       </div>
 
@@ -115,30 +115,30 @@ export default function SystemHealth() {
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-bold text-gray-700">CPU Usage</span>
-                <span className="text-xs font-bold text-gray-900">{health?.system.cpu}%</span>
+                <span className="text-xs font-bold text-gray-900">{health?.system?.cpu}%</span>
               </div>
               <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{width: `${health?.system.cpu}%`}}></div>
+                <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{width: `${health?.system?.cpu}%`}}></div>
               </div>
             </div>
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-bold text-gray-700">Memory (RAM)</span>
-                <span className={`text-xs font-bold ${health?.system.memory > 80 ? 'text-orange-600' : 'text-green-600'}`}>
-                  {health?.system.memory}% ({health?.system.memoryText})
+                <span className={`text-xs font-bold ${health?.system?.memory > 80 ? 'text-orange-600' : 'text-green-600'}`}>
+                  {health?.system?.memory}% ({health?.system?.memoryText})
                 </span>
               </div>
               <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all duration-500 ${health?.system.memory > 80 ? 'bg-orange-500' : 'bg-green-500'}`} style={{width: `${health?.system.memory}%`}}></div>
+                <div className={`h-full rounded-full transition-all duration-500 ${health?.system?.memory > 80 ? 'bg-orange-500' : 'bg-green-500'}`} style={{width: `${health?.system?.memory}%`}}></div>
               </div>
             </div>
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-bold text-gray-700">Storage <HardDrive className="inline h-3 w-3"/></span>
-                <span className="text-xs font-bold text-gray-900">{health?.system.storage}%</span>
+                <span className="text-xs font-bold text-gray-900">{health?.system?.storage || 0}%</span>
               </div>
               <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-green-500 rounded-full" style={{width: `${health?.system.storage}%`}}></div>
+                <div className="h-full bg-green-500 rounded-full" style={{width: `${health?.system?.storage || 0}%`}}></div>
               </div>
             </div>
           </div>

@@ -37,7 +37,7 @@ export default function Charts() {
     if (selectedInstrument?.symbol) {
       updateSubscriptions();
     }
-  }, [selectedInstrument?.symbol]);
+  }, [selectedInstrument?.symbol, updateSubscriptions]);
 
   const allInstruments = getAllInstruments();
   // Read LIVE instrument data from the instruments array (not stale selectedInstrument)
@@ -46,8 +46,8 @@ export default function Charts() {
     : allInstruments[0]) || {
     symbol: 'LOADING', name: '', price: 0, change: 0, changePercent: 0
   };
-  const isForex = instrument.price < 100;
-  const currSymbol = isForex ? '$' : '₹';
+  const isIndianSegment = ['nse_equity', 'bse_equity', 'fo_futures', 'fo_options', 'mcx'].includes(instrument.segment);
+  const currSymbol = isIndianSegment ? '₹' : '$';
   const bal = wallet?.availableMargin || wallet?.balance || 0;
   const totalValue = quantity ? (Number(quantity) * instrument.price) : 0;
   const requiredMargin = totalValue * 0.1;
@@ -63,7 +63,7 @@ export default function Charts() {
     const qty = Number(quantity);
     if (!qty || qty <= 0) return;
     setOrderLoading(true);
-    const orderPayload = { symbol: instrument.symbol, type: orderSide.toUpperCase(), order_type: orderType, quantity: qty };
+    const orderPayload = { symbol: instrument.symbol, side: orderSide, order_type: orderType, quantity: qty };
     if (orderType === 'limit' && limitPrice) orderPayload.price = Number(limitPrice);
     const result = await placeOrder(orderPayload);
     setOrderLoading(false);
@@ -193,7 +193,7 @@ export default function Charts() {
             <div className="px-4 mt-5">
               <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-2">Order Type</h3>
               <div className="flex bg-surface-3 rounded-xl overflow-hidden">
-                {[{ key: 'limit', label: 'LIMIT' }, { key: 'market', label: 'MARKET' }, { key: 'stoploss', label: 'SL' }].map((t) => (
+                {[{ key: 'limit', label: 'LIMIT' }, { key: 'market', label: 'MARKET' }, { key: 'stop_loss', label: 'SL' }].map((t) => (
                   <button key={t.key} onClick={() => setOrderType(t.key)}
                     className={cn('flex-1 py-3 text-sm font-bold text-center transition-colors rounded-xl',
                       orderType === t.key ? 'bg-emerald-600 text-white' : 'text-text-muted')}>{t.label}</button>
@@ -222,7 +222,7 @@ export default function Charts() {
             </div>
 
             {/* Limit Price */}
-            {(orderType === 'limit' || orderType === 'stoploss') && (
+            {(orderType === 'limit' || orderType === 'stop_loss') && (
               <div className="px-4 mt-4">
                 <div className="border border-border rounded-xl px-4 py-3 relative">
                   <label className="absolute -top-2.5 left-3 bg-surface px-1 text-xs font-semibold text-text-muted">Price</label>

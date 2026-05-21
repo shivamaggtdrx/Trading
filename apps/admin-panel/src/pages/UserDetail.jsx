@@ -1,25 +1,87 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ArrowLeft, Wallet, TrendingUp, AlertTriangle, ShieldAlert,
-  Activity, Settings, Percent, Zap
+  Activity, Settings, Percent, Zap, RefreshCw
 } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
 
 export default function UserDetail() {
   const { id } = useParams();
   const [activeTab, setActiveTab] = useState('overview');
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmData, setConfirmData] = useState(null);
+  const [confirmReason, setConfirmReason] = useState('');
+  const [confirmAmount, setConfirmAmount] = useState('');
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const confirm = (action) => {
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        setLoading(true);
+        const data = await adminApi.getUser(id);
+        setUserData(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUser();
+  }, [id]);
+
+  const confirm = (action, data = null) => {
     setConfirmAction(action);
+    setConfirmData(data);
+    setConfirmReason('');
+    setConfirmAmount('');
     setShowConfirm(true);
   };
 
-  const handleConfirm = () => {
-    console.log('Confirmed:', confirmAction);
-    setShowConfirm(false);
+  const handleConfirm = async () => {
+    try {
+      if (confirmAction === 'Square Off All Positions for User') {
+        await adminApi.forceSquareOff(userData.user.id, confirmReason || 'Admin Override');
+        alert('All positions squared off.');
+      } else if (confirmAction === 'Force Close Position') {
+        await adminApi.forceSquareOffPositions([confirmData], confirmReason || 'Admin Override');
+        alert('Position squared off.');
+      } else if (confirmAction === 'Manual Deposit') {
+        if (!confirmAmount || isNaN(confirmAmount) || Number(confirmAmount) <= 0) throw new Error("Please enter a valid amount.");
+        await adminApi.adjustWallet({ user_id: userData.user.id, amount: Number(confirmAmount), note: confirmReason, type: 'add' });
+        alert('Manual deposit successful.');
+      } else if (confirmAction === 'Manual Withdrawal') {
+        if (!confirmAmount || isNaN(confirmAmount) || Number(confirmAmount) <= 0) throw new Error("Please enter a valid amount.");
+        await adminApi.adjustWallet({ user_id: userData.user.id, amount: Number(confirmAmount), note: confirmReason, type: 'deduct' });
+        alert('Manual withdrawal successful.');
+      } else {
+        alert(`Action ${confirmAction} executed.`);
+      }
+    } catch (err) {
+      alert(err.message || 'Action failed');
+    } finally {
+      setShowConfirm(false);
+      setConfirmData(null);
+      setConfirmReason('');
+      setConfirmAmount('');
+      adminApi.getUser(id).then(setUserData).catch(console.error);
+    }
   };
+
+  if (loading) {
+    return <div className="p-8 text-center text-gray-500"><RefreshCw className="w-8 h-8 mx-auto animate-spin mb-4" /> Loading user details...</div>;
+  }
+
+  if (!userData || !userData.user) {
+    return <div className="p-8 text-center text-red-500 font-bold">User not found</div>;
+  }
+
+  const { user, positions, recent_trades } = userData;
+  const wallet = user.wallets?.[0] || { balance: 0, used_margin: 0, today_pnl: 0 };
+  const totalM2m = positions.reduce((sum, p) => sum + (p.unrealized_pnl || 0), 0);
+  const marginUsage = wallet.balance > 0 ? (wallet.used_margin / wallet.balance) * 100 : 0;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -29,13 +91,13 @@ export default function UserDetail() {
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Client Profile: {id || 'TDX-82491'}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Client Profile: {user.full_name} ({user.client_id})</h1>
           <div className="text-sm text-gray-500 flex items-center gap-2 mt-1">
-            <span className="font-medium text-gray-800">Master: Master-A</span>
+            <span className="font-medium text-gray-800">{user.email}</span>
             <span>•</span>
-            <span className="text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full text-xs">Trading Active</span>
+            <span className={`font-medium px-2 py-0.5 rounded-full text-xs ${user.status === 'active' ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>{user.status?.toUpperCase() || 'UNKNOWN'}</span>
             <span>•</span>
-            <span>Joined: 2026-01-15</span>
+            <span>Joined: {new Date(user.created_at).toLocaleDateString()}</span>
           </div>
         </div>
         <div className="ml-auto flex gap-2">
@@ -52,31 +114,31 @@ export default function UserDetail() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
           <div className="text-sm font-medium text-gray-500 flex items-center gap-2">
-            <Wallet className="h-4 w-4" /> Credit Line (M2M Limit)
+            <Wallet className="h-4 w-4" /> Available Margin
           </div>
-          <div className="text-2xl font-bold text-gray-900 mt-2">₹12,50,050</div>
-          <div className="text-xs text-blue-600 font-medium mt-1 cursor-pointer hover:underline" onClick={() => confirm('Adjust Credit Limit')}>Adjust Credit Limit</div>
+          <div className="text-2xl font-bold text-gray-900 mt-2">₹{(wallet.balance - wallet.used_margin).toLocaleString('en-IN')}</div>
+          <div className="text-xs text-blue-600 font-medium mt-1 cursor-pointer hover:underline" onClick={() => confirm('Adjust Credit Limit')}>Balance: ₹{wallet.balance.toLocaleString('en-IN')}</div>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
           <div className="text-sm font-medium text-gray-500 flex items-center gap-2">
             <TrendingUp className="h-4 w-4" /> Net M2M PNL
           </div>
-          <div className="text-2xl font-bold text-green-600 mt-2">+₹1,72,975</div>
+          <div className={`text-2xl font-bold mt-2 ${totalM2m >= 0 ? 'text-green-600' : 'text-red-600'}`}>{totalM2m >= 0 ? '+' : ''}₹{totalM2m.toLocaleString('en-IN')}</div>
           <div className="text-xs text-gray-500 mt-1">Realtime Open PNL</div>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
           <div className="text-sm font-medium text-gray-500 flex items-center gap-2">
             <Activity className="h-4 w-4" /> Margin Utilized
           </div>
-          <div className="text-2xl font-bold text-gray-900 mt-2">₹4,00,000</div>
-          <div className="text-xs text-gray-500 mt-1">Level: 355%</div>
+          <div className="text-2xl font-bold text-gray-900 mt-2">₹{wallet.used_margin.toLocaleString('en-IN')}</div>
+          <div className={`text-xs mt-1 ${marginUsage > 80 ? 'text-red-500 font-bold' : 'text-gray-500'}`}>Level: {Math.round(marginUsage)}%</div>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
           <div className="text-sm font-medium text-gray-500 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" /> Brokerage Generated
+            <AlertTriangle className="h-4 w-4" /> Closed PNL (Today)
           </div>
-          <div className="text-2xl font-bold text-gray-900 mt-2">₹45,200</div>
-          <div className="text-xs text-gray-500 mt-1">This Month</div>
+          <div className={`text-2xl font-bold mt-2 ${wallet.today_pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>{wallet.today_pnl >= 0 ? '+' : ''}₹{wallet.today_pnl.toLocaleString('en-IN')}</div>
+          <div className="text-xs text-gray-500 mt-1">Realized Today</div>
         </div>
       </div>
 
@@ -179,22 +241,26 @@ export default function UserDetail() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-bold text-gray-900">NIFTY50</td>
-                    <td className="px-4 py-3"><span className="text-green-600 font-bold">LONG</span></td>
-                    <td className="px-4 py-3 text-right font-medium">100</td>
-                    <td className="px-4 py-3 text-right">₹150.00</td>
-                    <td className="px-4 py-3 text-right">₹210.00</td>
-                    <td className="px-4 py-3 text-right text-green-600 font-bold">+₹6,000.00</td>
-                    <td className="px-4 py-3 text-right">
-                      <button 
-                        onClick={() => confirm('Force Close Position')}
-                        className="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors"
-                      >
-                        Force Square Off
-                      </button>
-                    </td>
-                  </tr>
+                  {positions.length > 0 ? positions.map(pos => (
+                    <tr key={pos.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-bold text-gray-900">{pos.symbol}</td>
+                      <td className="px-4 py-3"><span className={`font-bold ${pos.side === 'long' ? 'text-green-600' : 'text-red-600'}`}>{pos.side.toUpperCase()}</span></td>
+                      <td className="px-4 py-3 text-right font-medium">{pos.quantity}</td>
+                      <td className="px-4 py-3 text-right">₹{pos.entry_price}</td>
+                      <td className="px-4 py-3 text-right">₹{pos.current_price || pos.entry_price}</td>
+                      <td className={`px-4 py-3 text-right font-bold ${pos.unrealized_pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>{pos.unrealized_pnl >= 0 ? '+' : ''}₹{pos.unrealized_pnl || 0}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button 
+                          onClick={() => confirm('Force Close Position', pos.id)}
+                          className="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors"
+                        >
+                          Force Square Off
+                        </button>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-500">No open positions.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -311,20 +377,18 @@ export default function UserDetail() {
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-bold text-sm text-gray-900 border-b pb-2">Recent Activity</h4>
+                <h4 className="font-bold text-sm text-gray-900 border-b pb-2">Recent Trades</h4>
                 <div className="text-sm text-gray-600">
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span>Logged in from 192.168.1.1</span>
-                    <span className="text-gray-400 text-xs">2 mins ago</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span>Placed BUY order NIFTY 22500 CE</span>
-                    <span className="text-gray-400 text-xs">15 mins ago</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span>Deposit successful (₹1,00,000)</span>
-                    <span className="text-gray-400 text-xs">1 day ago</span>
-                  </div>
+                  {recent_trades.length > 0 ? recent_trades.map(trade => (
+                    <div key={trade.id} className="flex justify-between py-2 border-b border-gray-100">
+                      <span>Closed {trade.side.toUpperCase()} {trade.quantity} {trade.symbol}</span>
+                      <span className={`text-xs font-bold ${trade.net_pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {trade.net_pnl >= 0 ? '+' : ''}₹{trade.net_pnl}
+                      </span>
+                    </div>
+                  )) : (
+                    <div className="py-2 text-gray-500 italic">No recent trades.</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -333,7 +397,7 @@ export default function UserDetail() {
           {/* Placeholders for others */}
           {['orders', 'trades', 'wallet'].includes(activeTab) && (
             <div className="p-6 text-center text-gray-500 text-sm italic">
-              Data table for {activeTab} would be populated here...
+              Detailed data table for {activeTab} is available via API exports.
             </div>
           )}
         </div>
@@ -346,8 +410,14 @@ export default function UserDetail() {
             <h3 className="text-lg font-black text-gray-900 mb-2">Confirm Admin Override</h3>
             <p className="text-sm text-gray-600 mb-4">Are you sure you want to execute: <strong className="text-red-600">{confirmAction}</strong>?</p>
             <div className="mb-6">
+              {['Manual Deposit', 'Manual Withdrawal'].includes(confirmAction) && (
+                <div className="mb-4">
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Amount (₹)</label>
+                  <input type="number" value={confirmAmount} onChange={e => setConfirmAmount(e.target.value)} className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500" placeholder="Enter amount..." />
+                </div>
+              )}
               <label className="block text-xs font-bold text-gray-700 mb-1">Reason / Authorization (Required)</label>
-              <textarea className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500" rows="3" placeholder="Enter reason..."></textarea>
+              <textarea value={confirmReason} onChange={e => setConfirmReason(e.target.value)} className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500" rows="3" placeholder="Enter reason..."></textarea>
             </div>
             <div className="flex justify-end gap-3">
               <button onClick={() => setShowConfirm(false)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-bold text-gray-700 hover:bg-gray-50">Cancel</button>

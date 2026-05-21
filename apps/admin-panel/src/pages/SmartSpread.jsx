@@ -26,7 +26,8 @@ export default function SmartSpread() {
   const fetchProfiles = async () => {
     try {
       setLoading(true);
-      const data = await adminApi.getCrmModule('smart-spread');
+      const res = await adminApi.getCrmModule('smart-spreads');
+      const data = res?.spreads || res?.smart_spreads || [];
       const mapped = (data || []).map(p => ({
         id: p.id,
         tier: p.profile_name,

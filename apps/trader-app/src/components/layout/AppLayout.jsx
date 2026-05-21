@@ -38,7 +38,16 @@ export default function AppLayout() {
   const [isWatchlistExpanded, setIsWatchlistExpanded] = useState(false);
 
   useEffect(() => {
-    setIsDark(document.documentElement.classList.contains('dark'));
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      setIsDark(true);
+    } else if (savedTheme === 'light') {
+      document.documentElement.classList.remove('dark');
+      setIsDark(false);
+    } else {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    }
   }, []);
 
   const toggleDarkMode = () => {

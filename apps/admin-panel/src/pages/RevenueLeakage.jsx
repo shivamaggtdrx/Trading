@@ -27,7 +27,8 @@ export default function RevenueLeakage() {
   const fetchLeakage = async () => {
     try {
       setLoading(true);
-      const data = await adminApi.getCrmModule('revenue-leakage');
+      const res = await adminApi.getCrmModule('revenue-leakage');
+      const data = res?.revenue_leakage || [];
       const mapped = (data || []).map(l => ({
         id: l.id,
         source: l.source,

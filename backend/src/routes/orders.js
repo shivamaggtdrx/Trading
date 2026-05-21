@@ -232,10 +232,12 @@ router.delete('/:id', async (req, res) => {
       .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancel_reason: 'User cancelled' })
       .eq('id', order.id);
 
-    // Release blocked margin
+    // Release blocked margin atomically
     if (order.margin_blocked > 0) {
-      const { data: wallet } = await supabaseAdmin.from('wallets').select('used_margin').eq('user_id', req.user.id).single();
-      await supabaseAdmin.from('wallets').update({ used_margin: Math.max(0, wallet.used_margin - order.margin_blocked) }).eq('user_id', req.user.id);
+      await supabaseAdmin.rpc('release_margin', {
+        p_user_id: req.user.id,
+        p_amount: order.margin_blocked,
+      }).catch(e => console.warn('Margin release failed:', e.message));
     }
 
     try {

@@ -67,7 +67,7 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
       document.body.style.userSelect = '';
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-      localStorage.setItem('tradex_sidebar_width', String(sidebarWidth));
+      // Width is persisted by the useEffect below on every change
     };
 
     document.addEventListener('mousemove', handleMouseMove);

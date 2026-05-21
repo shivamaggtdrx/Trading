@@ -154,7 +154,7 @@ export const useTradeStore = create((set, get) => ({
     set({
       isAuthenticated: false, user: null, wallet: null,
       instruments: [], positions: [], orders: [], tradeHistory: [],
-      _notificationInterval: null
+      _notificationInterval: null, _initializing: false
     });
   },
 
@@ -650,8 +650,11 @@ export const useTradeStore = create((set, get) => ({
     });
   },
 
+  _initializing: false,
   loadInitialData: async () => {
-    set({ isLoading: true });
+    // Guard against double-calls (React 18 StrictMode, etc.)
+    if (get()._initializing) return;
+    set({ _initializing: true, isLoading: true });
     await Promise.all([
       get().fetchInstruments(),
       get().fetchWallet(),
@@ -683,6 +686,6 @@ export const useTradeStore = create((set, get) => ({
       set({ _notificationInterval: interval });
     }
     
-    set({ isLoading: false });
+    set({ isLoading: false, _initializing: false });
   },
 }));

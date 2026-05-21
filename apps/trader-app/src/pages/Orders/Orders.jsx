@@ -13,7 +13,7 @@ const statusConfig = {
 };
 
 export default function Orders() {
-  const { activeOrderTab, setActiveOrderTab, getFilteredOrders, cancelOrder, orders, loadInitialData } = useTradeStore();
+  const { activeOrderTab, setActiveOrderTab, getFilteredOrders, cancelOrder, orders, fetchOrders } = useTradeStore();
   const [cancellingId, setCancellingId] = useState(null);
 
   const filteredOrders = getFilteredOrders();
@@ -21,8 +21,10 @@ export default function Orders() {
   const filledCount = orders.filter((o) => o.status === 'filled').length;
   const cancelledCount = orders.filter((o) => o.status === 'cancelled').length;
 
+  const fetchWallet = useTradeStore(s => s.fetchWallet);
+
   const { containerProps, isRefreshing, pullProgress } = usePullToRefresh(async () => {
-    await loadInitialData();
+    await Promise.all([fetchOrders(), fetchWallet()]);
   });
 
   const handleCancelOrder = () => { if (cancellingId) { cancelOrder(cancellingId); setCancellingId(null); } };

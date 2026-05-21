@@ -15,7 +15,7 @@ export default function Reports() {
     try {
       setLoading(true);
       const res = await adminApi.getCrmModule('reports');
-      setReports((res || []).filter(r => r.status !== 'Completed'));
+      setReports((res?.reports || []).filter(r => r.status !== 'Completed'));
     } catch (err) {
       console.error(err);
     } finally {

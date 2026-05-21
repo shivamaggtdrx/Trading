@@ -22,9 +22,32 @@ export function AuthProvider({ children }) {
       return stored ? JSON.parse(stored) : null;
     } catch { return null; }
   });
-  const [failedAttempts, setFailedAttempts] = useState(0);
-  const [lockoutUntil, setLockoutUntil] = useState(null);
+  const [failedAttempts, setFailedAttempts] = useState(() => {
+    try { return parseInt(localStorage.getItem('admin_failed_attempts') || '0'); } catch { return 0; }
+  });
+  const [lockoutUntil, setLockoutUntil] = useState(() => {
+    try {
+      const stored = localStorage.getItem('admin_lockout_until');
+      return stored ? parseInt(stored) : null;
+    } catch { return null; }
+  });
   const [lastActivity, setLastActivity] = useState(Date.now());
+
+  // Helper to update attempts
+  const updateFailedAttempts = (attempts) => {
+    setFailedAttempts(attempts);
+    localStorage.setItem('admin_failed_attempts', attempts.toString());
+  };
+
+  // Helper to update lockout
+  const updateLockoutUntil = (timeMs) => {
+    setLockoutUntil(timeMs);
+    if (timeMs) {
+      localStorage.setItem('admin_lockout_until', timeMs.toString());
+    } else {
+      localStorage.removeItem('admin_lockout_until');
+    }
+  };
 
   const login = useCallback(async (email, password, department) => {
     // Check lockout
@@ -35,8 +58,8 @@ export function AuthProvider({ children }) {
 
     // Clear expired lockout
     if (lockoutUntil && Date.now() >= lockoutUntil) {
-      setLockoutUntil(null);
-      setFailedAttempts(0);
+      updateLockoutUntil(null);
+      updateFailedAttempts(0);
     }
 
     try {
@@ -51,9 +74,9 @@ export function AuthProvider({ children }) {
 
       if (!res.ok) {
         const newAttempts = failedAttempts + 1;
-        setFailedAttempts(newAttempts);
+        updateFailedAttempts(newAttempts);
         if (newAttempts >= LOCKOUT_THRESHOLD) {
-          setLockoutUntil(Date.now() + LOCKOUT_DURATION_MS);
+          updateLockoutUntil(Date.now() + LOCKOUT_DURATION_MS);
           return { success: false, error: 'Too many failed attempts. Account locked for 5 minutes.' };
         }
         return { success: false, error: data.error || `Invalid credentials. ${LOCKOUT_THRESHOLD - newAttempts} attempts remaining.` };
@@ -81,8 +104,8 @@ export function AuthProvider({ children }) {
       localStorage.setItem('admin_token', data.token);
 
       setUser(userData);
-      setFailedAttempts(0);
-      setLockoutUntil(null);
+      updateFailedAttempts(0);
+      updateLockoutUntil(null);
       setLastActivity(Date.now());
       return { success: true };
     } catch (err) {

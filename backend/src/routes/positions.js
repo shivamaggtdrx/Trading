@@ -141,6 +141,46 @@ router.post('/:id/close', async (req, res) => {
 });
 
 /**
+ * PUT /api/positions/:id/sl-tgt
+ * Update stop-loss and take-profit for an open position
+ */
+router.put('/:id/sl-tgt', async (req, res) => {
+  try {
+    const { stop_loss, target } = req.body;
+
+    const { data: position } = await supabaseAdmin
+      .from('positions')
+      .select('id')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .eq('status', 'open')
+      .single();
+
+    if (!position) return res.status(404).json({ error: 'Open position not found' });
+
+    const updates = {};
+    if (stop_loss !== undefined) updates.stop_loss = stop_loss;
+    if (target !== undefined) updates.target = target;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('positions')
+      .update(updates)
+      .eq('id', position.id);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    res.json({ message: 'SL/TGT updated', ...updates });
+  } catch (err) {
+    console.error('SL/TGT update error:', err);
+    res.status(500).json({ error: 'Failed to update SL/TGT' });
+  }
+});
+
+/**
  * GET /api/positions/history
  * Get closed trade history
  */

@@ -28,18 +28,18 @@ export default function Dashboard() {
 
   const stats = [
     { 
-      name: 'Net Broker PNL (M2M)', 
-      value: `₹${(dashboardData?.total_m2m || 0).toLocaleString('en-IN')}`, 
+      name: 'Net Broker PNL (Today)', 
+      value: `₹${(dashboardData?.house_pnl_today || 0).toLocaleString('en-IN')}`, 
       icon: IndianRupee, 
       change: 'Live', 
-      changeType: (dashboardData?.total_m2m || 0) >= 0 ? 'positive' : 'negative' 
+      changeType: (dashboardData?.house_pnl_today || 0) >= 0 ? 'positive' : 'negative' 
     },
     { 
-      name: 'Total Client Exposure', 
-      value: `₹${(dashboardData?.total_exposure || 0).toLocaleString('en-IN')}`, 
+      name: 'Client PNL (Today)', 
+      value: `₹${(dashboardData?.client_pnl_today || 0).toLocaleString('en-IN')}`, 
       icon: ShieldAlert, 
       change: 'Active', 
-      changeType: 'neutral' 
+      changeType: (dashboardData?.client_pnl_today || 0) >= 0 ? 'positive' : 'negative' 
     },
     { 
       name: 'Total Users', 

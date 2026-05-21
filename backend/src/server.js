@@ -46,8 +46,6 @@ Sentry.init({
   profilesSampleRate: IS_PROD ? 0.05 : 1.0,
 });
 
-// The request handler must be the first middleware on the app
-Sentry.setupExpressErrorHandler(app);
 
 // ── Security Middleware ──
 app.use(helmet());
@@ -142,6 +140,9 @@ app.use('/api/admin', adminRoutes);
 app.get('/debug-sentry', function mainHandler(req, res) {
   throw new Error('Sentry Testing Error!');
 });
+
+// ── Sentry Error Handler (must be after routes, before custom error handlers) ──
+Sentry.setupExpressErrorHandler(app);
 
 // ── 404 Handler ──
 app.use((req, res) => {

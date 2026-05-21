@@ -24,7 +24,7 @@ export default function WalletPage() {
   const usedMargin = wallet?.usedMargin || 0;
   const equity = wallet?.equity || 0;
   const unrealizedPnl = positions.reduce((sum, p) => sum + (p.pnl || 0), 0);
-  const equityPct = bal > 0 ? ((equity / bal) * 100).toFixed(2) : '--';
+  const equityPct = usedMargin > 0 ? ((equity / usedMargin) * 100).toFixed(2) : '--';
 
   const openModal = (type) => {
     setModalType(type);
@@ -45,6 +45,15 @@ export default function WalletPage() {
         setSubmitResult({ type: 'error', message: result.error || 'Deposit failed' });
       }
     } else {
+      // Validate withdrawal amount
+      if (Number(amount) > availMargin) {
+        setSubmitResult({ type: 'error', message: `Cannot withdraw more than available margin (${formatCurrency(availMargin)})` });
+        return;
+      }
+      if (Number(amount) < 100) {
+        setSubmitResult({ type: 'error', message: 'Minimum withdrawal amount is ₹100' });
+        return;
+      }
       const result = await submitWithdrawal({ amount: Number(amount), method: 'bank_transfer' });
       if (result.success) {
         setSubmitResult({ type: 'success', message: 'Withdrawal request submitted!' });
@@ -77,7 +86,7 @@ export default function WalletPage() {
     { label: 'Unrealized P&L', value: formatCurrency(unrealizedPnl), color: unrealizedPnl >= 0 ? 'text-emerald-500' : 'text-red-500' },
     { label: 'Blocked Margin', value: formatCurrency(usedMargin) },
     { label: 'Equity', value: formatCurrency(equity) },
-    { label: 'Equity Percentage', value: equityPct },
+    { label: 'Margin Level', value: equityPct === '--' ? '--' : `${equityPct}%` },
   ];
 
   return (

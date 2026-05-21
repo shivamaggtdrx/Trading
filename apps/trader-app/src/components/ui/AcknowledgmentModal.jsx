@@ -34,7 +34,7 @@ export default function AcknowledgmentModal() {
             <h2 className="text-xl font-bold text-gray-900">Acknowledgment</h2>
           </div>
           <button
-            onClick={() => { sessionStorage.setItem('tradex_risk_acknowledged', 'true'); setIsOpen(false); }}
+            onClick={() => setIsOpen(false)}
             className="text-gray-400 hover:text-gray-600 transition-colors text-xl leading-none p-1"
           >
             ×

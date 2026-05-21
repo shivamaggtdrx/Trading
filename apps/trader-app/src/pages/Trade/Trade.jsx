@@ -39,6 +39,7 @@ export default function Trade() {
   const placeOrder = useTradeStore(state => state.placeOrder);
   const orderLoading = useTradeStore(state => state.orderLoading);
   const updateSubscriptions = useTradeStore(state => state.updateSubscriptions);
+  const debugStats = useTradeStore(state => state.debugStats);
   const navigate = useNavigate();
   const [limitPrice, setLimitPrice] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
@@ -49,7 +50,7 @@ export default function Trade() {
     if (selectedInstrument?.symbol) {
       updateSubscriptions();
     }
-  }, [selectedInstrument?.symbol]);
+  }, [selectedInstrument?.symbol, updateSubscriptions]);
 
   const instrument = useTradeStore(state => {
     const inst = state.instruments.find(i => i.symbol === state.selectedInstrument?.symbol);
@@ -73,7 +74,7 @@ export default function Trade() {
       orderData.price = Number(limitPrice);
     }
     if (orderType === 'stop_loss' && limitPrice) {
-      orderData.stop_price = Number(limitPrice);
+      orderData.trigger_price = Number(limitPrice);
     }
 
     const result = await placeOrder(orderData);
@@ -96,7 +97,8 @@ export default function Trade() {
     setQuantity(newQty > 0 ? String(newQty) : '');
   };
 
-  const currSymbol = instrument.price >= 100 ? '₹' : '$';
+  const isIndianSegment = ['nse_equity', 'bse_equity', 'fo_futures', 'fo_options', 'mcx'].includes(instrument.segment);
+  const currSymbol = isIndianSegment ? '₹' : '$';
   
   return (
     <div className="page-enter">
@@ -128,9 +130,9 @@ export default function Trade() {
             </p>
             <p className={cn(
               'text-sm font-semibold',
-              instrument.change >= 0 ? 'text-emerald-500' : 'text-red-500'
+              (instrument.change || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'
             )}>
-              {instrument.change >= 0 ? '+' : ''}{instrument.change >= 100 ? instrument.change.toFixed(2) : instrument.change.toFixed(4)}
+              {(instrument.change || 0) >= 0 ? '+' : ''}{(instrument.change || 0) >= 100 ? (instrument.change || 0).toFixed(2) : (instrument.change || 0).toFixed(4)}
             </p>
           </div>
         </div>
@@ -263,7 +265,7 @@ export default function Trade() {
           />
         )}
 
-        {orderType === 'stoploss' && (
+        {orderType === 'stop_loss' && (
           <Input
             label="Stop Loss Price"
             type="number"
