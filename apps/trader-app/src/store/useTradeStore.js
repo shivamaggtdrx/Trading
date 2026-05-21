@@ -271,23 +271,25 @@ export const useTradeStore = create((set, get) => ({
       const data = await api.placeOrder(orderData);
       set({ orderLoading: false });
       
-      // Backend now returns 202 (queued) for market orders.
-      // The actual fill will arrive via Socket.IO USER:ORDER_FILLED event.
-      // We still do a quick refresh to pick up pending state.
+      // Backend returns 202 (queued) for market orders.
+      // The BullMQ worker processes it asynchronously.
+      // On free Render, the worker can take 2-5s, so we retry multiple times.
+      const refreshAfterOrder = () => {
+        get().fetchPositions();
+        get().fetchOrders();
+        get().fetchWallet();
+      };
+
       if (data.status === 'queued') {
-        // Order is queued — UI will update when USER:ORDER_FILLED fires
-        setTimeout(() => {
-          get().fetchPositions();
-          get().fetchOrders();
-          get().fetchWallet();
-        }, 1500); // Give the worker 1.5s to process
+        // Retry at 1s, 3s, and 6s to catch the worker completion
+        setTimeout(refreshAfterOrder, 1000);
+        setTimeout(refreshAfterOrder, 3000);
+        setTimeout(refreshAfterOrder, 6000);
         return { success: true, message: data.message || 'Order accepted for execution', ...data };
       }
       
       // Fallback for non-queued responses (limit orders, etc.)
-      get().fetchPositions();
-      get().fetchWallet();
-      get().fetchOrders();
+      refreshAfterOrder();
       return { success: true, ...data };
     } catch (err) {
       set({ orderLoading: false });

@@ -260,6 +260,9 @@ export function connectPriceFeed(onPriceUpdate, onCandleUpdate = null, onDebugUp
 
   marketSocket.on('MARKET:TICK', (tick) => {
     lastMessageTime = Date.now();
+    if (onDebugUpdate) {
+      onDebugUpdate({ connected: marketSocket.connected, staleWarning: false });
+    }
     if (onPriceUpdate) {
       onPriceUpdate([tick]); // Pass as array for backward compatibility
     }
