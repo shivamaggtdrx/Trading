@@ -11,6 +11,8 @@ const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:4000/ws/prices';
 // ── Token management ──
 function clearSession() {
   localStorage.removeItem('tradex_user');
+  localStorage.removeItem('tradex_access_token');
+  localStorage.removeItem('tradex_refresh_token');
 }
 
 // ── Token refresh ──
@@ -19,14 +21,22 @@ async function tryRefreshToken() {
   if (isRefreshing) return false;
   isRefreshing = true;
   try {
+    const refreshToken = localStorage.getItem('tradex_refresh_token');
+    if (!refreshToken) return false;
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
       credentials: 'include'
     });
     
     if (!res.ok) return false;
-    return true; // Server sets the new cookies automatically
+    const data = await res.json();
+    if (data.session) {
+      localStorage.setItem('tradex_access_token', data.session.access_token);
+      localStorage.setItem('tradex_refresh_token', data.session.refresh_token);
+    }
+    return true;
   } catch {
     return false;
   } finally {
@@ -37,6 +47,11 @@ async function tryRefreshToken() {
 // ── HTTP helper ──
 async function request(path, options = {}, _isRetry = false) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
+  // Add Bearer token for cross-domain auth (cookies blocked across different domains)
+  const token = localStorage.getItem('tradex_access_token');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
   const data = await res.json();
@@ -65,6 +80,10 @@ export const api = {
       body: JSON.stringify({ email, password }),
     });
     localStorage.setItem('tradex_user', JSON.stringify(data.user));
+    if (data.session) {
+      localStorage.setItem('tradex_access_token', data.session.access_token);
+      localStorage.setItem('tradex_refresh_token', data.session.refresh_token);
+    }
     return data;
   },
 
@@ -74,6 +93,10 @@ export const api = {
       body: JSON.stringify({ email, password, full_name, phone, referral_code }),
     });
     localStorage.setItem('tradex_user', JSON.stringify(data.user));
+    if (data.session) {
+      localStorage.setItem('tradex_access_token', data.session.access_token);
+      localStorage.setItem('tradex_refresh_token', data.session.refresh_token);
+    }
     return data;
   },
 
@@ -388,14 +411,7 @@ export function disconnectUserSocket() {
 
 // ── Auth helpers ──
 function getToken() {
-  // Auth uses httpOnly cookies — token isn't directly accessible.
-  // We use the stored user as a proxy for "logged in" state.
-  try {
-    const user = JSON.parse(localStorage.getItem('tradex_user'));
-    return user ? user.id || 'authenticated' : null;
-  } catch {
-    return null;
-  }
+  return localStorage.getItem('tradex_access_token');
 }
 
 export function isLoggedIn() {
