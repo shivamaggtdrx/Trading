@@ -248,7 +248,7 @@ export default function Markets() {
         <div className="flex items-center px-1">
           <button className="p-2 text-text-muted"><span className="text-lg">‹</span></button>
           <div className="flex-1 flex items-center gap-0 overflow-x-auto scrollbar-hide">
-            {Object.keys(watchlistData.lists).map((tab) => (
+            {Object.keys(watchlists).map((tab) => (
               <button key={tab} onClick={() => switchTab(tab)}
                 className={cn('px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors relative', activeTab === tab ? 'text-blue-500' : 'text-text-muted hover:text-text-secondary')}>
                 {tab}
