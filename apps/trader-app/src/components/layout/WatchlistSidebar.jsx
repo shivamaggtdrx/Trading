@@ -19,6 +19,10 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
 
   const watchlistSymbols = watchlists[activeWatchlistId] || [];
 
+  // Derive the display name for the active watchlist
+  const watchlistNames = JSON.parse(localStorage.getItem('tradex_watchlist_names') || '{}');
+  const watchlistName = watchlistNames[activeWatchlistId] || activeWatchlistId;
+
   const setWatchlistSymbolsState = (newSymbols) => {
     updateWatchlists({ ...watchlists, [activeWatchlistId]: newSymbols });
   };
