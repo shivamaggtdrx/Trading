@@ -9,24 +9,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:4000/ws/prices';
 
 // ── Token management ──
-function getToken() {
-  const session = localStorage.getItem('tradex_session');
-  if (!session) return null;
-  try { return JSON.parse(session).access_token; } catch { return null; }
-}
-
-function getRefreshToken() {
-  const session = localStorage.getItem('tradex_session');
-  if (!session) return null;
-  try { return JSON.parse(session).refresh_token; } catch { return null; }
-}
-
-function setSession(session) {
-  localStorage.setItem('tradex_session', JSON.stringify(session));
-}
-
 function clearSession() {
-  localStorage.removeItem('tradex_session');
   localStorage.removeItem('tradex_user');
 }
 
@@ -36,23 +19,14 @@ async function tryRefreshToken() {
   if (isRefreshing) return false;
   isRefreshing = true;
   try {
-    const refreshToken = getRefreshToken();
-    if (!refreshToken) return false;
-    
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      credentials: 'include'
     });
     
     if (!res.ok) return false;
-    
-    const data = await res.json();
-    if (data.session) {
-      setSession(data.session);
-      return true;
-    }
-    return false;
+    return true; // Server sets the new cookies automatically
   } catch {
     return false;
   } finally {
@@ -62,11 +36,9 @@ async function tryRefreshToken() {
 
 // ── HTTP helper ──
 async function request(path, options = {}, _isRetry = false) {
-  const token = getToken();
   const headers = { 'Content-Type': 'application/json', ...options.headers };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
   const data = await res.json();
 
   if (!res.ok) {
@@ -92,7 +64,6 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    setSession(data.session);
     localStorage.setItem('tradex_user', JSON.stringify(data.user));
     return data;
   },
@@ -102,7 +73,6 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, password, full_name, phone, referral_code }),
     });
-    setSession(data.session);
     localStorage.setItem('tradex_user', JSON.stringify(data.user));
     return data;
   },
@@ -195,6 +165,17 @@ export const api = {
     return request('/users/profile', {
       method: 'PUT',
       body: JSON.stringify(updates),
+    });
+  },
+
+  async getWatchlist() {
+    return request('/users/watchlist');
+  },
+
+  async saveWatchlist(watchlist) {
+    return request('/users/watchlist', {
+      method: 'PUT',
+      body: JSON.stringify({ watchlist }),
     });
   },
 

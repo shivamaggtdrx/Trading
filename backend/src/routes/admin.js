@@ -115,6 +115,31 @@ router.get('/users/:id', async (req, res) => {
   }
 });
 
+router.put('/users/:id/status', requireRole('super_admin', 'admin', 'compliance'), async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['active', 'suspended', 'blocked'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    
+    await supabaseAdmin.from('profiles').update({ status }).eq('id', req.params.id);
+    
+    // Clear Redis Cache
+    if (status === 'suspended' || status === 'blocked') {
+      const { redisClient } = require('../redis/client');
+      if (redisClient) {
+        await redisClient.del(`auth:user:profile:${req.params.id}`);
+      }
+    }
+    
+    await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: `user_${status}`, target_type: 'user', target_id: req.params.id, description: `Changed user status to ${status}`, ip_address: req.ip });
+    
+    res.json({ message: `User status updated to ${status}` });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update status' });
+  }
+});
+
 // ═══════════════════════════════════════════
 // DEPOSIT APPROVALS
 // ═══════════════════════════════════════════

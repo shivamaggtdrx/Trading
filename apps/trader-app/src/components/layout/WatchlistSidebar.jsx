@@ -4,39 +4,24 @@ import { Search, Star, X, Plus, Trash2, Maximize2, Minimize2, GripVertical, Edit
 import { useTradeStore } from '../../store/useTradeStore';
 import { cn , formatPrice} from '../../utils/helpers';
 
-// ── Watchlist persistence helpers ──
-function getWatchlistName() {
-  return localStorage.getItem('tradex_watchlist_name') || 'My Watchlist';
-}
-function setWatchlistName(name) {
-  localStorage.setItem('tradex_watchlist_name', name);
-}
-function getWatchlistSymbols() {
-  try { return JSON.parse(localStorage.getItem('tradex_watchlist') || '[]'); } catch { return []; }
-}
-function saveWatchlistSymbols(symbols) {
-  localStorage.setItem('tradex_watchlist', JSON.stringify(symbols));
-}
-
 export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
   const {
     instruments, setSelectedInstrument, updateSubscriptions,
+    activeWatchlistId, watchlists, updateWatchlists
   } = useTradeStore();
   const navigate = useNavigate();
 
-  const [watchlistName, setWatchlistNameState] = useState(getWatchlistName);
+  // Watchlist name is just the ID for now since we have MW-1 to MW-5
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [sidebarSearch, setSidebarSearch] = useState('');
-  const [watchlistSymbols, setWatchlistSymbolsState] = useState(getWatchlistSymbols);
   const renameInputRef = useRef(null);
 
-  // Sync watchlist symbols with the store WebSocket price feed dynamically
-  useEffect(() => {
-    if (updateSubscriptions) {
-      updateSubscriptions();
-    }
-  }, [watchlistSymbols, updateSubscriptions]);
+  const watchlistSymbols = watchlists[activeWatchlistId] || [];
+
+  const setWatchlistSymbolsState = (newSymbols) => {
+    updateWatchlists({ ...watchlists, [activeWatchlistId]: newSymbols });
+  };
 
   // ═══ Resizable sidebar width ═══
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -102,7 +87,6 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
   const addToWatchlist = (symbol) => {
     const updated = [...watchlistSymbols, symbol];
     setWatchlistSymbolsState(updated);
-    saveWatchlistSymbols(updated);
     setSidebarSearch('');
   };
 
@@ -110,7 +94,6 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
     e.stopPropagation();
     const updated = watchlistSymbols.filter(s => s !== symbol);
     setWatchlistSymbolsState(updated);
-    saveWatchlistSymbols(updated);
   };
 
   const handleClick = (inst) => {
@@ -127,8 +110,7 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
   const finishRename = () => {
     const trimmed = renameValue.trim();
     if (trimmed) {
-      setWatchlistNameState(trimmed);
-      setWatchlistName(trimmed);
+      // Name renaming not supported in global state yet
     }
     setIsRenaming(false);
   };

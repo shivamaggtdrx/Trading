@@ -8,18 +8,7 @@ import SideDrawer from '../../components/ui/SideDrawer';
 import InstrumentBrowser from '../../components/ui/InstrumentBrowser';
 import { usePullToRefresh, PullIndicator } from '../../hooks/usePullToRefresh';
 
-// Watchlist persistence
-function getWatchlists() {
-  try {
-    return JSON.parse(localStorage.getItem('tradex_watchlists') || 'null') || {
-      active: 'MW-1',
-      lists: { 'MW-1': [], 'MW-2': [], 'MW-3': [], 'MW-4': [], 'MW-5': [] }
-    };
-  } catch { return { active: 'MW-1', lists: { 'MW-1': [], 'MW-2': [], 'MW-3': [], 'MW-4': [], 'MW-5': [] } }; }
-}
-function saveWatchlists(data) {
-  localStorage.setItem('tradex_watchlists', JSON.stringify(data));
-}
+
 
 // ── Swipeable Row Component ──
 function SwipeableRow({ children, onDelete }) {
@@ -71,11 +60,14 @@ function SwipeableRow({ children, onDelete }) {
 }
 
 export default function Markets() {
-  const { instruments, setSelectedInstrument, user, setOrderSide, updateSubscriptions, loadInitialData } = useTradeStore();
+  const { 
+    instruments, setSelectedInstrument, user, setOrderSide, 
+    updateSubscriptions, loadInitialData,
+    watchlists, activeWatchlistId, setActiveWatchlistId, updateWatchlists 
+  } = useTradeStore();
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [watchlistData, setWatchlistData] = useState(getWatchlists);
   const [actionInstrument, setActionInstrument] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showBrowser, setShowBrowser] = useState(false);
@@ -84,8 +76,8 @@ export default function Markets() {
     await loadInitialData();
   });
 
-  const activeTab = watchlistData.active;
-  const activeSymbols = watchlistData.lists[activeTab] || [];
+  const activeTab = activeWatchlistId;
+  const activeSymbols = watchlists[activeTab] || [];
   const nifty = instruments.find(i => i.symbol === 'NIFTY50');
   const bankNifty = instruments.find(i => i.symbol === 'BANKNIFTY');
   const userName = user?.name || user?.full_name || user?.email?.split('@')[0] || 'S';
@@ -105,24 +97,24 @@ export default function Markets() {
   const isInWatchlist = useCallback((symbol) => activeSymbols.includes(symbol), [activeSymbols]);
 
   const addToWatchlist = (symbol) => {
-    const updated = { ...watchlistData };
-    if (!updated.lists[activeTab].includes(symbol)) {
-      updated.lists[activeTab] = [...updated.lists[activeTab], symbol];
-      setWatchlistData(updated); saveWatchlists(updated);
-      updateSubscriptions(); // Update WS subscriptions
+    if (!watchlists[activeTab].includes(symbol)) {
+      updateWatchlists({
+        ...watchlists,
+        [activeTab]: [...watchlists[activeTab], symbol]
+      });
     }
     setSearchQuery('');
   };
+  
   const removeFromWatchlist = (symbol) => {
-    const updated = { ...watchlistData };
-    updated.lists[activeTab] = updated.lists[activeTab].filter(s => s !== symbol);
-    setWatchlistData(updated); saveWatchlists(updated);
-    updateSubscriptions(); // Update WS subscriptions
+    updateWatchlists({
+      ...watchlists,
+      [activeTab]: watchlists[activeTab].filter(s => s !== symbol)
+    });
   };
+  
   const switchTab = (tab) => {
-    const updated = { ...watchlistData, active: tab };
-    setWatchlistData(updated); saveWatchlists(updated);
-    updateSubscriptions(); // Update WS subscriptions
+    setActiveWatchlistId(tab);
   };
 
     const fmtChange = (change, pct) => `${(change || 0).toFixed(2)} (${(pct || 0).toFixed(2)}%)`;

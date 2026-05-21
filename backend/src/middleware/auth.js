@@ -11,12 +11,18 @@ const ADMIN_CACHE_TTL = 60; // 60 seconds
  */
 async function authenticateUser(req, res, next) {
   try {
+    let token = null;
+
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing or invalid authorization header' });
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.cookies && req.cookies.access_token) {
+      token = req.cookies.access_token;
     }
 
-    const token = authHeader.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'Missing or invalid authorization header/cookie' });
+    }
 
     // ── Step 1: Verify token with Supabase (or cache) ──
     // We hash the last 16 chars of the token as a cache key to avoid storing full tokens
@@ -86,12 +92,18 @@ async function authenticateUser(req, res, next) {
  */
 async function authenticateAdmin(req, res, next) {
   try {
+    let token = null;
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing authorization header' });
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.cookies && req.cookies.admin_token) {
+      token = req.cookies.admin_token;
     }
 
-    const token = authHeader.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'Missing or invalid authorization header/cookie' });
+    }
+
     const decoded = jwt.verify(token, process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET);
 
     // ── Check Redis cache first ──

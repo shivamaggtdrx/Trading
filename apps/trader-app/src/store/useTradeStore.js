@@ -164,7 +164,45 @@ export const useTradeStore = create((set, get) => ({
     });
   },
 
-  // ── Wallet ──
+  // ── Watchlists State ──
+  activeWatchlistId: 'MW-1',
+  watchlists: { 'MW-1': [], 'MW-2': [], 'MW-3': [], 'MW-4': [], 'MW-5': [] },
+
+  loadWatchlists: async () => {
+    try {
+      const data = await api.getWatchlist();
+      if (data && data.watchlist) {
+        set({
+          activeWatchlistId: data.watchlist.active || 'MW-1',
+          watchlists: data.watchlist.lists || { 'MW-1': [], 'MW-2': [], 'MW-3': [], 'MW-4': [], 'MW-5': [] }
+        });
+        
+        // After loading, resubscribe to price feeds for the active watchlist
+        const { updateSubscriptions } = get();
+        if (updateSubscriptions) updateSubscriptions();
+      }
+    } catch (err) {
+      console.error('Failed to load watchlist:', err);
+    }
+  },
+
+  setActiveWatchlistId: (id) => {
+    set({ activeWatchlistId: id });
+    const { watchlists, updateSubscriptions } = get();
+    // Fire and forget save
+    api.saveWatchlist({ active: id, lists: watchlists }).catch(() => {});
+    if (updateSubscriptions) updateSubscriptions();
+  },
+
+  updateWatchlists: (newWatchlists) => {
+    set({ watchlists: newWatchlists });
+    const { activeWatchlistId, updateSubscriptions } = get();
+    // Fire and forget save
+    api.saveWatchlist({ active: activeWatchlistId, lists: newWatchlists }).catch(() => {});
+    if (updateSubscriptions) updateSubscriptions();
+  },
+
+  // ── Market Data ──
   wallet: null,
   walletTransactions: [],
   walletLoading: false,
@@ -565,30 +603,16 @@ export const useTradeStore = create((set, get) => ({
     symbolsToSub.add('NIFTY50');
     symbolsToSub.add('BANKNIFTY');
 
-    // 2. Legacy Watchlist (tradex_watchlist)
-    const favs = JSON.parse(localStorage.getItem('tradex_watchlist') || '[]');
-    favs.forEach(s => symbolsToSub.add(s));
-
-    // 3. Multi-Watchlists (tradex_watchlists: MW-1 to MW-5)
-    try {
-      const wlists = JSON.parse(localStorage.getItem('tradex_watchlists') || 'null');
-      if (wlists && wlists.lists) {
-        Object.values(wlists.lists).forEach(list => {
-          if (Array.isArray(list)) {
-            list.forEach(s => symbolsToSub.add(s));
-          }
-        });
-      }
-    } catch (e) {
-      console.warn('Failed to parse tradex_watchlists', e);
-    }
+    // 2. Active Watchlist
+    const activeList = state.watchlists[state.activeWatchlistId] || [];
+    activeList.forEach(s => symbolsToSub.add(s));
     
-    // 4. Chart
+    // 3. Chart
     if (state.selectedInstrument) {
       symbolsToSub.add(state.selectedInstrument.symbol);
     }
     
-    // 5. Positions
+    // 4. Positions
     state.positions.forEach(p => {
       if (p.status !== 'CLOSED') symbolsToSub.add(p.symbol);
     });
@@ -679,6 +703,7 @@ export const useTradeStore = create((set, get) => ({
       get().fetchOrders(),
       get().fetchHistory(),
       get().fetchNotifications(),
+      get().loadWatchlists(),
     ]);
     get().startPriceFeed();
     get().updateSubscriptions();
@@ -728,6 +753,7 @@ export const useTradeStore = create((set, get) => ({
         get().fetchPositions();
         get().fetchOrders();
         get().fetchHistory();
+        get().loadWatchlists();
       }
     };
     document.addEventListener('visibilitychange', visHandler);

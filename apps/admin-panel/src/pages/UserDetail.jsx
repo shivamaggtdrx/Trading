@@ -56,6 +56,9 @@ export default function UserDetail() {
         if (!confirmAmount || isNaN(confirmAmount) || Number(confirmAmount) <= 0) throw new Error("Please enter a valid amount.");
         await adminApi.adjustWallet({ user_id: userData.user.id, amount: Number(confirmAmount), note: confirmReason, type: 'deduct' });
         alert('Manual withdrawal successful.');
+      } else if (confirmAction === 'Block User') {
+        await adminApi.updateUserStatus(userData.user.id, 'blocked');
+        alert('User has been blocked.');
       } else {
         alert(`Action ${confirmAction} executed.`);
       }

@@ -2,6 +2,22 @@ const router = require('express').Router();
 const { supabaseAdmin, supabasePublic } = require('../config/supabase');
 const { authenticateUser } = require('../middleware/auth');
 
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'none',
+  maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+};
+
+function setAuthCookies(res, session) {
+  if (session && session.access_token) {
+    res.cookie('access_token', session.access_token, cookieOptions);
+  }
+  if (session && session.refresh_token) {
+    res.cookie('refresh_token', session.refresh_token, cookieOptions);
+  }
+}
+
 /**
  * POST /api/auth/signup
  * Register a new trader user via Supabase Auth
@@ -63,6 +79,8 @@ router.post('/signup', async (req, res) => {
     if (signInError) {
       return res.status(500).json({ error: 'Account created but login failed' });
     }
+
+    setAuthCookies(res, session.session);
 
     res.status(201).json({
       message: 'Account created successfully',
@@ -132,6 +150,8 @@ router.post('/login', loginLimiter, async (req, res) => {
       .update({ last_login_at: new Date().toISOString(), login_count: (profile.login_count || 0) + 1 })
       .eq('id', profile.id);
 
+    setAuthCookies(res, data.session);
+
     res.json({
       user: {
         id: profile.id,
@@ -163,8 +183,12 @@ router.post('/logout', authenticateUser, async (req, res) => {
   try {
     // Sign out the specific user (not the server's shared session)
     await supabaseAdmin.auth.admin.signOut(req.user.id);
+    res.clearCookie('access_token', cookieOptions);
+    res.clearCookie('refresh_token', cookieOptions);
     res.json({ message: 'Logged out successfully' });
   } catch (err) {
+    res.clearCookie('access_token', cookieOptions);
+    res.clearCookie('refresh_token', cookieOptions);
     // Still return success — client should clear local tokens regardless
     res.json({ message: 'Logged out' });
   }
@@ -176,7 +200,7 @@ router.post('/logout', authenticateUser, async (req, res) => {
  */
 router.post('/refresh', async (req, res) => {
   try {
-    const { refresh_token } = req.body;
+    const refresh_token = req.cookies.refresh_token || req.body.refresh_token;
 
     if (!refresh_token) {
       return res.status(400).json({ error: 'Refresh token is required' });
@@ -187,6 +211,8 @@ router.post('/refresh', async (req, res) => {
     if (error || !data.session) {
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
     }
+
+    setAuthCookies(res, data.session);
 
     res.json({
       session: {

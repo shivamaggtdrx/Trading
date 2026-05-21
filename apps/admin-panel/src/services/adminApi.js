@@ -74,6 +74,7 @@ export const adminApi = {
   getUsers: (page = 1, limit = 25, search = '') =>
     request(`/admin/users?page=${page}&limit=${limit}${search ? `&search=${search}` : ''}`),
   getUser: (id) => request(`/admin/users/${id}`),
+  updateUserStatus: (id, status) => request(`/admin/users/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
 
   // ── Wallets & Transactions ──
   getWalletTransactions: () => request('/admin/wallet-transactions'),
