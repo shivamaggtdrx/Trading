@@ -12,10 +12,10 @@ const SEO = ({
   const siteName = 'Trade Smarter';
   const fullTitle = title ? `${title} | ${siteName}` : `${siteName} - High Performance Trading Platform`;
   
-  const defaultDescription = "Trade Smarter with Real-Time Markets. Fast execution, secure platform, and multi-market access. Join today!";
+  const defaultDescription = "Discover Stocks Lab, the best broker in India. Experience lightning-fast execution, zero hidden fees, and multi-market access. The ultimate Tradex1 and Markettrade alternative.";
   const metaDescription = description || defaultDescription;
   
-  const defaultKeywords = "trading, forex, stocks, crypto, commodities, investment, online trading platform, high frequency trading";
+  const defaultKeywords = "best dabba trading in india, best broker in india, tradex1 alternative, markettrade alternative, top trading platform india, fast execution trading, stock broker alternative";
   const metaKeywords = keywords || defaultKeywords;
   
   const siteUrl = 'https://stockslab-landing.onrender.com';

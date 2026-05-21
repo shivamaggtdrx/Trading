@@ -29,9 +29,9 @@ export default function WhyUs() {
     <section id="why-us" className="py-20 bg-white">
       <div className="container mx-auto px-4 md:px-6">
         <div className="text-center max-w-3xl mx-auto mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Why Traders Choose Us</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Why We Are The Best Alternative</h2>
           <p className="text-slate-600 text-lg">
-            We built a platform that puts the trader first.
+            Say goodbye to the frequent downtimes and hidden charges of Markettrade and Tradex1. We built a platform that puts the trader first with institutional-grade technology.
           </p>
         </div>
 

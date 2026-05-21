@@ -101,6 +101,19 @@ export default function FaqPage() {
           a: "We support a wide variety of instant deposit methods including UPI, Net Banking, IMPS/RTGS, and direct wire transfers. Deposits reflect in your trading wallet within seconds."
         }
       ]
+    },
+    {
+      category: "Comparisons",
+      questions: [
+        {
+          q: "What makes Stocks Lab a better alternative to Tradex1?",
+          a: "Unlike Tradex1, which often suffers from high latency during volatile hours, Stocks Lab runs on an institutional-grade matching engine ensuring <10ms execution. We also offer superior UI, no hidden charges, and multi-market access from a single unified wallet."
+        },
+        {
+          q: "Why should I switch from Markettrade?",
+          a: "Markettrade traders frequently report downtime and delayed withdrawals. Stocks Lab guarantees 99.9% uptime and processes instant IMPS/NEFT withdrawals. We are rated as the best broker platform in India because we prioritize trader experience and transparency."
+        }
+      ]
     }
   ];
 

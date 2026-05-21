@@ -18,6 +18,7 @@ import FaqPage from './pages/FaqPage';
 import FloatingChat from './components/FloatingChat';
 import CalculatorPage from './pages/CalculatorPage';
 import PricingPage from './pages/PricingPage';
+import ComparePage from './pages/ComparePage';
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
                 <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/faq" element={<FaqPage />} />
                 <Route path="/calculator" element={<CalculatorPage />} />
+                <Route path="/compare" element={<ComparePage />} />
               </Routes>
               <Footer />
               <FloatingChat />

@@ -82,6 +82,7 @@ export default function Navbar() {
 
   const aboutItems = [
     { label: 'Why Us', href: '/why-us' },
+    { label: 'Compare Competitors', href: '/compare' },
     { label: 'Pricing & Fees', href: '/pricing' },
     { label: 'Become Affiliate', href: '/affiliate' },
     { label: 'Privacy Policy', href: '/legal/privacy-policy' },
