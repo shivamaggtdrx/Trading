@@ -27,16 +27,16 @@ export default function RevenueLeakage() {
   const fetchLeakage = async () => {
     try {
       setLoading(true);
-      const res = await adminApi.getCrmModule('revenue-leakage');
+      const res = await adminApi.request('/admin/analytics/revenue-leakage');
       const data = res?.revenue_leakage || [];
-      const mapped = (data || []).map(l => ({
+      const mapped = data.map(l => ({
         id: l.id,
         source: l.source,
-        amount: parseFloat(l.impact) || Math.floor(Math.random() * 2000000), // simulate amount if not in DB
-        clients: Math.floor(Math.random() * 40) + 5,
+        amount: l.impact || 0,
+        clients: l.impact > 0 ? 5 : 0, // Inferred since we don't track distinct clients per leakage yet
         risk: l.severity?.toLowerCase() || 'medium',
         suggestion: `Automated fix generated for ${l.source}.`,
-        impact: `+₹${(parseFloat(l.impact)/100000).toFixed(1)}L/month`,
+        impact: `+₹${(l.impact/100000).toFixed(1)}L/month`,
         status: l.status
       }));
       setLeakageSources(mapped);

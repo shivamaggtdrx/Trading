@@ -17,15 +17,12 @@ export default function ClientTiers() {
   const fetchTiers = async () => {
     try {
       setLoading(true);
-      const res = await adminApi.getCrmModule('client-tiers');
-      const data = res?.tiers || res?.client_tiers || [];
-      const mapped = (data || []).map(t => ({
+      const res = await adminApi.request('/admin/analytics/tiers');
+      const data = res?.tiers || [];
+      const mapped = data.map(t => ({
         ...t,
-        icon: t.tier_name === 'Whale' ? '🐋' : t.tier_name === 'Profitable' ? '⚡' : '👤',
-        color: t.tier_name === 'Whale' ? 'blue' : t.tier_name === 'Profitable' ? 'red' : 'gray',
-        clients: Math.floor(Math.random() * 100) + 10,
-        deposit: Math.floor(Math.random() * 5000000) + 100000,
-        avgPnl: Math.floor(Math.random() * 100000) - 50000,
+        icon: t.id === 'whale' ? '🐋' : t.id === 'profitable' ? '⚡' : '👤',
+        color: t.id === 'whale' ? 'blue' : t.id === 'profitable' ? 'red' : 'gray',
       }));
       setTierConfig(mapped);
     } catch (err) {

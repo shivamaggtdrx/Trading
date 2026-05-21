@@ -1412,6 +1412,65 @@ router.get('/analytics/churn', async (req, res) => {
     res.status(500).json({ error: 'Failed to compute churn' });
   }
 });
+router.get('/analytics/tiers', async (req, res) => {
+  try {
+    const { data: tiers, error: tierErr } = await supabaseAdmin.from('client_tiers').select('*');
+    if (tierErr) return res.status(500).json({ error: tierErr.message });
+    
+    const { data: users } = await supabaseAdmin.from('profiles').select('tier, wallets(total_deposited, total_pnl)');
+    
+    const stats = {};
+    (users || []).forEach(u => {
+      const t = u.tier || 'new_user';
+      if (!stats[t]) stats[t] = { clients: 0, deposit: 0, pnlSum: 0 };
+      stats[t].clients += 1;
+      const w = Array.isArray(u.wallets) ? u.wallets[0] : u.wallets;
+      if (w) {
+        stats[t].deposit += (w.total_deposited || 0);
+        stats[t].pnlSum += (w.total_pnl || 0);
+      }
+    });
+
+    const mapped = (tiers || []).map(t => ({
+      ...t,
+      clients: stats[t.id]?.clients || 0,
+      deposit: stats[t.id]?.deposit || 0,
+      avgPnl: stats[t.id]?.clients ? stats[t.id].pnlSum / stats[t.id].clients : 0
+    }));
+    
+    res.json({ tiers: mapped });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch tier analytics' });
+  }
+});
+
+router.get('/analytics/revenue-leakage', async (req, res) => {
+  try {
+    const { data: withdrawals } = await supabaseAdmin.from('withdrawal_requests').select('amount').eq('status', 'approved');
+    const { data: trades } = await supabaseAdmin.from('trades').select('spread_charge, net_pnl');
+    
+    let totalWithdrawals = 0;
+    (withdrawals || []).forEach(w => totalWithdrawals += (w.amount || 0));
+    
+    let totalSpread = 0;
+    let profitableClientPayouts = 0;
+    (trades || []).forEach(t => {
+      totalSpread += (t.spread_charge || 0);
+      if (t.net_pnl > 0) profitableClientPayouts += t.net_pnl;
+    });
+
+    const sources = [
+      { id: '1', source: 'Withdrawals (Cash Out)', impact: totalWithdrawals, severity: 'high', status: 'Active' },
+      { id: '2', source: 'Profitable Client Payouts', impact: profitableClientPayouts, severity: 'high', status: 'Active' },
+      { id: '3', source: 'Spread Forfeited (Zero Spread)', impact: 0, severity: 'low', status: 'Resolved' }
+    ];
+
+    res.json({ revenue_leakage: sources });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch leakage' });
+  }
+});
+
 // ═══════════════════════════════════════════
 // Analytics: Profit Attribution
 // ═══════════════════════════════════════════
@@ -1850,28 +1909,50 @@ router.get('/risk/heatmap', async (req, res) => {
 });
 
 router.get('/risk/house-book', async (req, res) => {
-  res.json({
-    timeline: [
-      { time: '09:15', pnl: 5000 },
-      { time: '10:00', pnl: 12000 },
-      { time: '11:00', pnl: -2000 },
-      { time: '12:00', pnl: 18000 },
-      { time: '13:00', pnl: 45000 },
-      { time: '14:00', pnl: 38000 },
-      { time: '15:00', pnl: 65000 },
-    ],
-    segments: [
-      { name: 'NSE Equity', exposure: 25000000, pnl: 45000, color: '#3b82f6' },
-      { name: 'MCX', exposure: 12000000, pnl: 12000, color: '#f59e0b' },
-      { name: 'Options', exposure: 8000000, pnl: 8000, color: '#10b981' }
-    ],
-    exposures: [
-      { symbol: 'RELIANCE', exposure: 5000000, pnl: 15000, risk: 'High' },
-      { symbol: 'HDFCBANK', exposure: 4200000, pnl: -5000, risk: 'Medium' },
-      { symbol: 'TCS', exposure: 3800000, pnl: 12000, risk: 'Medium' },
-      { symbol: 'GOLD', exposure: 2500000, pnl: 8000, risk: 'Low' }
-    ]
-  });
+  try {
+    const { data: positions, error } = await supabaseAdmin.from('positions').select('*').eq('status', 'open');
+    if (error) throw error;
+    
+    // Compute segments
+    const segmentsMap = {};
+    const exposuresMap = {};
+    let totalPnl = 0;
+    
+    (positions || []).forEach(p => {
+      // B-Book assumption: House PNL = -Client Unrealized PNL
+      const housePnl = -(p.unrealized_pnl || 0);
+      const exposure = p.side === 'long' ? p.quantity * p.entry_price : -p.quantity * p.entry_price;
+      
+      const segment = p.symbol.includes('-') ? 'F&O' : 'NSE Equity';
+      if (!segmentsMap[segment]) segmentsMap[segment] = { name: segment, exposure: 0, pnl: 0, clients: new Set() };
+      segmentsMap[segment].exposure += exposure;
+      segmentsMap[segment].pnl += housePnl;
+      segmentsMap[segment].clients.add(p.user_id);
+      
+      if (!exposuresMap[p.symbol]) exposuresMap[p.symbol] = { symbol: p.symbol, exposure: 0, pnl: 0 };
+      exposuresMap[p.symbol].exposure += exposure;
+      exposuresMap[p.symbol].pnl += housePnl;
+    });
+
+    const segments = Object.values(segmentsMap).map(s => ({
+      ...s,
+      clients: s.clients.size,
+      color: s.name === 'F&O' ? '#10b981' : '#3b82f6'
+    }));
+
+    const exposures = Object.values(exposuresMap).map(e => ({
+      ...e,
+      risk: Math.abs(e.exposure) > 100000 ? 'High' : 'Low'
+    })).sort((a,b) => Math.abs(b.exposure) - Math.abs(a.exposure)).slice(0, 5);
+
+    res.json({
+      timeline: [], // Live timeline requires timeseries DB, leaving empty for live chart
+      segments,
+      exposures
+    });
+  } catch(err) {
+    res.status(500).json({ error: 'Failed to fetch house book' });
+  }
 });
 
 router.get('/dealing-desk/orderbook', async (req, res) => {

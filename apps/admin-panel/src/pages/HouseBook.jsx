@@ -21,12 +21,12 @@ export default function HouseBook() {
         const absExp = Math.abs(s.exposure);
         return {
           segment: s.name,
-          clientLong: absExp * 0.6,
-          clientShort: absExp * 0.4,
+          clientLong: absExp * 0.6, // Approximate split for UI visualization
+          clientShort: absExp * 0.4, // Approximate split for UI visualization
           houseNet: -s.exposure,
           houseDirection: s.exposure > 0 ? 'SHORT' : 'LONG',
           pnl: s.pnl,
-          clients: Math.floor(Math.random() * 50) + 10
+          clients: s.clients || 0
         };
       });
       setSegmentExposure(mappedSegments);
@@ -36,7 +36,7 @@ export default function HouseBook() {
         clientNetLong: e.exposure,
         housePosition: `${e.exposure > 0 ? 'SHORT' : 'LONG'} ₹${(Math.abs(e.exposure)/100000).toFixed(1)}L`,
         pnl: e.pnl,
-        risk: e.risk.toLowerCase()
+        risk: e.risk ? e.risk.toLowerCase() : 'low'
       }));
       setTopExposures(mappedExposures);
     } catch (err) {
