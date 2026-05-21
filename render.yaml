@@ -22,6 +22,8 @@ services:
         value: https://stockslab-app.onrender.com
       - key: ADMIN_URL
         value: https://stockslab-admin.onrender.com
+      - key: LANDING_URL
+        value: https://stockslab-landing.onrender.com
       - key: REDIS_URL
         value: "rediss://default:AVNS_g0bUjO18cC10kZn-k5e@valkey-31947b9e-stockslab.j.aivencloud.com:15432"
       - key: FINNHUB_API_KEY
