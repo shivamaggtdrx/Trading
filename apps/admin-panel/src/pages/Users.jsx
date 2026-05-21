@@ -103,12 +103,12 @@ export default function Users() {
                     </span>
                   </td>
                   <td className="px-4 py-2 text-right font-medium text-gray-900">
-                    ₹{(user.wallets?.[0]?.balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    ₹{((Array.isArray(user.wallets) ? user.wallets[0] : user.wallets)?.balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </td>
                   <td className="px-4 py-2 text-center">
                     <Activity className={`h-4 w-4 inline-block ${
-                      (user.wallets?.[0]?.balance || 0) > 100000 ? 'text-green-500' : 
-                      (user.wallets?.[0]?.balance || 0) > 10000 ? 'text-yellow-500' : 'text-gray-300'
+                      ((Array.isArray(user.wallets) ? user.wallets[0] : user.wallets)?.balance || 0) > 100000 ? 'text-green-500' : 
+                      ((Array.isArray(user.wallets) ? user.wallets[0] : user.wallets)?.balance || 0) > 10000 ? 'text-yellow-500' : 'text-gray-300'
                     }`} />
                   </td>
                   <td className="px-4 py-2 text-xs text-gray-500">{new Date(user.created_at).toLocaleDateString()}</td>

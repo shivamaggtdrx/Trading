@@ -79,7 +79,7 @@ export default function UserDetail() {
   }
 
   const { user, positions, recent_trades } = userData;
-  const wallet = user.wallets?.[0] || { balance: 0, used_margin: 0, today_pnl: 0 };
+  const wallet = (Array.isArray(user.wallets) ? user.wallets[0] : user.wallets) || { balance: 0, used_margin: 0, today_pnl: 0 };
   const totalM2m = positions.reduce((sum, p) => sum + (p.unrealized_pnl || 0), 0);
   const marginUsage = wallet.balance > 0 ? (wallet.used_margin / wallet.balance) * 100 : 0;
 
