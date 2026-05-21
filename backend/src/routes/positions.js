@@ -30,9 +30,10 @@ router.get('/', async (req, res) => {
  */
 router.post('/:id/close', async (req, res) => {
   try {
+    // ── Fetch position AND instrument IN PARALLEL ──
     const { data: position } = await supabaseAdmin
       .from('positions')
-      .select('*')
+      .select('*, instrument:instruments(*)')
       .eq('id', req.params.id)
       .eq('user_id', req.user.id)
       .eq('status', 'open')
@@ -40,13 +41,7 @@ router.post('/:id/close', async (req, res) => {
 
     if (!position) return res.status(404).json({ error: 'Open position not found' });
 
-    // Get current instrument price
-    const { data: instrument } = await supabaseAdmin
-      .from('instruments')
-      .select('*')
-      .eq('id', position.instrument_id)
-      .single();
-
+    const instrument = position.instrument;
     if (!instrument) return res.status(404).json({ error: 'Instrument not found' });
 
     // Apply exit slippage
@@ -80,46 +75,57 @@ router.post('/:id/close', async (req, res) => {
     const charges = (spreadAmount * position.quantity * 0.01) + position.total_swap_fees;
     const netPnl = grossPnl - charges;
 
-    // Close position
-    await supabaseAdmin
-      .from('positions')
-      .update({
+    // ── Run ALL write operations IN PARALLEL ──
+    const [updateResult, , settleResult] = await Promise.all([
+      // 1. Close position
+      supabaseAdmin.from('positions').update({
         status: 'closed',
         current_price: exitPrice,
         realized_pnl: netPnl,
         close_reason: 'manual',
         closed_at: new Date().toISOString(),
-      })
-      .eq('id', position.id);
+      }).eq('id', position.id),
 
-    // Create trade record
-    await supabaseAdmin.from('trades').insert({
-      user_id: req.user.id,
-      instrument_id: instrument.id,
-      position_id: position.id,
-      symbol: position.symbol,
-      side: position.side === 'long' ? 'buy' : 'sell',
-      quantity: position.quantity,
-      entry_price: position.entry_price,
-      exit_price: exitPrice,
-      gross_pnl: grossPnl,
-      charges,
-      net_pnl: netPnl,
-      spread_revenue: spreadAmount * position.quantity * 0.01,
-      swap_revenue: position.total_swap_fees,
-      routing: position.routing,
-      opened_at: position.opened_at,
-    });
+      // 2. Create trade record
+      supabaseAdmin.from('trades').insert({
+        user_id: req.user.id,
+        instrument_id: instrument.id,
+        position_id: position.id,
+        symbol: position.symbol,
+        side: position.side === 'long' ? 'buy' : 'sell',
+        quantity: position.quantity,
+        entry_price: position.entry_price,
+        exit_price: exitPrice,
+        gross_pnl: grossPnl,
+        charges,
+        net_pnl: netPnl,
+        spread_revenue: spreadAmount * position.quantity * 0.01,
+        swap_revenue: position.total_swap_fees,
+        routing: position.routing,
+        opened_at: position.opened_at,
+      }),
 
-    // Atomic wallet settlement: PnL credit + margin release + ledger entry
-    const { error: settleErr } = await supabaseAdmin.rpc('settle_position_pnl', {
-      p_user_id: req.user.id,
-      p_net_pnl: netPnl,
-      p_margin_to_release: position.margin_used,
-      p_reference_id: position.id,
-      p_symbol: `${position.side.toUpperCase()} ${position.quantity} ${position.symbol}`,
-    });
-    if (settleErr) console.error('Settlement RPC error:', settleErr);
+      // 3. Atomic wallet settlement
+      supabaseAdmin.rpc('settle_position_pnl', {
+        p_user_id: req.user.id,
+        p_net_pnl: netPnl,
+        p_margin_to_release: position.margin_used,
+        p_reference_id: position.id,
+        p_symbol: `${position.side.toUpperCase()} ${position.quantity} ${position.symbol}`,
+      }),
+    ]);
+
+    if (settleResult.error) console.error('Settlement RPC error:', settleResult.error);
+
+    // ── Emit Socket.IO event for instant UI update ──
+    try {
+      const { getIO } = require('../ws/socketServer');
+      const io = getIO();
+      io.of('/user').to(`user:${req.user.id}`).emit('USER:ORDER_FILLED', {
+        position: { ...position, status: 'closed', current_price: exitPrice, realized_pnl: netPnl },
+        execution: { executed_price: exitPrice, reason: 'manual_close' },
+      });
+    } catch (e) { /* socket not available */ }
 
     res.json({
       message: 'Position closed',

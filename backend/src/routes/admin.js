@@ -286,15 +286,23 @@ router.post('/force-square-off/:userId', requireRole('super_admin', 'admin'), as
 
     if (!positions || positions.length === 0) return res.json({ message: 'No open positions' });
 
-    // Close all positions at current market
-    for (const pos of positions) {
-      const { data: instrument } = await supabaseAdmin.from('instruments').select('last_price').eq('id', pos.instrument_id).single();
-      const exitPrice = instrument.last_price;
+    // Batch fetch all instrument prices in ONE query
+    const instrumentIds = [...new Set(positions.map(p => p.instrument_id))];
+    const { data: instruments } = await supabaseAdmin.from('instruments').select('id, last_price').in('id', instrumentIds);
+    const priceMap = {};
+    (instruments || []).forEach(i => { priceMap[i.id] = i.last_price; });
+
+    // Close ALL positions IN PARALLEL
+    const now = new Date().toISOString();
+    await Promise.all(positions.map(pos => {
+      const exitPrice = priceMap[pos.instrument_id] || pos.current_price;
       const pnl = pos.side === 'long' ? (exitPrice - pos.entry_price) * pos.quantity : (pos.entry_price - exitPrice) * pos.quantity;
 
-      await supabaseAdmin.from('positions').update({ status: 'closed', realized_pnl: pnl, current_price: exitPrice, close_reason: reason || 'admin_force', closed_at: new Date().toISOString() }).eq('id', pos.id);
-      await supabaseAdmin.from('trades').insert({ user_id: pos.user_id, instrument_id: pos.instrument_id, position_id: pos.id, symbol: pos.symbol, side: pos.side === 'long' ? 'buy' : 'sell', quantity: pos.quantity, entry_price: pos.entry_price, exit_price: exitPrice, gross_pnl: pnl, net_pnl: pnl, charges: 0, routing: pos.routing, opened_at: pos.opened_at });
-    }
+      return Promise.all([
+        supabaseAdmin.from('positions').update({ status: 'closed', realized_pnl: pnl, current_price: exitPrice, close_reason: reason || 'admin_force', closed_at: now }).eq('id', pos.id),
+        supabaseAdmin.from('trades').insert({ user_id: pos.user_id, instrument_id: pos.instrument_id, position_id: pos.id, symbol: pos.symbol, side: pos.side === 'long' ? 'buy' : 'sell', quantity: pos.quantity, entry_price: pos.entry_price, exit_price: exitPrice, gross_pnl: pnl, net_pnl: pnl, charges: 0, routing: pos.routing, opened_at: pos.opened_at }),
+      ]);
+    }));
 
     // Release all margin
     await supabaseAdmin.from('wallets').update({ used_margin: 0 }).eq('user_id', req.params.userId);
@@ -314,21 +322,25 @@ router.post('/force-square-off-positions', requireRole('super_admin', 'admin'), 
     const { data: positions } = await supabaseAdmin.from('positions').select('*').in('id', positionIds).eq('status', 'open');
     if (!positions || positions.length === 0) return res.json({ message: 'No open positions found matching IDs' });
 
-    let closedCount = 0;
-    for (const pos of positions) {
-      const { data: instrument } = await supabaseAdmin.from('instruments').select('last_price').eq('id', pos.instrument_id).single();
-      const exitPrice = instrument ? instrument.last_price : pos.current_price;
+    // Batch fetch all instrument prices in ONE query
+    const instrumentIds = [...new Set(positions.map(p => p.instrument_id))];
+    const { data: instruments } = await supabaseAdmin.from('instruments').select('id, last_price').in('id', instrumentIds);
+    const priceMap = {};
+    (instruments || []).forEach(i => { priceMap[i.id] = i.last_price; });
+
+    // Close ALL positions IN PARALLEL
+    const now = new Date().toISOString();
+    await Promise.all(positions.map(pos => {
+      const exitPrice = priceMap[pos.instrument_id] || pos.current_price;
       const pnl = pos.side === 'long' ? (exitPrice - pos.entry_price) * pos.quantity : (pos.entry_price - exitPrice) * pos.quantity;
 
-      await supabaseAdmin.from('positions').update({ status: 'closed', realized_pnl: pnl, current_price: exitPrice, close_reason: reason, closed_at: new Date().toISOString() }).eq('id', pos.id);
-      await supabaseAdmin.from('trades').insert({ user_id: pos.user_id, instrument_id: pos.instrument_id, position_id: pos.id, symbol: pos.symbol, side: pos.side === 'long' ? 'buy' : 'sell', quantity: pos.quantity, entry_price: pos.entry_price, exit_price: exitPrice, gross_pnl: pnl, net_pnl: pnl, charges: 0, routing: pos.routing, opened_at: pos.opened_at });
-      closedCount++;
-    }
+      return Promise.all([
+        supabaseAdmin.from('positions').update({ status: 'closed', realized_pnl: pnl, current_price: exitPrice, close_reason: reason, closed_at: now }).eq('id', pos.id),
+        supabaseAdmin.from('trades').insert({ user_id: pos.user_id, instrument_id: pos.instrument_id, position_id: pos.id, symbol: pos.symbol, side: pos.side === 'long' ? 'buy' : 'sell', quantity: pos.quantity, entry_price: pos.entry_price, exit_price: exitPrice, gross_pnl: pnl, net_pnl: pnl, charges: 0, routing: pos.routing, opened_at: pos.opened_at }),
+      ]);
+    }));
 
-    // Attempt to recalculate wallets... skip for brevity or do a simple reset if all closed
-    // await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'force_square_off_positions', target_type: 'system', target_id: 'multiple', description: `Force closed ${closedCount} specific positions. Reason: ${reason}`, ip_address: req.ip });
-    
-    res.json({ message: `Successfully squared off ${closedCount} positions.` });
+    res.json({ message: `Successfully squared off ${positions.length} positions.` });
   } catch (err) {
     res.status(500).json({ error: 'Square-off positions failed' });
   }
@@ -339,22 +351,35 @@ router.post('/global-square-off', requireRole('super_admin'), async (req, res) =
     const { data: positions } = await supabaseAdmin.from('positions').select('*').eq('status', 'open');
     if (!positions || positions.length === 0) return res.json({ message: 'No open positions' });
 
-    for (const pos of positions) {
-      const { data: instrument } = await supabaseAdmin.from('instruments').select('last_price').eq('id', pos.instrument_id).single();
-      const exitPrice = instrument ? instrument.last_price : pos.current_price;
-      const pnl = pos.side === 'long' ? (exitPrice - pos.entry_price) * pos.quantity : (pos.entry_price - exitPrice) * pos.quantity;
+    // Batch fetch all instrument prices in ONE query
+    const instrumentIds = [...new Set(positions.map(p => p.instrument_id))];
+    const { data: instruments } = await supabaseAdmin.from('instruments').select('id, last_price').in('id', instrumentIds);
+    const priceMap = {};
+    (instruments || []).forEach(i => { priceMap[i.id] = i.last_price; });
 
-      await supabaseAdmin.from('positions').update({ status: 'closed', realized_pnl: pnl, current_price: exitPrice, close_reason: 'global_kill_switch', closed_at: new Date().toISOString() }).eq('id', pos.id);
-      await supabaseAdmin.from('trades').insert({ user_id: pos.user_id, instrument_id: pos.instrument_id, position_id: pos.id, symbol: pos.symbol, side: pos.side === 'long' ? 'buy' : 'sell', quantity: pos.quantity, entry_price: pos.entry_price, exit_price: exitPrice, gross_pnl: pnl, net_pnl: pnl, charges: 0, routing: pos.routing, opened_at: pos.opened_at });
+    // Close ALL positions IN PARALLEL (batches of 20 to avoid overwhelming Supabase)
+    const now = new Date().toISOString();
+    const batchSize = 20;
+    for (let i = 0; i < positions.length; i += batchSize) {
+      const batch = positions.slice(i, i + batchSize);
+      await Promise.all(batch.map(pos => {
+        const exitPrice = priceMap[pos.instrument_id] || pos.current_price;
+        const pnl = pos.side === 'long' ? (exitPrice - pos.entry_price) * pos.quantity : (pos.entry_price - exitPrice) * pos.quantity;
+
+        return Promise.all([
+          supabaseAdmin.from('positions').update({ status: 'closed', realized_pnl: pnl, current_price: exitPrice, close_reason: 'global_kill_switch', closed_at: now }).eq('id', pos.id),
+          supabaseAdmin.from('trades').insert({ user_id: pos.user_id, instrument_id: pos.instrument_id, position_id: pos.id, symbol: pos.symbol, side: pos.side === 'long' ? 'buy' : 'sell', quantity: pos.quantity, entry_price: pos.entry_price, exit_price: exitPrice, gross_pnl: pnl, net_pnl: pnl, charges: 0, routing: pos.routing, opened_at: pos.opened_at }),
+        ]);
+      }));
     }
 
-    // Zero out all used_margins for all active wallets
+    // Zero out all used_margins for all affected users IN PARALLEL
     const usersWithPositions = [...new Set(positions.map(p => p.user_id))];
-    for (const userId of usersWithPositions) {
-      await supabaseAdmin.from('wallets').update({ used_margin: 0 }).eq('user_id', userId);
-    }
+    await Promise.all(usersWithPositions.map(userId =>
+      supabaseAdmin.from('wallets').update({ used_margin: 0 }).eq('user_id', userId)
+    ));
 
-    await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'global_kill_switch', target_type: 'system', target_id: 'all', description: `Global square-off triggered. Closed ${positions.length} positions.`, ip_address: req.ip });
+    await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'global_kill_switch', target_type: 'system', target_id: 'all', description: `Global square-off completed. Closed ${positions.length} positions.`, ip_address: req.ip });
     res.json({ message: `Global square-off completed. Closed ${positions.length} positions.` });
   } catch (err) {
     res.status(500).json({ error: 'Global square-off failed' });

@@ -42,29 +42,22 @@ router.post('/', async (req, res) => {
       return res.status(403).json({ error: riskCheck.reason });
     }
 
-    // Get instrument
-    const { data: instrument } = await supabaseAdmin
-      .from('instruments')
-      .select('*')
-      .eq('symbol', symbol.toUpperCase())
-      .eq('is_active', true)
-      .single();
+    // ── Fetch instrument, wallet, and spread profile IN PARALLEL ──
+    const [instrumentResult, walletResult] = await Promise.all([
+      supabaseAdmin.from('instruments').select('*').eq('symbol', symbol.toUpperCase()).eq('is_active', true).single(),
+      supabaseAdmin.from('wallets').select('*').eq('user_id', userId).single(),
+    ]);
+
+    const instrument = instrumentResult.data;
+    const wallet = walletResult.data;
 
     if (!instrument) return res.status(404).json({ error: 'Instrument not found or inactive' });
     if (!instrument.trading_enabled) return res.status(403).json({ error: 'Trading disabled for this instrument' });
     if (side === 'buy' && !instrument.buy_enabled) return res.status(403).json({ error: 'Buying disabled for this instrument' });
     if (side === 'sell' && !instrument.sell_enabled) return res.status(403).json({ error: 'Selling disabled for this instrument' });
-
-    // Get wallet
-    const { data: wallet } = await supabaseAdmin
-      .from('wallets')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
     if (!wallet) return res.status(404).json({ error: 'Wallet not found' });
 
-    // ── Calculate execution price with SPREAD & SLIPPAGE (House Edge) ──
+    // Fetch spread profile (depends on profile.tier + instrument.segment)
     const { data: spreadProfile } = await supabaseAdmin
       .from('spread_profiles')
       .select('*')

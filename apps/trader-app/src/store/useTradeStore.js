@@ -278,24 +278,20 @@ export const useTradeStore = create((set, get) => ({
       set({ orderLoading: false });
       
       // Backend returns 202 (queued) for market orders.
-      // The BullMQ worker processes it asynchronously.
-      // On free Render, the worker can take 2-5s, so we retry multiple times.
-      const refreshAfterOrder = () => {
-        get().fetchPositions();
-        get().fetchOrders();
-        get().fetchWallet();
-      };
-
+      // The BullMQ worker processes it asynchronously and notifies via Socket.IO.
+      // We do a single deferred refresh as a fallback in case socket event is missed.
       if (data.status === 'queued') {
-        // Retry at 1s, 3s, and 6s to catch the worker completion
-        setTimeout(refreshAfterOrder, 1000);
-        setTimeout(refreshAfterOrder, 3000);
-        setTimeout(refreshAfterOrder, 6000);
+        setTimeout(() => {
+          get().fetchPositions();
+          get().fetchOrders();
+          get().fetchWallet();
+        }, 2000);
         return { success: true, message: data.message || 'Order accepted for execution', ...data };
       }
       
       // Fallback for non-queued responses (limit orders, etc.)
-      refreshAfterOrder();
+      get().fetchPositions();
+      get().fetchOrders();
       return { success: true, ...data };
     } catch (err) {
       set({ orderLoading: false });
@@ -325,10 +321,12 @@ export const useTradeStore = create((set, get) => ({
       set((state) => ({
         positions: state.positions.filter(p => p.id !== id),
       }));
-      // Then refresh from server to get authoritative state
-      get().fetchPositions();
-      get().fetchWallet();
-      get().fetchHistory();
+      // The backend now emits a Socket.IO event on close, which triggers handleOrderFilled.
+      // We do a single deferred wallet refresh as fallback.
+      setTimeout(() => {
+        get().fetchWallet();
+        get().fetchHistory();
+      }, 1000);
       return { success: true, ...data };
     } catch (err) {
       // Refresh positions in case server already closed it
@@ -705,9 +703,9 @@ export const useTradeStore = create((set, get) => ({
       set({ _notificationInterval: interval });
     }
 
-    // ── Periodic data sync (every 10 seconds) ──
+    // ── Periodic data sync (every 30 seconds) ──
     // Keeps wallet, positions, and orders in sync across devices.
-    // Without this, trading on laptop wouldn't reflect on mobile until page reload.
+    // Socket.IO events handle real-time updates; this is just a safety net.
     if (get()._dataSyncInterval) clearInterval(get()._dataSyncInterval);
     const syncInterval = setInterval(() => {
       if (get().isAuthenticated) {
@@ -715,7 +713,7 @@ export const useTradeStore = create((set, get) => ({
         get().fetchPositions();
         get().fetchOrders();
       }
-    }, 10000);
+    }, 30000);
     set({ _dataSyncInterval: syncInterval });
 
     // ── Visibility change handler ──
