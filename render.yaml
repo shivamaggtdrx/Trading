@@ -68,6 +68,9 @@ services:
     rootDir: apps/landing
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://stockslab-backend.onrender.com/api
     routes:
       - type: rewrite
         source: /*
