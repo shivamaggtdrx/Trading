@@ -91,20 +91,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// ── Render Free Tier Keep-Alive ──
-// Render puts free web services to sleep after 15 minutes of inactivity.
-// This cron pings the server's own external URL every 10 minutes to keep it awake.
-const cron = require('node-cron');
-const axios = require('axios');
-cron.schedule('*/10 * * * *', async () => {
-  const externalUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
-  try {
-    await axios.get(`${externalUrl}/health`);
-    console.log(`[Keep-Alive] Pinged ${externalUrl}/health successfully`);
-  } catch (err) {
-    console.warn(`[Keep-Alive] Ping failed:`, err.message);
-  }
-});
+// NOTE: Render keep-alive cron removed — Oracle Cloud VM is always-on, no sleep mode.
 
 // ── Ready Check (degraded state detection) ──
 app.get('/ready', (req, res) => {

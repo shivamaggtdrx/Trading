@@ -1,0 +1,30 @@
+# ── Dependencies ──
+node_modules/
+npm-debug.log*
+
+# ── Environment ──
+.env
+.env.local
+.env.*.local
+
+# ── Logs ──
+logs/
+*.log
+error.log
+
+# ── IDE/OS ──
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── Test files ──
+*_test.js
+*_test2.js
+scratch_test.js
+download_test.js
+download_json_test.js
+
+# ── Git ──
+.git/
+.gitignore
