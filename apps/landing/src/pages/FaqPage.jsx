@@ -1,4 +1,5 @@
 import SEO from '../components/SEO';
+import { Helmet } from 'react-helmet-async';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HelpCircle, ChevronDown, MessageSquare, Search, PhoneCall } from 'lucide-react';
@@ -130,6 +131,22 @@ export default function FaqPage() {
   return (
     <>
       <SEO title="FAQ & Help Center" description="Find answers to common questions about trading, deposits, withdrawals, and account security." url="/faq" />
+      <Helmet>
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": faqs.flatMap(cat => cat.questions).map(faq => ({
+              "@type": "Question",
+              "name": faq.q,
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": faq.a
+              }
+            }))
+          })}
+        </script>
+      </Helmet>
     <main className="pt-20 pb-20 bg-slate-50 min-h-screen">
       
       {/* Hero Section */}

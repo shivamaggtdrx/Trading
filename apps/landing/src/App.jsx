@@ -19,6 +19,9 @@ import FloatingChat from './components/FloatingChat';
 import CalculatorPage from './pages/CalculatorPage';
 import PricingPage from './pages/PricingPage';
 import ComparePage from './pages/ComparePage';
+import DabbaTradingSEO from './pages/blogs/DabbaTradingSEO';
+import Tradex1Review from './pages/blogs/Tradex1Review';
+import MarkettradeReview from './pages/blogs/MarkettradeReview';
 
 function App() {
   return (
@@ -45,6 +48,9 @@ function App() {
                 <Route path="/faq" element={<FaqPage />} />
                 <Route path="/calculator" element={<CalculatorPage />} />
                 <Route path="/compare" element={<ComparePage />} />
+                <Route path="/blog/what-is-dabba-trading" element={<DabbaTradingSEO />} />
+                <Route path="/blog/tradex1-review" element={<Tradex1Review />} />
+                <Route path="/blog/markettrade-review" element={<MarkettradeReview />} />
               </Routes>
               <Footer />
               <FloatingChat />

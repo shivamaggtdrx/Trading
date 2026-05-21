@@ -52,25 +52,28 @@ export default function NewsPage() {
 
   const blogs = [
     {
-      title: "Understanding Options Trading: A Beginner's Guide",
-      excerpt: "Dive into the world of derivatives. Learn the basics of calls, puts, and how to leverage options for maximum profit with minimal risk.",
-      date: "Oct 24, 2024",
-      category: "Education",
-      image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+      title: "The Truth About Dabba Trading in India & Safer Alternatives",
+      excerpt: "Learn what dabba trading is, why it's illegal, and how to use safe, high-performance simulated trading platforms instead.",
+      date: "Oct 24, 2026",
+      category: "Market Education",
+      image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+      link: "/blog/what-is-dabba-trading"
     },
     {
-      title: "Top 5 Strategies for Intraday Trading in Indian Markets",
-      excerpt: "Master the art of day trading. Discover the technical indicators and psychological frameworks used by the top 1% of intraday traders.",
-      date: "Oct 18, 2024",
-      category: "Strategy",
-      image: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+      title: "Tradex1 Review 2026: Why Top Traders Are Switching",
+      excerpt: "Discover the hidden fees, server latency issues, and why Stocks Lab is considered the best alternative in India.",
+      date: "Oct 18, 2026",
+      category: "Platform Review",
+      image: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+      link: "/blog/tradex1-review"
     },
     {
-      title: "Global Macro Trends: How US Elections Impact Forex",
-      excerpt: "An in-depth analysis of geopolitical events and their direct correlation with major currency pairs and commodity prices.",
-      date: "Oct 12, 2024",
-      category: "Market Analysis",
-      image: "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+      title: "Markettrade Platform Review: Pros, Cons, and Alternatives",
+      excerpt: "A detailed review of the Markettrade platform. Find out about its hidden fees, customer service issues, and discover better alternatives.",
+      date: "Oct 12, 2026",
+      category: "Platform Review",
+      image: "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+      link: "/blog/markettrade-review"
     }
   ];
 
@@ -150,37 +153,39 @@ export default function NewsPage() {
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: idx * 0.1 }}
-                    className="bg-white rounded-2xl overflow-hidden shadow-lg shadow-slate-200/40 border border-slate-100 hover:-translate-y-1 hover:shadow-xl transition-all group cursor-pointer"
+                    className="bg-white rounded-2xl overflow-hidden shadow-lg shadow-slate-200/40 border border-slate-100 hover:-translate-y-1 hover:shadow-xl transition-all group cursor-pointer block"
                   >
-                    <div className="h-48 overflow-hidden relative">
-                      <div className="absolute inset-0 bg-slate-900/20 group-hover:bg-transparent transition-colors z-10"></div>
-                      <img 
-                        src={blog.image} 
-                        alt={blog.title} 
-                        className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute top-4 left-4 z-20">
-                        <span className="bg-primary/90 backdrop-blur-sm text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full">
-                          {blog.category}
+                    <Link to={blog.link} className="block h-full w-full">
+                      <div className="h-48 overflow-hidden relative">
+                        <div className="absolute inset-0 bg-slate-900/20 group-hover:bg-transparent transition-colors z-10"></div>
+                        <img 
+                          src={blog.image} 
+                          alt={blog.title} 
+                          className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-4 left-4 z-20">
+                          <span className="bg-primary/90 backdrop-blur-sm text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                            {blog.category}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="p-6">
+                        <div className="flex items-center space-x-2 text-slate-400 text-sm mb-3">
+                          <Calendar size={14} />
+                          <span>{blog.date}</span>
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-900 mb-3 group-hover:text-primary transition-colors leading-tight">
+                          {blog.title}
+                        </h3>
+                        <p className="text-slate-600 text-sm mb-4 line-clamp-3">
+                          {blog.excerpt}
+                        </p>
+                        <span className="text-primary font-bold text-sm flex items-center space-x-1 group-hover:space-x-2 transition-all">
+                          <span>Read Article</span>
+                          <ArrowRight size={16} />
                         </span>
                       </div>
-                    </div>
-                    <div className="p-6">
-                      <div className="flex items-center space-x-2 text-slate-400 text-sm mb-3">
-                        <Calendar size={14} />
-                        <span>{blog.date}</span>
-                      </div>
-                      <h3 className="text-xl font-bold text-slate-900 mb-3 group-hover:text-primary transition-colors leading-tight">
-                        {blog.title}
-                      </h3>
-                      <p className="text-slate-600 text-sm mb-4 line-clamp-3">
-                        {blog.excerpt}
-                      </p>
-                      <span className="text-primary font-bold text-sm flex items-center space-x-1 group-hover:space-x-2 transition-all">
-                        <span>Read Article</span>
-                        <ArrowRight size={16} />
-                      </span>
-                    </div>
+                    </Link>
                   </motion.div>
                 ))}
               </div>
