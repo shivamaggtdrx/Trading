@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
@@ -78,6 +79,8 @@ export default function Register() {
   }, []);
 
   return (
+    <>
+      <SEO title="Open an Account" description="Create your trading account in minutes and start trading global markets instantly." url="/register" />
     <div className="min-h-screen bg-slate-50 flex">
       {/* Left Side - Branding & Benefits */}
       <div className="hidden lg:flex w-5/12 bg-slate-900 relative flex-col justify-between p-12 overflow-hidden text-white">
@@ -288,5 +291,7 @@ export default function Register() {
         </motion.div>
       </div>
     </div>
+  
+    </>
   );
 }

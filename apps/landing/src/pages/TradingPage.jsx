@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React, { useEffect, useRef } from 'react';
 import { ArrowRight, CheckCircle, PieChart, Activity, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -49,6 +50,8 @@ export default function TradingPage() {
   }
 
   return (
+    <>
+      <SEO title="Trading Platform" description="Access advanced charting, deep liquidity, and professional trading tools." url="/trading" />
     <main className="pt-20 pb-10">
       {/* Hero Section */}
       <section className="relative py-24 lg:py-36 bg-slate-900 text-white overflow-hidden">
@@ -186,5 +189,7 @@ export default function TradingPage() {
 
       <CTA />
     </main>
+  
+    </>
   );
 }

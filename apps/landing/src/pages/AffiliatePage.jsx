@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Users, TrendingUp, DollarSign, Gift, ArrowRight } from 'lucide-react';
@@ -8,6 +9,8 @@ export default function AffiliatePage() {
   }, []);
 
   return (
+    <>
+      <SEO title="Affiliate Program" description="Join the Trade Smarter Affiliate Program and earn high commissions by referring new traders." url="/affiliate" />
     <main className="pt-20 pb-20 bg-slate-50 min-h-screen">
       
       {/* Hero Section */}
@@ -169,5 +172,7 @@ export default function AffiliatePage() {
       </section>
 
     </main>
+  
+    </>
   );
 }

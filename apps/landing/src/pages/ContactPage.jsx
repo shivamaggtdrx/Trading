@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, MapPin, Phone, MessageCircle, Send, Globe } from 'lucide-react';
@@ -8,6 +9,8 @@ export default function ContactPage() {
   }, []);
 
   return (
+    <>
+      <SEO title="Contact Us" description="Get in touch with our 24/7 support team for any trading or account inquiries." url="/contact" />
     <main className="pt-20 pb-20 bg-slate-50 min-h-screen">
       
       {/* Hero Section */}
@@ -184,5 +187,7 @@ export default function ContactPage() {
       </section>
 
     </main>
+  
+    </>
   );
 }

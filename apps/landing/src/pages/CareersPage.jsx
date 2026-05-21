@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Briefcase, MapPin, Clock, ArrowRight, Heart, Zap, Globe, Users } from 'lucide-react';
@@ -63,6 +64,8 @@ export default function CareersPage() {
   ];
 
   return (
+    <>
+      <SEO title="Careers" description="Join the team building the future of high-performance trading platforms." url="/careers" />
     <main className="pt-20 pb-20 bg-slate-50 min-h-screen">
       
       {/* Hero Section */}
@@ -196,5 +199,7 @@ export default function CareersPage() {
       </section>
 
     </main>
+  
+    </>
   );
 }

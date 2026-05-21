@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Newspaper, TrendingUp, Calendar, ArrowRight } from 'lucide-react';
@@ -74,6 +75,8 @@ export default function NewsPage() {
   ];
 
   return (
+    <>
+      <SEO title="Market News & Analysis" description="Stay updated with the latest market news, economic events, and expert trading analysis." url="/news" />
     <main className="pt-20 pb-20 bg-slate-50 min-h-screen">
       
       {/* Hero Section */}
@@ -217,5 +220,7 @@ export default function NewsPage() {
       </section>
 
     </main>
+  
+    </>
   );
 }

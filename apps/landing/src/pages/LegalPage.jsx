@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useParams, Navigate, Link } from 'react-router-dom';
@@ -17,6 +18,8 @@ export default function LegalPage() {
   }
 
   return (
+    <>
+      <SEO title="Legal & Compliance" description="Review our terms of service, privacy policy, and compliance documentation." url="/legal" />
     <main className="pt-24 pb-20 bg-slate-50 min-h-screen">
       <div className="container mx-auto px-4 md:px-6">
         
@@ -94,5 +97,7 @@ export default function LegalPage() {
         </div>
       </div>
     </main>
+  
+    </>
   );
 }

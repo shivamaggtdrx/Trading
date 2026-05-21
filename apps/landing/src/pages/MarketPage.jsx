@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React, { useEffect, useRef } from 'react';
 import { ArrowRight, CheckCircle, BarChart3, Globe2, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -60,6 +61,8 @@ export default function MarketPage() {
   }
 
   return (
+    <>
+      <SEO title="Global Markets" description="Trade Forex, Crypto, Stocks, and Commodities on a single high-performance platform." url="/markets" />
     <main className="pt-20 pb-10">
       {/* Hero Section */}
       <section className="relative py-24 lg:py-36 bg-slate-900 text-white overflow-hidden">
@@ -193,5 +196,7 @@ export default function MarketPage() {
 
       <CTA />
     </main>
+  
+    </>
   );
 }

@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Users, Share2, Wallet, Gift, ArrowRight, CheckCircle2, Copy, LogOut } from 'lucide-react';
@@ -27,6 +28,8 @@ export default function ReferralPage() {
   ];
 
   return (
+    <>
+      <SEO title="Referral Program" description="Invite friends to Trade Smarter and earn rewards for every successful referral." url="/referral" />
     <main className="pt-20 pb-20 bg-slate-50 min-h-screen">
       
       {/* Hero Section */}
@@ -172,5 +175,7 @@ export default function ReferralPage() {
       </section>
 
     </main>
+  
+    </>
   );
 }

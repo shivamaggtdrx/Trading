@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React, { useEffect } from 'react';
 import { CheckCircle, XCircle, ArrowRight, ShieldCheck, Zap, Percent } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -39,6 +40,8 @@ export default function PricingPage() {
   ];
 
   return (
+    <>
+      <SEO title="Pricing & Fees" description="Transparent pricing with zero hidden fees. Compare our competitive spreads and commissions." url="/pricing" />
     <main className="pt-20 pb-10 min-h-screen bg-slate-50">
       {/* Hero Section */}
       <section className="relative py-24 lg:py-32 bg-slate-900 text-white overflow-hidden">
@@ -166,5 +169,7 @@ export default function PricingPage() {
 
       <CTA />
     </main>
+  
+    </>
   );
 }

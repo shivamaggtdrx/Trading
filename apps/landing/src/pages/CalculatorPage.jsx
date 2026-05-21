@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React, { useState, useEffect } from 'react';
 import { Calculator, IndianRupee, ArrowRight, Percent, Info } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -31,6 +32,8 @@ export default function CalculatorPage() {
   const leveragePercentage = (1 / leverage) * 100;
 
   return (
+    <>
+      <SEO title="Trading Calculator" description="Calculate your potential profits, margins, and pip values with our advanced trading calculator." url="/calculator" />
     <main className="pt-20 pb-20 bg-slate-50 min-h-screen">
       
       {/* Hero Section */}
@@ -190,5 +193,7 @@ export default function CalculatorPage() {
       </section>
       
     </main>
+  
+    </>
   );
 }

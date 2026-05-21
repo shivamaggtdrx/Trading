@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -100,6 +101,8 @@ export default function WhyUsPage() {
   ];
 
   return (
+    <>
+      <SEO title="Why Choose Us" description="Discover why professional traders choose our platform for execution speed and reliability." url="/why-us" />
     <main className="pt-20 pb-20 bg-slate-50 min-h-screen">
       
       {/* Hero Section */}
@@ -325,5 +328,7 @@ export default function WhyUsPage() {
       </section>
 
     </main>
+  
+    </>
   );
 }

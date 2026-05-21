@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React from 'react';
 import Hero from '../components/Hero';
 import WhyUs from '../components/WhyUs';
@@ -11,6 +12,8 @@ import CTA from '../components/CTA';
 
 export default function Home() {
   return (
+    <>
+      <SEO title="Trade Smarter" description="Experience lightning-fast execution and real-time market data across global assets." url="/" />
     <main>
       <Hero />
       <WhyUs />
@@ -22,5 +25,7 @@ export default function Home() {
       <FAQ />
       <CTA />
     </main>
+  
+    </>
   );
 }

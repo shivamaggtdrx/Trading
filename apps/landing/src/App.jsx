@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -20,7 +21,8 @@ import PricingPage from './pages/PricingPage';
 
 function App() {
   return (
-    <Router>
+    <HelmetProvider>
+      <Router>
       <div className="min-h-screen bg-fintech-gray font-sans selection:bg-primary selection:text-white">
         <Routes>
           <Route path="/register" element={<Register />} />
@@ -48,7 +50,8 @@ function App() {
           } />
         </Routes>
       </div>
-    </Router>
+      </Router>
+    </HelmetProvider>
   );
 }
 

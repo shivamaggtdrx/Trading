@@ -1,3 +1,4 @@
+import SEO from '../components/SEO';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HelpCircle, ChevronDown, MessageSquare, Search, PhoneCall } from 'lucide-react';
@@ -114,6 +115,8 @@ export default function FaqPage() {
   })).filter(category => category.questions.length > 0);
 
   return (
+    <>
+      <SEO title="FAQ & Help Center" description="Find answers to common questions about trading, deposits, withdrawals, and account security." url="/faq" />
     <main className="pt-20 pb-20 bg-slate-50 min-h-screen">
       
       {/* Hero Section */}
@@ -234,5 +237,6 @@ export default function FaqPage() {
       </section>
 
     </main>
+    </>
   );
 }
