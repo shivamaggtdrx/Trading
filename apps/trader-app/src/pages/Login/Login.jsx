@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTradeStore } from '../../store/useTradeStore';
 import { Eye, EyeOff, TrendingUp, ArrowRight, ShieldCheck, Zap, BarChart3, Activity, AlertCircle } from 'lucide-react';
