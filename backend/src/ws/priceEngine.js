@@ -172,12 +172,11 @@ async function flushPricesToDb() {
  * Local Simulator - strictly used in development fallback ONLY
  */
 async function startMockFeed() {
-  // If in production, DO NOT start the mock simulator under any circumstances!
-  if (process.env.NODE_ENV === 'production') {
-    feedLogger.info('Production mode detected. Local mock simulator is disabled in production per safety guidelines.');
-    return;
-  }
-
+  // We allow the mock simulator in production as a fallback because public NSE APIs
+  // often block datacenter IPs (like Render/AWS) via Akamai WAF.
+  // The simulator only runs if no real ticks are received for >10s.
+  feedLogger.info('Initializing fallback local mock simulator (active only if real feed dies).');
+  
   try {
     const { supabaseAdmin } = require('../config/supabase');
     
