@@ -333,7 +333,12 @@ export default function Trade() {
                 {formatCurrency(totalValue)}
               </span>
             </div>
-            <div className={cn(debugStats?.staleWarning ? 'opacity-50 pointer-events-none' : '')}>
+            <div className={cn(debugStats?.staleWarning ? 'opacity-80' : '')}>
+              {debugStats?.staleWarning && (
+                <div className="text-center text-xs text-orange-500 font-bold mb-2">
+                  Market feed delayed. Execution price may vary.
+                </div>
+              )}
               <SlideToConfirm
                 onConfirm={handleConfirmOrder}
                 label={`Slide to ${orderSide === 'buy' ? 'Buy' : 'Sell'} ${instrument.symbol}`}
