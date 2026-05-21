@@ -315,10 +315,18 @@ export const useTradeStore = create((set, get) => ({
   closePosition: async (id) => {
     try {
       const data = await api.closePosition(id);
+      // Immediately remove the position from local state for instant feedback
+      set((state) => ({
+        positions: state.positions.filter(p => p.id !== id),
+      }));
+      // Then refresh from server to get authoritative state
       get().fetchPositions();
       get().fetchWallet();
+      get().fetchHistory();
       return { success: true, ...data };
     } catch (err) {
+      // Refresh positions in case server already closed it
+      get().fetchPositions();
       return { success: false, error: err.message };
     }
   },

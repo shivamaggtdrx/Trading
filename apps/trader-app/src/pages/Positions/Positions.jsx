@@ -9,6 +9,8 @@ import { usePullToRefresh, PullIndicator } from '../../hooks/usePullToRefresh';
 export default function Positions() {
   const { positions, closePosition, fetchPositions } = useTradeStore();
   const [closingId, setClosingId] = useState(null);
+  const [closeLoading, setCloseLoading] = useState(false);
+  const [closeError, setCloseError] = useState(null);
   const [selectAll, setSelectAll] = useState(false);
 
   const totalPnl = positions.reduce((sum, p) => sum + (p.pnl || 0), 0);
@@ -21,7 +23,25 @@ export default function Positions() {
 
   const { containerProps, isRefreshing, pullProgress } = usePullToRefresh(onRefresh);
 
-  const handleClose = () => { if (closingId) { closePosition(closingId); setClosingId(null); } };
+  const handleClose = async () => {
+    if (!closingId || closeLoading) return;
+    setCloseLoading(true);
+    setCloseError(null);
+    try {
+      const result = await closePosition(closingId);
+      if (result?.success) {
+        setClosingId(null);
+        // Refresh positions and wallet to reflect the closed position
+        await fetchPositions();
+      } else {
+        setCloseError(result?.error || 'Failed to close position');
+      }
+    } catch (err) {
+      setCloseError(err.message || 'Failed to close position');
+    } finally {
+      setCloseLoading(false);
+    }
+  };
 
   
   return (
@@ -122,9 +142,16 @@ export default function Positions() {
                   </div>
                 </div>
               </div>
+              {closeError && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 text-sm text-red-400 font-medium">
+                  {closeError}
+                </div>
+              )}
               <div className="flex gap-3">
-                <Button variant="outline" fullWidth size="lg" onClick={() => setClosingId(null)}>Cancel</Button>
-                <Button variant="danger" fullWidth size="lg" onClick={handleClose}>Close Position</Button>
+                <Button variant="outline" fullWidth size="lg" onClick={() => { setClosingId(null); setCloseError(null); }} disabled={closeLoading}>Cancel</Button>
+                <Button variant="danger" fullWidth size="lg" onClick={handleClose} disabled={closeLoading}>
+                  {closeLoading ? 'Closing...' : 'Close Position'}
+                </Button>
               </div>
             </div>
           );
