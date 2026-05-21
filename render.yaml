@@ -1,5 +1,7 @@
 services:
-  # ── Backend Web Service ──
+  # ── Backend Web Service (Render) ──
+  # NOTE: Static sites (trader-app, admin-panel, landing) are hosted on
+  # Cloudflare Pages for unlimited bandwidth. Only the backend API runs on Render.
   - type: web
     name: stockslab-backend
     runtime: node
@@ -18,12 +20,14 @@ services:
         value: "sb_publishable_LurXMNnUUffQ7Ca987yZdg_VDOaeRxq"
       - key: JWT_SECRET
         generateValue: true
+      # ── CORS Origins (Cloudflare Pages URLs) ──
+      # Update these after deploying frontends on Cloudflare Pages
       - key: FRONTEND_URL
-        value: https://stockslab-app.onrender.com
+        value: https://stockslab-app.pages.dev
       - key: ADMIN_URL
-        value: https://stockslab-admin.onrender.com
+        value: https://stockslab-admin.pages.dev
       - key: LANDING_URL
-        value: https://stockslab-landing.onrender.com
+        value: https://stockslab-landing.pages.dev
       - key: REDIS_URL
         value: "rediss://default:AVNS_g0bUjO18cC10kZn-k5e@valkey-31947b9e-stockslab.j.aivencloud.com:15432"
       - key: FINNHUB_API_KEY
@@ -31,49 +35,8 @@ services:
       - key: SENTRY_DSN
         value: "your_sentry_dsn_url"
 
-  # ── Trader App (Static Site) ──
-  - type: web
-    name: stockslab-app
-    runtime: static
-    rootDir: apps/trader-app
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://stockslab-backend.onrender.com/api
-      - key: VITE_WS_URL
-        value: wss://stockslab-backend.onrender.com/ws/prices
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-
-  # ── Admin Panel (Static Site) ──
-  - type: web
-    name: stockslab-admin
-    runtime: static
-    rootDir: apps/admin-panel
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://stockslab-backend.onrender.com/api
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-
-  # ── Landing Page Website (Static Site) ──
-  - type: web
-    name: stockslab-landing
-    runtime: static
-    rootDir: apps/landing
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://stockslab-backend.onrender.com/api
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
+  # ── Static Sites moved to Cloudflare Pages ──
+  # Trader App:   Deploy on Cloudflare Pages (root: apps/trader-app, build: npm run build, output: dist)
+  # Admin Panel:  Deploy on Cloudflare Pages (root: apps/admin-panel, build: npm run build, output: dist)
+  # Landing Page: Deploy on Cloudflare Pages (root: apps/landing, build: npm run build, output: dist)
+  # See DEPLOYMENT.md for setup instructions.
