@@ -151,10 +151,16 @@ export const useTradeStore = create((set, get) => ({
     if (get()._notificationInterval) {
       clearInterval(get()._notificationInterval);
     }
+    if (get()._dataSyncInterval) {
+      clearInterval(get()._dataSyncInterval);
+    }
+    if (get()._visibilityHandler) {
+      document.removeEventListener('visibilitychange', get()._visibilityHandler);
+    }
     set({
       isAuthenticated: false, user: null, wallet: null,
       instruments: [], positions: [], orders: [], tradeHistory: [],
-      _notificationInterval: null, _initializing: false
+      _notificationInterval: null, _dataSyncInterval: null, _visibilityHandler: null, _initializing: false
     });
   },
 
@@ -661,6 +667,9 @@ export const useTradeStore = create((set, get) => ({
   },
 
   _initializing: false,
+  _dataSyncInterval: null,
+  _visibilityHandler: null,
+
   loadInitialData: async () => {
     // Guard against double-calls (React 18 StrictMode, etc.)
     if (get()._initializing) return;
@@ -695,6 +704,36 @@ export const useTradeStore = create((set, get) => ({
       }, 30000);
       set({ _notificationInterval: interval });
     }
+
+    // ── Periodic data sync (every 10 seconds) ──
+    // Keeps wallet, positions, and orders in sync across devices.
+    // Without this, trading on laptop wouldn't reflect on mobile until page reload.
+    if (get()._dataSyncInterval) clearInterval(get()._dataSyncInterval);
+    const syncInterval = setInterval(() => {
+      if (get().isAuthenticated) {
+        get().fetchWallet();
+        get().fetchPositions();
+        get().fetchOrders();
+      }
+    }, 10000);
+    set({ _dataSyncInterval: syncInterval });
+
+    // ── Visibility change handler ──
+    // When user switches back to the app/tab, immediately refresh all data.
+    // This is critical for mobile where the app may have been backgrounded.
+    if (get()._visibilityHandler) {
+      document.removeEventListener('visibilitychange', get()._visibilityHandler);
+    }
+    const visHandler = () => {
+      if (document.visibilityState === 'visible' && get().isAuthenticated) {
+        get().fetchWallet();
+        get().fetchPositions();
+        get().fetchOrders();
+        get().fetchHistory();
+      }
+    };
+    document.addEventListener('visibilitychange', visHandler);
+    set({ _visibilityHandler: visHandler });
     
     set({ isLoading: false, _initializing: false });
   },
