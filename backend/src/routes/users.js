@@ -36,6 +36,15 @@ router.put('/profile', async (req, res) => {
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
+
+    // Invalidate Redis profile cache
+    const { redisClient } = require('../redis/client');
+    try {
+      await redisClient.del(`auth:user:profile:${req.user.id}`);
+    } catch (e) {
+      console.warn('Failed to invalidate Redis cache:', e.message);
+    }
+
     res.json({ profile: data });
   } catch (err) {
     res.status(500).json({ error: 'Update failed' });
@@ -83,6 +92,161 @@ router.put('/watchlist', async (req, res) => {
     res.json({ watchlist: data.data });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update watchlist' });
+  }
+});
+
+/**
+ * POST /api/users/kyc
+ * Submit KYC documents (Base64 file upload)
+ */
+router.post('/kyc', async (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+
+  try {
+    const { document_type, document_number, front_image, back_image } = req.body;
+
+    if (!document_type) {
+      return res.status(400).json({ error: 'document_type is required' });
+    }
+
+    if (!['aadhaar', 'pan', 'driving_licence'].includes(document_type)) {
+      return res.status(400).json({ error: 'Invalid document type. Allowed: aadhaar, pan, driving_licence' });
+    }
+
+    if (!front_image) {
+      return res.status(400).json({ error: 'Front image is required' });
+    }
+
+    // Aadhar and Driving Licence require both front and back images
+    if (['aadhaar', 'driving_licence'].includes(document_type) && !back_image) {
+      return res.status(400).json({ error: 'Back image is required for this document type' });
+    }
+
+    // Check existing kyc status
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('kyc_status')
+      .eq('id', req.user.id)
+      .single();
+
+    if (profileError) {
+      return res.status(500).json({ error: 'Failed to fetch user profile' });
+    }
+
+    if (profile && profile.kyc_status === 'verified') {
+      return res.status(400).json({ error: 'KYC is already verified' });
+    }
+
+    // Get any existing kyc document record for this user
+    const { data: existingDoc } = await supabaseAdmin
+      .from('kyc_documents')
+      .select('id, status')
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    if (existingDoc && existingDoc.status === 'pending') {
+      return res.status(400).json({ error: 'KYC verification is already pending approval' });
+    }
+
+    // Helper to save base64 to backend/uploads
+    const saveImage = (base64Str, side) => {
+      const matches = base64Str.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      let ext = '.png';
+      let buffer;
+      
+      if (matches && matches.length === 3) {
+        const type = matches[1];
+        buffer = Buffer.from(matches[2], 'base64');
+        if (type.includes('jpeg') || type.includes('jpg')) ext = '.jpg';
+        else if (type.includes('gif')) ext = '.gif';
+        else if (type.includes('webp')) ext = '.webp';
+      } else {
+        // Assume raw base64 string
+        buffer = Buffer.from(base64Str, 'base64');
+      }
+
+      const filename = `kyc_${req.user.id}_${document_type}_${side}_${Date.now()}${ext}`;
+      const filePath = path.join(__dirname, '../../uploads', filename);
+      
+      fs.writeFileSync(filePath, buffer);
+      return `/uploads/${filename}`;
+    };
+
+    // Make sure uploads folder exists
+    const uploadsDir = path.join(__dirname, '../../uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const frontUrl = saveImage(front_image, 'front');
+    let documentUrls = [frontUrl];
+
+    if (['aadhaar', 'driving_licence'].includes(document_type) && back_image) {
+      const backUrl = saveImage(back_image, 'back');
+      documentUrls.push(backUrl);
+    }
+
+    const document_url = documentUrls.join(',');
+
+    let docResult;
+    if (existingDoc) {
+      const { data, error } = await supabaseAdmin
+        .from('kyc_documents')
+        .update({
+          document_type,
+          document_url,
+          document_number: document_number || null,
+          status: 'pending',
+          reject_reason: null,
+          verified_by: null,
+          verified_at: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingDoc.id)
+        .select()
+        .single();
+      if (error) throw error;
+      docResult = data;
+    } else {
+      const { data, error } = await supabaseAdmin
+        .from('kyc_documents')
+        .insert({
+          user_id: req.user.id,
+          document_type,
+          document_url,
+          document_number: document_number || null,
+          status: 'pending'
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      docResult = data;
+    }
+
+    // Update profiles kyc_status to pending
+    const { error: updateProfileErr } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        kyc_status: 'pending',
+        kyc_rejected_reason: null
+      })
+      .eq('id', req.user.id);
+
+    if (updateProfileErr) throw updateProfileErr;
+
+    // Invalidate Redis profile cache
+    const { redisClient } = require('../redis/client');
+    try {
+      await redisClient.del(`auth:user:profile:${req.user.id}`);
+    } catch (e) {
+      console.warn('Failed to invalidate Redis cache:', e.message);
+    }
+
+    res.json({ message: 'KYC submitted successfully', document: docResult });
+  } catch (err) {
+    console.error('KYC submission error:', err);
+    res.status(500).json({ error: 'KYC submission failed: ' + err.message });
   }
 });
 

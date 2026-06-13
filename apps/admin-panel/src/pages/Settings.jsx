@@ -63,7 +63,6 @@ export default function Settings() {
           <h2 className="text-lg font-bold text-gray-900 mb-1">Global Trade Risk Parameters</h2>
           <p className="text-sm text-gray-500 mb-6">These settings apply to all clients unless overridden in their specific profile.</p>
 
-          <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Default Max Leverage (x)</label>
@@ -75,14 +74,28 @@ export default function Settings() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Margin Call Alert Level (%)</label>
+                <span className="block text-xs text-gray-500 mb-1">Send warning banner to client when margin level falls below this %</span>
                 <input type="number" value={settings['margin_call_level'] || 80} onChange={e => handleChange('margin_call_level', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-blue-500 font-medium" />
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Stop Out / Liquidation Level (%)</label>
+                <span className="block text-xs text-gray-500 mb-1">Liquidate when margin falls below this % (Use 0 to liquidate only at 0 Equity)</span>
                 <input type="number" value={settings['stop_out_level'] || 50} onChange={e => handleChange('stop_out_level', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-blue-500 font-medium" />
               </div>
             </div>
-          </div>
+
+            <div className="mt-6 pt-6 border-t border-gray-100">
+              <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50/50">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Enable Auto-Liquidation Engine</h3>
+                  <p className="text-sm text-gray-500 mt-1">If disabled, clients will only receive warning alerts and positions will NOT be automatically closed even at 0 equity.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={settings['auto_liquidation_enabled'] !== 'false'} onChange={e => handleChange('auto_liquidation_enabled', e.target.checked ? 'true' : 'false')} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+            </div>
         </div>
 
         <div className="p-6 border-b border-gray-200 bg-orange-50/30">
@@ -119,7 +132,7 @@ export default function Settings() {
                 <p className="text-sm text-gray-500 mt-1">Allow new orders to be placed and executed.</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" checked={settings['trading_enabled'] !== 'false'} onChange={e => handleChange('trading_enabled', e.target.checked ? 'true' : 'false')} className="sr-only peer" />
+                <input type="checkbox" checked={settings['trading_enabled'] === undefined || settings['trading_enabled'] === true || settings['trading_enabled'] === 'true'} onChange={e => handleChange('trading_enabled', e.target.checked ? 'true' : 'false')} className="sr-only peer" />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               </label>
             </div>
@@ -130,7 +143,7 @@ export default function Settings() {
                 <p className="text-sm text-gray-500 mt-1">Allow users to withdraw funds.</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" checked={settings['withdrawals_enabled'] !== 'false'} onChange={e => handleChange('withdrawals_enabled', e.target.checked ? 'true' : 'false')} className="sr-only peer" />
+                <input type="checkbox" checked={settings['withdrawals_enabled'] === undefined || settings['withdrawals_enabled'] === true || settings['withdrawals_enabled'] === 'true'} onChange={e => handleChange('withdrawals_enabled', e.target.checked ? 'true' : 'false')} className="sr-only peer" />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               </label>
             </div>

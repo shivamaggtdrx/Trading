@@ -1,14 +1,15 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, memo } from 'react';
 import { Search, Maximize2, Trash2, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTradeStore } from '../../store/useTradeStore';
+import { usePriceStore } from '../../store/usePriceStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useOrderStore } from '../../store/useOrderStore';
 import { cn , formatPrice} from '../../utils/helpers';
 import ScriptActionSheet from '../../components/ui/ScriptActionSheet';
 import SideDrawer from '../../components/ui/SideDrawer';
 import InstrumentBrowser from '../../components/ui/InstrumentBrowser';
 import { usePullToRefresh, PullIndicator } from '../../hooks/usePullToRefresh';
-
-
 
 // ── Swipeable Row Component ──
 function SwipeableRow({ children, onDelete }) {
@@ -59,12 +60,79 @@ function SwipeableRow({ children, onDelete }) {
   );
 }
 
+// ── Memoized Instrument Row for watchlist ──
+const InstrumentRow = memo(({ inst, onTap, onDelete, formatPrice, cn, fmtChange }) => {
+  const change = inst.change || 0;
+  const pct = inst.changePercent || 0;
+  const isUp = change >= 0;
+
+  return (
+    <SwipeableRow onDelete={onDelete}>
+      <div 
+        className="flex items-center justify-between px-4 py-3 border-b border-border/40 cursor-pointer active:bg-surface-2 contain-intrinsic-size-[50px] [contain:layout_style]"
+        onClick={() => onTap(inst)}
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-bold text-text-primary">{inst.symbol}</p>
+          <p className="text-[12px] text-text-muted truncate">{inst.name}</p>
+        </div>
+        <div className="text-right ml-3">
+          <p className="text-[14px] font-bold text-text-primary tabular-nums">{formatPrice(inst.price)}</p>
+          <p className={cn('text-[12px] font-medium tabular-nums', isUp ? 'text-emerald-400' : 'text-red-400')}>{fmtChange(change, pct)}</p>
+        </div>
+      </div>
+    </SwipeableRow>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.inst.symbol === nextProps.inst.symbol &&
+    prevProps.inst.price === nextProps.inst.price &&
+    prevProps.inst.change === nextProps.inst.change &&
+    prevProps.inst.changePercent === nextProps.inst.changePercent
+  );
+});
+
+// ── Memoized Instrument Row for search results ──
+const InstrumentRowSearch = memo(({ inst, isInWatchlist, onTap, addToWatchlist, formatPrice, cn, fmtChange }) => {
+  const change = inst.change || 0;
+  const pct = inst.changePercent || 0;
+  const isUp = change >= 0;
+
+  return (
+    <div 
+      className="flex items-center justify-between px-4 py-3 border-b border-border/40 hover:bg-surface-2 transition-colors cursor-pointer [contain:layout_style]"
+      onClick={() => isInWatchlist ? onTap(inst) : addToWatchlist(inst.symbol)}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="text-[14px] font-bold text-text-primary">{inst.symbol}</p>
+        <p className="text-[12px] text-text-muted truncate">{inst.name}</p>
+      </div>
+      <div className="text-right ml-3">
+        <p className="text-[14px] font-bold text-text-primary tabular-nums">{formatPrice(inst.price)}</p>
+        <p className={cn('text-[12px] font-medium tabular-nums', isUp ? 'text-emerald-400' : 'text-red-400')}>{fmtChange(change, pct)}</p>
+      </div>
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.inst.symbol === nextProps.inst.symbol &&
+    prevProps.inst.price === nextProps.inst.price &&
+    prevProps.inst.change === nextProps.inst.change &&
+    prevProps.inst.changePercent === nextProps.inst.changePercent &&
+    prevProps.isInWatchlist === nextProps.isInWatchlist
+  );
+});
+
 export default function Markets() {
+  const user = useAuthStore(state => state.user);
+  const setOrderSide = useOrderStore(state => state.setOrderSide);
+  
   const { 
-    instruments, setSelectedInstrument, user, setOrderSide, 
-    updateSubscriptions, loadInitialData,
+    instruments, instrumentsMap, setSelectedInstrument, updateSubscriptions,
     watchlists, activeWatchlistId, setActiveWatchlistId, updateWatchlists 
-  } = useTradeStore();
+  } = usePriceStore();
+
+  const loadInitialData = useTradeStore(state => state.loadInitialData);
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -78,21 +146,22 @@ export default function Markets() {
 
   const activeTab = activeWatchlistId;
   const activeSymbols = watchlists[activeTab] || [];
-  const nifty = instruments.find(i => i.symbol === 'NIFTY50');
-  const bankNifty = instruments.find(i => i.symbol === 'BANKNIFTY');
+  const nifty = instrumentsMap?.get('NIFTY50');
+  const bankNifty = instrumentsMap?.get('BANKNIFTY');
   const userName = user?.name || user?.full_name || user?.email?.split('@')[0] || 'S';
   const userInitial = userName.charAt(0).toUpperCase();
 
   const displayInstruments = useMemo(() => {
     const query = searchQuery.toLowerCase();
     if (query) {
-      return instruments.filter(i =>
+      const filtered = instruments.filter(i =>
         i.symbol.toLowerCase().includes(query) || i.name.toLowerCase().includes(query)
       ).slice(0, 20);
+      return filtered.map(i => instrumentsMap?.get(i.symbol) || i);
     }
     if (activeSymbols.length === 0) return [];
-    return activeSymbols.map(sym => instruments.find(i => i.symbol === sym)).filter(Boolean);
-  }, [instruments, searchQuery, activeSymbols]);
+    return activeSymbols.map(sym => instrumentsMap?.get(sym)).filter(Boolean);
+  }, [instruments, instrumentsMap, searchQuery, activeSymbols]);
 
   const isInWatchlist = useCallback((symbol) => activeSymbols.includes(symbol), [activeSymbols]);
 
@@ -198,45 +267,34 @@ export default function Markets() {
       <div className="flex-1 overflow-y-auto pb-28">
         {searchQuery ? (
           displayInstruments.length > 0 ? (
-            displayInstruments.map((inst) => {
-              const change = inst.change || 0; const pct = inst.changePercent || 0; const isUp = change >= 0;
-              return (
-                <div key={inst.symbol} className="flex items-center justify-between px-4 py-3 border-b border-border/40 hover:bg-surface-2 transition-colors cursor-pointer"
-                  onClick={() => isInWatchlist(inst.symbol) ? handleInstrumentTap(inst) : addToWatchlist(inst.symbol)}>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-bold text-text-primary">{inst.symbol}</p>
-                    <p className="text-[12px] text-text-muted truncate">{inst.name}</p>
-                  </div>
-                  <div className="text-right ml-3">
-                    <p className="text-[14px] font-bold text-text-primary tabular-nums">{formatPrice(inst.price)}</p>
-                    <p className={cn('text-[12px] font-medium tabular-nums', isUp ? 'text-emerald-400' : 'text-red-400')}>{fmtChange(change, pct)}</p>
-                  </div>
-                </div>
-              );
-            })
+            displayInstruments.map((inst) => (
+              <InstrumentRowSearch
+                key={inst.symbol}
+                inst={inst}
+                isInWatchlist={isInWatchlist(inst.symbol)}
+                onTap={handleInstrumentTap}
+                addToWatchlist={addToWatchlist}
+                formatPrice={formatPrice}
+                cn={cn}
+                fmtChange={fmtChange}
+              />
+            ))
           ) : (
             <div className="py-16 text-center"><Search size={32} className="mx-auto text-text-muted/30 mb-3" /><p className="text-sm text-text-muted">No instruments found</p></div>
           )
         ) : (
           displayInstruments.length > 0 ? (
-            displayInstruments.map((inst) => {
-              const change = inst.change || 0; const pct = inst.changePercent || 0; const isUp = change >= 0;
-              return (
-                <SwipeableRow key={inst.symbol} onDelete={() => removeFromWatchlist(inst.symbol)}>
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 cursor-pointer active:bg-surface-2"
-                    onClick={() => handleInstrumentTap(inst)}>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[14px] font-bold text-text-primary">{inst.symbol}</p>
-                      <p className="text-[12px] text-text-muted truncate">{inst.name}</p>
-                    </div>
-                    <div className="text-right ml-3">
-                      <p className="text-[14px] font-bold text-text-primary tabular-nums">{formatPrice(inst.price)}</p>
-                      <p className={cn('text-[12px] font-medium tabular-nums', isUp ? 'text-emerald-400' : 'text-red-400')}>{fmtChange(change, pct)}</p>
-                    </div>
-                  </div>
-                </SwipeableRow>
-              );
-            })
+            displayInstruments.map((inst) => (
+              <InstrumentRow
+                key={inst.symbol}
+                inst={inst}
+                onTap={handleInstrumentTap}
+                onDelete={() => removeFromWatchlist(inst.symbol)}
+                formatPrice={formatPrice}
+                cn={cn}
+                fmtChange={fmtChange}
+              />
+            ))
           ) : (
             <div className="py-16 text-center"><p className="text-sm text-text-muted mb-2">Watchlist is empty</p><p className="text-xs text-text-muted/60">Search for symbols to add them</p></div>
           )

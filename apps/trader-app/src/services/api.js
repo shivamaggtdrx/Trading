@@ -219,12 +219,20 @@ export const api = {
   async getNotifications() {
     return request('/auth/notifications');
   },
+
+  // ── KYC ──
+  async submitKyc(kycPayload) {
+    return request('/users/kyc', {
+      method: 'POST',
+      body: JSON.stringify(kycPayload),
+    });
+  },
 };
 
 // ══════════════════════════════════════════════════════════════
-// Socket.IO Price Feed (/market namespace)
+// Native WebSocket Price Feed (/ws/prices)
 // ══════════════════════════════════════════════════════════════
-let marketSocket = null;
+let priceWs = null;
 let staleCheckTimer = null;
 let lastMessageTime = Date.now();
 const subscribedSymbols = new Set();
@@ -234,70 +242,94 @@ export function connectPriceFeed(onPriceUpdate, onCandleUpdate = null, onDebugUp
     symbols.forEach(s => subscribedSymbols.add(s));
   }
 
-  if (marketSocket && marketSocket.connected) {
+  if (priceWs && priceWs.readyState === WebSocket.OPEN) {
     const currentSymbols = Array.from(subscribedSymbols);
     if (currentSymbols.length > 0) {
-      marketSocket.emit('MARKET:SUBSCRIBE_TICKERS', currentSymbols);
+      priceWs.send(JSON.stringify({ type: 'subscribe', symbols: currentSymbols }));
     }
     return;
   }
 
-  const API_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:4000';
-  
-  // Connect to the public /market namespace
-  marketSocket = io(`${API_URL}/market`, {
-    transports: ['websocket'],
-    reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
-  });
+  // Generate WS URL dynamically
+  const isSecure = window.location.protocol === 'https:';
+  const protocol = isSecure ? 'wss:' : 'ws:';
+  const apiBaseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:4000';
+  const wsHost = apiBaseUrl.replace(/^https?:\/\//, '');
+  const wsUrl = `${protocol}//${wsHost}/ws/prices`;
 
-  marketSocket.on('connect', () => {
-    console.log('📡 Socket.IO Price feed connected');
+  console.log('🔌 Connecting to Native WebSocket Price Feed:', wsUrl);
+  
+  try {
+    priceWs = new WebSocket(wsUrl);
+  } catch (e) {
+    console.error('Failed to create Native WebSocket:', e);
+    return;
+  }
+
+  priceWs.onopen = () => {
+    console.log('🔌 Native WebSocket connected');
     const currentSymbols = Array.from(subscribedSymbols);
     if (currentSymbols.length > 0) {
-      console.log('📡 Subscribing to symbols:', currentSymbols);
-      marketSocket.emit('MARKET:SUBSCRIBE_TICKERS', currentSymbols);
+      console.log('🔌 Subscribing to symbols:', currentSymbols);
+      priceWs.send(JSON.stringify({ type: 'subscribe', symbols: currentSymbols }));
     }
-  });
-
-  marketSocket.on('MARKET:TICK', (tick) => {
-    lastMessageTime = Date.now();
     if (onDebugUpdate) {
-      onDebugUpdate({ connected: marketSocket.connected, staleWarning: false });
+      onDebugUpdate({ connected: true, staleWarning: false });
     }
-    if (onPriceUpdate) {
-      onPriceUpdate([tick]); // Pass as array for backward compatibility
-    }
-  });
+  };
 
-  marketSocket.on('disconnect', (reason) => {
-    console.log('📡 Socket.IO Price feed disconnected:', reason);
-    if (reason === 'io server disconnect') {
-      marketSocket.connect();
+  priceWs.onmessage = (event) => {
+    lastMessageTime = Date.now();
+    try {
+      const payload = JSON.parse(event.data);
+      if (payload.type === 'ticks' && Array.isArray(payload.data)) {
+        if (onDebugUpdate) {
+          onDebugUpdate({ connected: true, staleWarning: false });
+        }
+        if (onPriceUpdate) {
+          onPriceUpdate(payload.data);
+        }
+      }
+    } catch (err) {
+      console.error('Native WS message parsing error:', err.message);
     }
-  });
+  };
 
-  marketSocket.on('connect_error', (error) => {
-    console.error('Socket.IO Market Error:', error);
-  });
+  priceWs.onclose = (e) => {
+    // If priceWs was set to null (explicitly disconnected), do not reconnect!
+    if (!priceWs) return;
+
+    console.log('🔌 Native WebSocket disconnected. Reconnecting in 3s...', e.reason);
+    if (onDebugUpdate) {
+      onDebugUpdate({ connected: false, staleWarning: false });
+    }
+    
+    // Clean up current reference to trigger a new connection in reconnect
+    const oldPriceWs = priceWs;
+    setTimeout(() => {
+      if (priceWs === oldPriceWs) {
+        connectPriceFeed(onPriceUpdate, onCandleUpdate, onDebugUpdate);
+      }
+    }, 3000);
+  };
+
+  priceWs.onerror = (err) => {
+    console.error('Native WS error:', err);
+  };
 
   // Stale feed detection
   if (staleCheckTimer) clearInterval(staleCheckTimer);
   staleCheckTimer = setInterval(() => {
     if (Date.now() - lastMessageTime > 15000) {
       if (onDebugUpdate) {
-        onDebugUpdate({ connected: marketSocket.connected, staleWarning: true });
+        onDebugUpdate({ connected: priceWs && priceWs.readyState === WebSocket.OPEN, staleWarning: true });
       }
     }
   }, 2000);
 }
 
 export function requestHistoricalCandles(symbol, timeframe) {
-  if (marketSocket && marketSocket.connected) {
-    marketSocket.emit('MARKET:GET_CANDLES', { symbol, timeframe });
-  }
+  // Not used in dabba app client price feed, candles loaded via REST if needed or stubbed
 }
 
 export function updatePositionSlTgtWs(positionId, stopLoss, target) {
@@ -310,25 +342,30 @@ export function updatePositionSlTgtWs(positionId, stopLoss, target) {
 
 export function subscribeWsSymbols(symbols) {
   if (!Array.isArray(symbols)) return;
-  symbols.forEach(s => subscribedSymbols.add(s));
+  
+  const newSymbols = [];
+  symbols.forEach(s => {
+    if (!subscribedSymbols.has(s)) {
+      subscribedSymbols.add(s);
+      newSymbols.push(s);
+    }
+  });
 
-  if (marketSocket && marketSocket.connected) {
-    console.log('📡 Dynamically subscribing to symbols:', symbols);
-    marketSocket.emit('MARKET:SUBSCRIBE_TICKERS', symbols);
+  if (newSymbols.length > 0 && priceWs && priceWs.readyState === WebSocket.OPEN) {
+    console.log('🔌 Native WS: Dynamically subscribing to symbols:', newSymbols);
+    priceWs.send(JSON.stringify({ type: 'subscribe', symbols: newSymbols }));
   }
 }
 
 export function debugSubscribeWs() {
-  if (marketSocket && marketSocket.connected) {
-    marketSocket.emit('MARKET:DEBUG_SUBSCRIBE');
-  }
+  // Not needed on native WS
 }
 
 export function disconnectPriceFeed() {
   if (staleCheckTimer) clearInterval(staleCheckTimer);
-  if (marketSocket) {
-    marketSocket.disconnect();
-    marketSocket = null;
+  if (priceWs) {
+    try { priceWs.close(); } catch (e) {}
+    priceWs = null;
   }
   subscribedSymbols.clear();
   disconnectUserSocket();
@@ -348,7 +385,17 @@ let _onBroadcast = null;
  * Call this after login with the user's ID.
  */
 export function connectUserSocket(userId, { onOrderFilled, onPnlUpdate, onBroadcast } = {}) {
-  if (userSocket && userSocket.connected) return;
+  if (userSocket && userSocket.connected) {
+    _onOrderFilled = onOrderFilled;
+    _onPnlUpdate = onPnlUpdate;
+    _onBroadcast = onBroadcast;
+    return;
+  }
+
+  if (userSocket) {
+    try { userSocket.disconnect(); } catch (e) {}
+    userSocket = null;
+  }
 
   _onOrderFilled = onOrderFilled;
   _onPnlUpdate = onPnlUpdate;

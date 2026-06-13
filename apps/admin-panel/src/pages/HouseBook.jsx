@@ -10,6 +10,14 @@ export default function HouseBook() {
   const [topExposures, setTopExposures] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Modal State Hooks
+  const [showRiskModal, setShowRiskModal] = useState(false);
+  const [showHedgeModal, setShowHedgeModal] = useState(false);
+  const [selectedHedge, setSelectedHedge] = useState(null); // { symbol, clientExposure, pnl }
+  const [hedgeQty, setHedgeQty] = useState('');
+  const [hedgeDestination, setHedgeDestination] = useState('Interactive Brokers');
+  const [hedgeSubmitting, setHedgeSubmitting] = useState(false);
+
   const fetchHouseBook = async () => {
     try {
       setRefreshing(true);
@@ -47,6 +55,30 @@ export default function HouseBook() {
     }
   };
 
+  const handleConfirmHedge = async () => {
+    if (!selectedHedge || !hedgeQty || parseFloat(hedgeQty) <= 0) return;
+    try {
+      setHedgeSubmitting(true);
+      const side = selectedHedge.clientExposure > 0 ? 'sell' : 'buy';
+      const res = await adminApi.hedgePosition({
+        symbol: selectedHedge.symbol,
+        quantity: parseFloat(hedgeQty),
+        side: side,
+        destination: hedgeDestination
+      });
+      alert(res.message || 'Hedge executed successfully.');
+      setShowHedgeModal(false);
+      setSelectedHedge(null);
+      setHedgeQty('');
+      fetchHouseBook(); // Refresh exposures
+    } catch (err) {
+      console.error(err);
+      alert('Failed to execute hedge: ' + (err.message || err));
+    } finally {
+      setHedgeSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     fetchHouseBook();
   }, []);
@@ -68,7 +100,7 @@ export default function HouseBook() {
           <button onClick={fetchHouseBook} className={`inline-flex items-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 py-2 ${refreshing ? 'opacity-70' : ''}`}>
             <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
           </button>
-          <button onClick={() => alert('Risk Report Generated')} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm">
+          <button onClick={() => setShowRiskModal(true)} className="inline-flex items-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2 shadow-sm">
             <Eye className="h-4 w-4 mr-2" /> Full Risk Report
           </button>
         </div>
@@ -190,7 +222,22 @@ export default function HouseBook() {
                   <td className={`px-4 py-3 text-right font-black ${row.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.pnl >= 0 ? '+' : ''}₹{row.pnl.toLocaleString('en-IN')}</td>
                   <td className="px-4 py-3 text-center"><span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase border ${row.risk === 'high' ? 'bg-red-100 text-red-700 border-red-200' : row.risk === 'medium' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-green-100 text-green-700 border-green-200'}`}>{row.risk}</span></td>
                   <td className="px-4 py-3 text-right">
-                    {row.pnl < 0 && <button onClick={() => alert('Hedge initiated')} className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded hover:bg-blue-100 border border-blue-200">Hedge (A-Book)</button>}
+                    {row.pnl < 0 && (
+                      <button 
+                        onClick={() => { 
+                          setSelectedHedge({
+                            symbol: row.instrument,
+                            clientExposure: row.clientNetLong,
+                            pnl: row.pnl
+                          }); 
+                          setHedgeQty(Math.abs(row.clientNetLong).toString());
+                          setShowHedgeModal(true); 
+                        }} 
+                        className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded hover:bg-blue-100 border border-blue-200"
+                      >
+                        Hedge (A-Book)
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -220,6 +267,142 @@ export default function HouseBook() {
           </div>
         </div>
       </div>
+
+      {/* Full Risk Report Modal */}
+      {showRiskModal && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-xs flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-lg overflow-hidden font-sans">
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-red-600" />
+                B-Book Risk & Treasury Report
+              </h3>
+              <button onClick={() => setShowRiskModal(false)} className="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+            
+            <div className="p-6 space-y-4 max-h-[450px] overflow-y-auto">
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <h4 className="font-bold text-red-800 text-sm mb-1">Company Risk Alert Level: {totalHousePnl < -50000 ? 'HIGH RISK' : 'STABLE'}</h4>
+                <p className="text-xs text-red-700 font-medium">The house is acting as B-Book counterparty for all trades. Stricter margin constraints are active.</p>
+              </div>
+
+              <div className="space-y-2">
+                <h5 className="font-bold text-xs text-gray-400 uppercase tracking-wider">Treasury Metrics</h5>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <span className="text-xs text-gray-500">Net Exposure</span>
+                    <div className="font-bold text-lg text-gray-900">₹{totalExposure.toLocaleString('en-IN')}</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <span className="text-xs text-gray-500">B-Book Ratio</span>
+                    <div className="font-bold text-lg text-purple-700">94.2%</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h5 className="font-bold text-xs text-gray-400 uppercase tracking-wider">Unhedged Instrument Exposures</h5>
+                <div className="space-y-1.5">
+                  {topExposures.length === 0 ? (
+                    <div className="text-xs text-gray-500 text-center py-4 bg-gray-50 rounded border border-gray-200">No unhedged exposures active</div>
+                  ) : (
+                    topExposures.map(exp => (
+                      <div key={exp.instrument} className="flex justify-between items-center text-xs p-2 bg-gray-50 rounded border border-gray-150">
+                        <span className="font-bold text-gray-700">{exp.instrument}</span>
+                        <span className={exp.pnl < 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                          {exp.pnl < 0 ? 'Losing' : 'Winning'} (₹{Math.abs(exp.pnl).toLocaleString('en-IN')})
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
+                <strong>Recommendation:</strong> Execute an A-Book hedge on assets where house loss exceeds ₹50,000 to remain delta neutral.
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+              <button 
+                onClick={() => setShowRiskModal(false)} 
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 shadow-sm"
+              >
+                Close Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hedge Confirmation Modal */}
+      {showHedgeModal && selectedHedge && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-xs flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md overflow-hidden font-sans">
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <ArrowRightLeft className="h-5 w-5 text-blue-600" />
+                Hedge B-Book Position ({selectedHedge.symbol})
+              </h3>
+              <button onClick={() => { setShowHedgeModal(false); setSelectedHedge(null); }} className="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">Current House Net Position</span>
+                <span className="text-sm font-bold text-red-600">
+                  {selectedHedge.clientExposure > 0 ? 'SHORT' : 'LONG'} ₹{Math.abs(selectedHedge.clientExposure).toLocaleString('en-IN')}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Hedge Amount (Units / Value)</label>
+                <input 
+                  type="number" 
+                  value={hedgeQty} 
+                  onChange={(e) => setHedgeQty(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-blue-500 focus:border-blue-500 font-medium" 
+                  placeholder="Enter units to offset"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Execution Destination</label>
+                <select 
+                  value={hedgeDestination} 
+                  onChange={(e) => setHedgeDestination(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg p-2.5 bg-white text-sm focus:ring-blue-500 focus:border-blue-500 font-medium"
+                >
+                  <option>Interactive Brokers</option>
+                  <option>NSE/BSE Exchange Direct</option>
+                  <option>External Liquidity Desk</option>
+                </select>
+              </div>
+
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-600 space-y-1">
+                <div>• Hedging side: <span className="font-bold">{selectedHedge.clientExposure > 0 ? 'BUY (LONG)' : 'SELL (SHORT)'}</span></div>
+                <div>• Estimated margin required: <span className="font-bold">₹{Math.round((parseFloat(hedgeQty || 0) * 0.1) * 100) / 100}</span></div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-2">
+              <button 
+                onClick={() => { setShowHedgeModal(false); setSelectedHedge(null); }}
+                className="flex-1 py-2 border border-gray-300 text-sm font-bold text-gray-700 hover:bg-gray-50 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleConfirmHedge}
+                disabled={hedgeSubmitting || !hedgeQty || parseFloat(hedgeQty) <= 0}
+                className="flex-1 py-2 bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 rounded-lg shadow-sm disabled:opacity-50"
+              >
+                {hedgeSubmitting ? 'Routing...' : 'Confirm Hedge'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

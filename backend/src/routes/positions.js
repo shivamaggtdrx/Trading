@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
  */
 router.post('/:id/close', async (req, res) => {
   try {
-    // ── Fetch position AND instrument IN PARALLEL ──
+    // 1. Fetch position AND instrument in parallel
     const { data: position } = await supabaseAdmin
       .from('positions')
       .select('*, instrument:instruments(*)')
@@ -44,100 +44,71 @@ router.post('/:id/close', async (req, res) => {
     const instrument = position.instrument;
     if (!instrument) return res.status(404).json({ error: 'Instrument not found' });
 
-    // Apply exit slippage
+    // 2. Fetch spread profile (LRU Cached)
     const profile = req.user.profile;
-    const { data: sp } = await supabaseAdmin
-      .from('spread_profiles')
-      .select('*')
-      .eq('tier', profile.tier)
-      .eq('segment', instrument.segment)
-      .single();
+    const cache = require('../core/cache');
+    const spreadKey = `spread:${profile.tier}:${instrument.segment}`;
+    let spreadProfile = cache.get(spreadKey);
 
-    const spreadPct = sp ? sp.base_spread_pct : 0.05;
-    const spreadAmount = instrument.last_price * (spreadPct / 100);
-
-    let exitPrice = instrument.last_price;
-    if (position.side === 'long') {
-      exitPrice -= spreadAmount / 2; // selling at lower
-    } else {
-      exitPrice += spreadAmount / 2; // buying back at higher
-    }
-    exitPrice = Math.round(exitPrice * 10000) / 10000;
-
-    // Calculate P&L
-    let grossPnl = 0;
-    if (position.side === 'long') {
-      grossPnl = (exitPrice - position.entry_price) * position.quantity;
-    } else {
-      grossPnl = (position.entry_price - exitPrice) * position.quantity;
+    if (!spreadProfile) {
+      const { data } = await supabaseAdmin
+        .from('spread_profiles')
+        .select('*')
+        .eq('tier', profile.tier)
+        .eq('segment', instrument.segment)
+        .single();
+      
+      spreadProfile = data;
+      if (data) {
+        cache.set(spreadKey, data, 300000); // 5m TTL
+      }
     }
 
-    const charges = (spreadAmount * position.quantity * 0.01) + position.total_swap_fees;
-    const netPnl = grossPnl - charges;
+    const spreadPct = spreadProfile ? spreadProfile.base_spread_pct : 0.05;
 
-    // ── Run ALL write operations IN PARALLEL ──
-    const [updateResult, , settleResult] = await Promise.all([
-      // 1. Close position
-      supabaseAdmin.from('positions').update({
-        status: 'closed',
-        current_price: exitPrice,
-        realized_pnl: netPnl,
-        close_reason: 'manual',
-        closed_at: new Date().toISOString(),
-      }).eq('id', position.id),
+    // 3. Execute atomic square-off via Supabase RPC
+    const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc('close_position_v2', {
+      p_user_id: req.user.id,
+      p_position_id: position.id,
+      p_last_price: parseFloat(instrument.last_price || position.current_price || 0),
+      p_spread_pct: parseFloat(spreadPct),
+      p_close_reason: 'manual'
+    });
 
-      // 2. Create trade record
-      supabaseAdmin.from('trades').insert({
-        user_id: req.user.id,
-        instrument_id: instrument.id,
-        position_id: position.id,
-        symbol: position.symbol,
-        side: position.side === 'long' ? 'buy' : 'sell',
-        quantity: position.quantity,
-        entry_price: position.entry_price,
-        exit_price: exitPrice,
-        gross_pnl: grossPnl,
-        charges,
-        net_pnl: netPnl,
-        spread_revenue: spreadAmount * position.quantity * 0.01,
-        swap_revenue: position.total_swap_fees,
-        routing: position.routing,
-        opened_at: position.opened_at,
-      }),
+    if (rpcErr) {
+      console.error('close_position_v2 RPC failed:', rpcErr.message);
+      return res.status(500).json({ error: 'Square-off failed: ' + rpcErr.message });
+    }
 
-      // 3. Atomic wallet settlement
-      supabaseAdmin.rpc('settle_position_pnl', {
-        p_user_id: req.user.id,
-        p_net_pnl: netPnl,
-        p_margin_to_release: position.margin_used,
-        p_reference_id: position.id,
-        p_symbol: `${position.side.toUpperCase()} ${position.quantity} ${position.symbol}`,
-      }),
-    ]);
+    const closedPos = rpcRes.position;
+    const trade = rpcRes.trade;
 
-    if (settleResult.error) console.error('Settlement RPC error:', settleResult.error);
+    // Invalidate wallet cache
+    try {
+      cache.delete(`wallet:${req.user.id}`);
+    } catch (err) {}
 
-    // ── Emit Socket.IO event for instant UI update ──
+    // 4. Emit Socket.IO event for instant UI update
     try {
       const { getIO } = require('../ws/socketServer');
       const io = getIO();
       io.of('/user').to(`user:${req.user.id}`).emit('USER:ORDER_FILLED', {
-        position: { ...position, status: 'closed', current_price: exitPrice, realized_pnl: netPnl },
-        execution: { executed_price: exitPrice, reason: 'manual_close' },
+        position: closedPos,
+        execution: { executed_price: trade.exit_price, reason: 'manual_close' },
       });
     } catch (e) { /* socket not available */ }
 
     res.json({
       message: 'Position closed',
       trade: {
-        symbol: position.symbol,
+        symbol: trade.symbol,
         side: position.side,
-        quantity: position.quantity,
-        entry_price: position.entry_price,
-        exit_price: exitPrice,
-        gross_pnl: grossPnl,
-        charges,
-        net_pnl: netPnl,
+        quantity: trade.quantity,
+        entry_price: trade.entry_price,
+        exit_price: trade.exit_price,
+        gross_pnl: trade.gross_pnl,
+        charges: trade.charges,
+        net_pnl: trade.net_pnl,
       },
     });
   } catch (err) {

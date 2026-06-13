@@ -19,8 +19,9 @@
  * achieve their "Zerodha-like" price speed.
  */
 
-const { getIO } = require('./socketServer');
 const { feedLogger } = require('../core/monitoring/logger');
+// NOTE: socketServer is required lazily inside the interval to avoid circular dependency:
+// nativeWsServer → priceAnimator → socketServer → (various)
 
 // ── Configuration ──
 const ANIMATION_INTERVAL_MS = 250;     // ~4 updates per second (natural, not fake)
@@ -32,6 +33,7 @@ const ANIMATABLE_EXCHANGES = new Set(['NSE', 'NSE_INDEX', 'CRYPTO', 'BINANCE', '
 
 // ── State ──
 const anchorPrices = new Map();   // symbol → { price, bid, ask, high, low, open, prev_close, change, changePct, volume, exchange, timestamp }
+const watchedSymbols = new Set(); // symbols that currently have at least one active subscriber
 let animatorInterval = null;
 let tickCount = 0;
 
@@ -61,6 +63,18 @@ function updateAnchor(tick) {
     // Track the "drift" — how far the animated price has moved from anchor
     currentAnimatedPrice: price,
   });
+}
+
+/**
+ * Track a subscription change for a symbol.
+ * Called by nativeWsServer when a client subscribes/unsubscribes.
+ */
+function addWatcher(symbol) {
+  if (symbol) watchedSymbols.add(symbol.toUpperCase());
+}
+
+function removeWatcher(symbol) {
+  if (symbol) watchedSymbols.delete(symbol.toUpperCase());
 }
 
 
@@ -95,13 +109,46 @@ function isMarketOpen(exchange) {
 /**
  * Start the high-frequency price animator
  */
-function startAnimator() {
+async function startAnimator() {
   if (animatorInterval) return;
+
+  // Preload initial anchor prices from DB to ensure every active instrument
+  // can start animating immediately on startup without waiting for a live tick.
+  try {
+    const { fetchAllActiveInstruments } = require('../config/supabase');
+    const instruments = await fetchAllActiveInstruments('symbol, last_price, bid_price, ask_price, day_high, day_low, day_open, prev_close, change_amount, change_percent, volume, exchange');
+    if (instruments && instruments.length > 0) {
+      instruments.forEach(i => {
+        const price = parseFloat(i.last_price);
+        if (price > 0 && !anchorPrices.has(i.symbol)) {
+          anchorPrices.set(i.symbol, {
+            price,
+            bid: parseFloat(i.bid_price) || price,
+            ask: parseFloat(i.ask_price) || price,
+            high: parseFloat(i.day_high) || price,
+            low: parseFloat(i.day_low) || price,
+            open: parseFloat(i.day_open) || price,
+            prev_close: parseFloat(i.prev_close) || 0,
+            change: parseFloat(i.change_amount) || 0,
+            changePct: parseFloat(i.change_percent) || 0,
+            volume: parseInt(i.volume) || 0,
+            exchange: i.exchange || 'NSE',
+            lastRealTick: Date.now(),
+            currentAnimatedPrice: price,
+          });
+        }
+      });
+      feedLogger.info(`[ANIMATOR] Preloaded ${instruments.length} initial anchor prices from database.`);
+    }
+  } catch (err) {
+    feedLogger.error(`[ANIMATOR] Preloading anchors failed: ${err.message}`);
+  }
 
   feedLogger.info(`[ANIMATOR] 🚀 Starting high-frequency price animator (${Math.round(1000 / ANIMATION_INTERVAL_MS)} ticks/sec per symbol)`);
 
   animatorInterval = setInterval(() => {
     try {
+      const { getIO } = require('./socketServer'); // lazy to avoid circular dep
       const io = getIO();
       const marketNs = io.of('/market');
       const adminNs = io.of('/admin');
@@ -109,19 +156,30 @@ function startAnimator() {
       // Get all rooms that actually have connected clients
       const marketRooms = marketNs.adapter?.rooms;
       const adminRooms = adminNs.adapter?.rooms;
-      if (!marketRooms && !adminRooms) return;
+      
+      const { roomSubscriptions, broadcastPriceTicks } = require('./nativeWsServer');
 
-      // Iterate all anchor prices and animate the ones with active listeners
-      for (const [symbol, anchor] of anchorPrices) {
+      // ── Hot loop: only iterate symbols with known watchers ──
+      // This avoids scanning 500+ anchor entries every 250ms when most have no subscribers.
+      const symbolsToAnimate = watchedSymbols.size > 0 ? watchedSymbols : anchorPrices.keys();
+
+      for (const symbol of symbolsToAnimate) {
+        const anchor = anchorPrices.get(symbol);
+        if (!anchor) continue;
+
         const marketRoomName = `feed:${symbol}`;
         const adminRoomName = `admin:feed:${symbol}`;
 
         // Check if anyone is watching in either namespace
         const hasMarketWatchers = marketRooms?.has(marketRoomName) && (marketRooms.get(marketRoomName)?.size || 0) > 0;
         const hasAdminWatchers = adminRooms?.has(adminRoomName) && (adminRooms.get(adminRoomName)?.size || 0) > 0;
+        
+        // Native WS subscribers check
+        const nativeSubscribers = roomSubscriptions?.get(symbol);
+        const hasNativeWatchers = nativeSubscribers && nativeSubscribers.size > 0;
 
         // Only animate if someone is actually watching this symbol
-        if (!hasMarketWatchers && !hasAdminWatchers) continue;
+        if (!hasMarketWatchers && !hasAdminWatchers && !hasNativeWatchers) continue;
 
         // Skip animation for exchanges that aren't approved (e.g., Finnhub)
         if (!ANIMATABLE_EXCHANGES.has(anchor.exchange)) continue;
@@ -136,6 +194,11 @@ function startAnimator() {
         // Emit to the rooms
         if (hasMarketWatchers) marketNs.to(marketRoomName).emit('MARKET:TICK', microTick);
         if (hasAdminWatchers) adminNs.to(adminRoomName).emit('MARKET:TICK', microTick);
+        if (hasMarketWatchers || hasNativeWatchers) {
+          try {
+            broadcastPriceTicks([microTick]);
+          } catch (e) {}
+        }
         tickCount++;
       }
     } catch (err) {
@@ -237,6 +300,8 @@ function getAnimatorStats() {
 
 module.exports = {
   updateAnchor,
+  addWatcher,
+  removeWatcher,
   startAnimator,
   stopAnimator,
   getAnimatorStats,

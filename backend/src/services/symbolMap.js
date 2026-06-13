@@ -189,9 +189,9 @@ const FINNHUB_MAP = {
   // Commodities (via Finnhub)
   'XAUUSD': 'OANDA:XAU_USD',
   'XAGUSD': 'OANDA:XAG_USD',
-  'CRUDEOIL': 'OANDA:BCO_USD',
-  'NATURALGAS': 'OANDA:NATGAS_USD',
-  'COPPER': 'OANDA:XCU_USD',
+  'CRUDEOIL_USD': 'OANDA:BCO_USD',
+  'NATURALGAS_USD': 'OANDA:NATGAS_USD',
+  'COPPER_USD': 'OANDA:XCU_USD',
 
   // Global Indices (Finnhub quote endpoint)
   'SPX500': '^GSPC',
@@ -270,16 +270,8 @@ let instrumentsBySegment = {};
  */
 async function loadFromDatabase() {
   try {
-    const { supabaseAdmin } = require('../config/supabase');
-    const { data, error } = await supabaseAdmin
-      .from('instruments')
-      .select('symbol, segment, name, is_active')
-      .eq('is_active', true);
-
-    if (error) {
-      feedLogger.error(`Symbol map DB load error: ${error.message}`);
-      return;
-    }
+    const { fetchAllActiveInstruments } = require('../config/supabase');
+    const data = await fetchAllActiveInstruments('symbol, segment, name, is_active');
 
     if (data && data.length > 0) {
       activeInstruments = data;
@@ -333,7 +325,20 @@ function getProvider(symbol) {
 function toFinnhubSymbol(symbol) {
   if (!symbol) return null;
   const upper = symbol.toUpperCase().trim();
-  return FINNHUB_MAP[upper] || null;
+  if (FINNHUB_MAP[upper]) return FINNHUB_MAP[upper];
+  
+  // Exclude non-NSE segments (like MCX commodities, Crypto) from dynamic NSE stock fallback
+  const inst = activeInstruments.find(i => i.symbol === upper);
+  if (inst && inst.segment !== 'nse_equity') {
+    return null;
+  }
+  
+  // Dynamic fallback for newly added NSE stocks (purely alphabetical symbols)
+  const isNseFormat = /^[A-Z\-]+$/.test(upper);
+  if (isNseFormat) {
+    return `${upper}.NS`;
+  }
+  return null;
 }
 
 /**
@@ -354,7 +359,15 @@ function toBinanceSymbol(symbol) {
  */
 function fromFinnhubSymbol(finnhubSymbol) {
   if (!finnhubSymbol) return null;
-  return FINNHUB_REVERSE[finnhubSymbol] || FINNHUB_REVERSE[finnhubSymbol.toUpperCase()] || null;
+  if (FINNHUB_REVERSE[finnhubSymbol]) return FINNHUB_REVERSE[finnhubSymbol];
+  const upper = finnhubSymbol.toUpperCase();
+  if (FINNHUB_REVERSE[upper]) return FINNHUB_REVERSE[upper];
+  
+  // Handle dynamic NSE symbols (ending in .NS)
+  if (upper.endsWith('.NS')) {
+    return upper.slice(0, -3);
+  }
+  return null;
 }
 
 /**
@@ -386,6 +399,11 @@ function getAllFinnhubSymbols() {
   // Always include key indices
   symbols.add(FINNHUB_MAP['NIFTY50']);
   symbols.add(FINNHUB_MAP['BANKNIFTY']);
+
+  // Always include raw USD feeds for derived INR MCX commodities
+  symbols.add(FINNHUB_MAP['CRUDEOIL_USD']);
+  symbols.add(FINNHUB_MAP['NATURALGAS_USD']);
+  symbols.add(FINNHUB_MAP['COPPER_USD']);
 
   return Array.from(symbols).filter(Boolean);
 }

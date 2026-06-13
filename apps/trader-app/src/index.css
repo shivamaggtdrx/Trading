@@ -670,6 +670,9 @@ input[type="number"] {
    ======================================== */
 .instrument-row {
   transition: background-color 0.1s ease;
+  contain: layout style;
+  content-visibility: auto;
+  contain-intrinsic-size: 50px;
 }
 
 .instrument-row:hover {
@@ -678,4 +681,12 @@ input[type="number"] {
 
 .instrument-row:active {
   background-color: rgba(226, 232, 240, 0.5);
+}
+
+/* GPU acceleration helper for high-frequency updates */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  perspective: 1000px;
 }

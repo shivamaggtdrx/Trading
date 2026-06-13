@@ -56,18 +56,88 @@ function handleTick(tick) {
     source: tick._debug?.source || 'unknown',
   });
 
-  // 1. Update price animator anchor (the animator handles high-frequency Socket.IO emissions)
+  // ── Indian MCX Live Conversions (derive INR prices from USD international ticks) ──
+  if (tick.symbol === 'XAUUSD' || tick.symbol === 'XAGUSD' || tick.symbol === 'CRUDEOIL_USD' || tick.symbol === 'NATURALGAS_USD' || tick.symbol === 'COPPER_USD') {
+    setImmediate(() => {
+      try {
+        const usdinrData = lastKnownPrices.get('USDINR');
+        const usdinr = usdinrData ? parseFloat(usdinrData.price) : 83.50; // fallback to 83.50
+        const usdPrice = parseFloat(tick.price || tick.ltp);
+        
+        let inrSymbol = '';
+        let inrPrice = 0;
+        let tickSize = 1;
+        
+        if (tick.symbol === 'XAUUSD') {
+          inrSymbol = 'GOLD';
+          // Gold Spot: USD per troy ounce. 1 troy ounce = 31.1035 grams. MCX GOLD contract is per 10 grams.
+          inrPrice = (usdPrice / 31.1035) * 10 * usdinr;
+          tickSize = 1;
+        } else if (tick.symbol === 'XAGUSD') {
+          inrSymbol = 'SILVER';
+          // Silver Spot: USD per troy ounce. MCX SILVER contract is per kg.
+          inrPrice = (usdPrice / 31.1035) * 1000 * usdinr;
+          tickSize = 1;
+        } else if (tick.symbol === 'CRUDEOIL_USD') {
+          inrSymbol = 'CRUDEOIL';
+          // Crude Oil: USD per barrel. MCX Crude contract is per barrel in INR.
+          inrPrice = usdPrice * usdinr;
+          tickSize = 1;
+        } else if (tick.symbol === 'NATURALGAS_USD') {
+          inrSymbol = 'NATURALGAS';
+          // Natural Gas: USD per mmBtu. MCX Natural Gas contract is per mmBtu in INR.
+          inrPrice = usdPrice * usdinr;
+          tickSize = 0.1;
+        } else if (tick.symbol === 'COPPER_USD') {
+          inrSymbol = 'COPPER';
+          // Copper: USD per pound (lb) internationally. 1 lb = 0.453592 kg. MCX Copper contract is per kg in INR.
+          inrPrice = (usdPrice / 0.453592) * usdinr;
+          tickSize = 0.05;
+        }
+        
+        if (inrSymbol && inrPrice > 0) {
+          // Round to nearest tick_size
+          inrPrice = Math.round(inrPrice / tickSize) * tickSize;
+          
+          const inrTick = {
+            symbol: inrSymbol,
+            exchange: 'MCX',
+            price: inrPrice,
+            ltp: inrPrice,
+            bid: inrPrice,
+            ask: inrPrice,
+            high: tick.high ? Math.round((parseFloat(tick.high) * (inrPrice / usdPrice))) : inrPrice,
+            low: tick.low ? Math.round((parseFloat(tick.low) * (inrPrice / usdPrice))) : inrPrice,
+            open: tick.open ? Math.round((parseFloat(tick.open) * (inrPrice / usdPrice))) : inrPrice,
+            prev_close: tick.prev_close ? Math.round((parseFloat(tick.prev_close) * (inrPrice / usdPrice))) : inrPrice,
+            change: 0,
+            change_percent: tick.change_percent || tick.changePercent || 0,
+            changePercent: tick.changePercent || tick.change_percent || 0,
+            volume: 0,
+            timestamp: Date.now(),
+            _debug: { source: 'mcx_derived', providerSymbol: tick.symbol },
+          };
+          
+          handleTick(inrTick);
+        }
+      } catch (err) {
+        feedLogger.error(`MCX derived tick failed for ${tick.symbol}: ${err.message}`);
+      }
+    });
+  }
+
+  // 1. Update price animator anchor (the animator is the sole Socket.IO emitter)
+  //    This prevents double-emission: once here + once from animator on every real tick.
   if (!tick._debug || tick._debug.source !== 'local_simulator') {
     updateAnchor(tick);
   }
 
-  // Also emit directly for the real tick (so backend pipelines get the exact price)
+  // Immediately broadcast to native WebSocket clients only (lightweight, binary-friendly)
+  // Socket.IO clients receive the tick via the animator at the next 250ms interval.
   try {
-    const io = getIO();
-    io.of('/market').to(`feed:${tick.symbol}`).emit('MARKET:TICK', tick);
-  } catch (err) {
-    // Ignore if Socket.io is not ready yet
-  }
+    const { broadcastPriceTicks } = require('./nativeWsServer');
+    broadcastPriceTicks([tick]);
+  } catch (err) {}
 
   // 2. Queue for periodic DB flush (only for live data, not simulator)
   if (!tick._debug || tick._debug.source !== 'local_simulator') {
@@ -179,13 +249,10 @@ async function startMockFeed() {
   }
 
   try {
-    const { supabaseAdmin } = require('../config/supabase');
+    const { fetchAllActiveInstruments } = require('../config/supabase');
     
     // Load active instruments
-    const { data: instruments } = await supabaseAdmin
-      .from('instruments')
-      .select('symbol, last_price')
-      .eq('is_active', true);
+    const instruments = await fetchAllActiveInstruments('symbol, last_price');
       
     if (!instruments || instruments.length === 0) {
       feedLogger.warn('Mock Feed: No active instruments found in DB.');

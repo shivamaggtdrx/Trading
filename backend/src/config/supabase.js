@@ -30,4 +30,40 @@ const supabasePublic = createClient(
   }
 );
 
-module.exports = { supabaseAdmin, supabasePublic };
+/**
+ * Utility to fetch all active instruments with range pagination to bypass Supabase 1000-row limit.
+ * @param {string} selectFields - comma-separated list of fields to select
+ * @returns {Promise<Array>}
+ */
+async function fetchAllActiveInstruments(selectFields = '*') {
+  let page = 0;
+  const PAGE_SIZE = 1000;
+  let hasMore = true;
+  const allInstruments = [];
+  
+  while (hasMore) {
+    const { data, error } = await supabaseAdmin
+      .from('instruments')
+      .select(selectFields)
+      .eq('is_active', true)
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      
+    if (error) {
+      throw error;
+    }
+    
+    if (data && data.length > 0) {
+      allInstruments.push(...data);
+      if (data.length < PAGE_SIZE) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+    } else {
+      hasMore = false;
+    }
+  }
+  return allInstruments;
+}
+
+module.exports = { supabaseAdmin, supabasePublic, fetchAllActiveInstruments };

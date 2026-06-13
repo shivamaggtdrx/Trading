@@ -2,10 +2,14 @@ const { Server } = require('socket.io');
 const { createAdapter } = require('@socket.io/redis-adapter');
 const { pubClient, subClient } = require('../redis/client');
 const { supabaseAdmin } = require('../config/supabase');
+const { initNativeWsServer } = require('./nativeWsServer');
 
 let io;
 
 function initSocketServer(httpServer) {
+  // Initialize Native WebSocket server alongside Socket.IO
+  initNativeWsServer(httpServer);
+
   // Initialize Socket.IO with strict connection settings
   io = new Server(httpServer, {
     cors: {

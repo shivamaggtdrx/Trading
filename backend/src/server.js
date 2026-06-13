@@ -62,7 +62,7 @@ app.use(cors({
 // ── Rate Limiting ──
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 500,
+  max: IS_PROD ? (parseInt(process.env.RATE_LIMIT_MAX) || 500) : 99999,
   message: { error: 'Too many requests, please try again later.' },
 });
 app.use('/api/', limiter);
@@ -83,6 +83,15 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan(IS_PROD ? 'combined' : 'dev'));
+
+// ── Serve uploaded static files ──
+const path = require('path');
+const fs = require('fs');
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
 
 const { getFeedStatus } = require('./ws/priceEngine');
 

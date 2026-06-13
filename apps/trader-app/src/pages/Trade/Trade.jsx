@@ -53,7 +53,7 @@ export default function Trade() {
   }, [selectedInstrument?.symbol, updateSubscriptions]);
 
   const instrument = useTradeStore(state => {
-    const inst = state.instruments.find(i => i.symbol === state.selectedInstrument?.symbol);
+    const inst = state.instrumentsMap?.get(state.selectedInstrument?.symbol);
     if (inst) return inst;
     return state.selectedInstrument || state.instruments[0] || { symbol: 'LOADING', name: '', price: 0, change: 0, changePercent: 0, high: 0, low: 0, volume: 0 };
   });

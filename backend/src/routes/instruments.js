@@ -39,27 +39,33 @@ router.get('/debug', authenticateUser, async (req, res) => {
   }
 });
 
-/**
- * GET /api/instruments
- * Get all active instruments (public — no auth needed)
- */
 router.get('/', async (req, res) => {
   try {
     const segment = req.query.segment; // optional filter
-    let query = supabaseAdmin
-      .from('instruments')
-      .select('*')
-      .eq('is_active', true)
-      .order('symbol');
+    const cache = require('../core/cache');
+    const cacheKey = 'instruments:active';
+    let data = cache.get(cacheKey);
 
-    if (segment) query = query.eq('segment', segment);
+    if (!data) {
+      const { fetchAllActiveInstruments } = require('../config/supabase');
+      data = await fetchAllActiveInstruments('*');
+      cache.set(cacheKey, data, 300000); // 5 minutes TTL
+    }
 
-    const { data, error } = await query;
+    // Clone the cached array before mutating (filtering/sorting)
+    let result = [...data];
 
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ instruments: data || [] });
+    if (segment) {
+      result = result.filter(i => i.segment === segment);
+    }
+
+    // Sort by symbol
+    result.sort((a, b) => (a.symbol || '').localeCompare(b.symbol || ''));
+
+    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
+    res.json({ instruments: result || [] });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch instruments' });
+    res.status(500).json({ error: 'Failed to fetch instruments: ' + err.message });
   }
 });
 

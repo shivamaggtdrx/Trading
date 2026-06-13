@@ -125,15 +125,27 @@ class NseFeed extends EventEmitter {
   }
 
   /**
-   * Start polling loop
+   * Start polling loop — uses bulk index endpoints to minimize HTTP connections
    */
   _startPolling() {
     if (this.pollInterval) clearInterval(this.pollInterval);
 
-    const POLL_INTERVAL_MS = 1000; // Poll every 1.0 seconds
-    const BATCH_SIZE = 50;         // 50 symbols per cycle (faster full rotation)
-    let batchIndex = 0;
-    let indexBatchIndex = 0;
+    const POLL_INTERVAL_MS = 2000; // Poll every 2s
+
+    // ── NSE Bulk index groups ──
+    // NSE has bulk endpoints for each index. Together these cover ALL ~3,000 listed stocks.
+    // We stagger them across cycles so we never send more than 3-4 requests per cycle.
+    //
+    // Group A (every cycle, ~2s): NIFTY 50 + NIFTY NEXT 50 = top 100 stocks
+    // Group B (every 2 cycles, ~4s): NIFTY MIDCAP 150 + NIFTY SMALLCAP 250 = 400 more stocks
+    // Group C (every 3 cycles, ~6s): NIFTY 500 + NIFTY MICROCAP 250 = broader coverage
+    // Group D (every 5 cycles, ~10s): NIFTY TOTAL MARKET = all remaining stocks
+    // Group E (every 10 cycles, ~20s): Securities in F&O = all F&O eligible stocks
+    // Individual fallback: any symbol still not covered after all bulk runs
+
+    const bulkCoveredSymbols = new Set();
+    let individualBatchIndex = 0;
+    const INDIVIDUAL_BATCH_SIZE = 30;
 
     this.pollInterval = setInterval(async () => {
       try {
@@ -145,20 +157,65 @@ class NseFeed extends EventEmitter {
         if (!this.cookies) return;
 
         this.stats.pollCycles++;
+        const cycle = this.stats.pollCycles;
 
-        // Batch equity symbols
-        if (this.activeSymbols.length > 0) {
-          const start = batchIndex * BATCH_SIZE;
-          const batch = this.activeSymbols.slice(start, start + BATCH_SIZE);
-          batchIndex = (start + BATCH_SIZE >= this.activeSymbols.length) ? 0 : batchIndex + 1;
+        // ── Group A: Every cycle (every 2s) — Top 100 stocks ──
+        await Promise.allSettled([
+          this._fetchBulkQuotes('NIFTY%2050', bulkCoveredSymbols),
+          this._fetchBulkQuotes('NIFTY%20NEXT%2050', bulkCoveredSymbols),
+        ]);
 
-          // Fetch quotes in parallel
-          const promises = batch.map(symbol => this._fetchEquityQuote(symbol));
-          await Promise.allSettled(promises);
+        // ── Group B: Every 2 cycles (every 4s) — Mid + Small cap (400 stocks) ──
+        if (cycle % 2 === 0) {
+          await Promise.allSettled([
+            this._fetchBulkQuotes('NIFTY%20MIDCAP%20150', bulkCoveredSymbols),
+            this._fetchBulkQuotes('NIFTY%20SMALLCAP%20250', bulkCoveredSymbols),
+          ]);
         }
 
-        // Also fetch indices (NIFTY50, BANKNIFTY) — less frequently
-        if (this.indexSymbols.length > 0 && this.stats.pollCycles % 3 === 0) {
+        // ── Group C: Every 3 cycles (every 6s) — NIFTY 500 + NIFTY 200 ──
+        if (cycle % 3 === 0) {
+          await Promise.allSettled([
+            this._fetchBulkQuotes('NIFTY%20500', bulkCoveredSymbols),
+            this._fetchBulkQuotes('NIFTY200%20QUALITY%2030', bulkCoveredSymbols),
+          ]);
+        }
+
+        // ── Group D: Every 5 cycles (every 10s) — Microcap + broader indices ──
+        if (cycle % 5 === 0) {
+          await Promise.allSettled([
+            this._fetchBulkQuotes('NIFTY%20MICROCAP%20250', bulkCoveredSymbols),
+            this._fetchBulkQuotes('NIFTY%20TOTAL%20MARKET', bulkCoveredSymbols),
+          ]);
+        }
+
+        // ── Group E: Every 10 cycles (every 20s) — F&O eligible stocks ──
+        if (cycle % 10 === 0) {
+          await Promise.allSettled([
+            this._fetchBulkQuotes('Securities%20in%20F%26O', bulkCoveredSymbols),
+            this._fetchBulkQuotes('NIFTY%20LARGEMIDCAP%20250', bulkCoveredSymbols),
+          ]);
+        }
+
+        // ── Individual fallback: symbols not covered by any bulk index ──
+        // These are very small-cap / SME stocks not part of any major NSE index.
+        const uncoveredSymbols = this.activeSymbols.filter(s => !bulkCoveredSymbols.has(s));
+        if (uncoveredSymbols.length > 0) {
+          const start = individualBatchIndex * INDIVIDUAL_BATCH_SIZE;
+          const batch = uncoveredSymbols.slice(start, start + INDIVIDUAL_BATCH_SIZE);
+          individualBatchIndex = (start + INDIVIDUAL_BATCH_SIZE >= uncoveredSymbols.length) ? 0 : individualBatchIndex + 1;
+          if (batch.length > 0) {
+            const promises = batch.map(symbol => this._fetchEquityQuote(symbol));
+            await Promise.allSettled(promises);
+          }
+          // Log uncovered count periodically for monitoring
+          if (cycle % 30 === 0) {
+            feedLogger.info(`[NSE] ${bulkCoveredSymbols.size} stocks covered by bulk endpoints, ${uncoveredSymbols.length} on individual rotation`);
+          }
+        }
+
+        // ── Indices (NIFTY50, BANKNIFTY) — less frequently ──
+        if (this.indexSymbols.length > 0 && cycle % 3 === 0) {
           await this._fetchIndexQuotes();
         }
 
@@ -170,7 +227,102 @@ class NseFeed extends EventEmitter {
       }
     }, POLL_INTERVAL_MS);
 
-    feedLogger.info(`[NSE] Polling started — ${this.activeSymbols.length} stocks, batch size ${BATCH_SIZE}, every ${POLL_INTERVAL_MS}ms`);
+    feedLogger.info(`[NSE] Polling started — ${this.activeSymbols.length} stocks, multi-index bulk mode every ${POLL_INTERVAL_MS}ms`);
+    feedLogger.info(`[NSE] Bulk coverage: Top 100 every 2s | Mid+Small 400 every 4s | NIFTY 500 every 6s | Total Market every 10s`);
+  }
+
+
+  /**
+   * Fetch bulk quotes for all stocks in an NSE index (e.g., NIFTY 50, NIFTY 500)
+   * This returns ALL stocks in the index in ONE HTTP call instead of N separate calls.
+   * @param {string} nseIndex - URL-encoded NSE index name (e.g., 'NIFTY%2050')
+   * @param {Set} coveredSymbols - Set to track which symbols were covered
+   */
+  async _fetchBulkQuotes(nseIndex, coveredSymbols) {
+    return new Promise((resolve) => {
+      const path = `/api/equity-stockIndices?index=${nseIndex}`;
+
+      const options = {
+        hostname: NSE_BASE,
+        path,
+        method: 'GET',
+        headers: {
+          ...BROWSER_HEADERS,
+          'Cookie': this.cookies,
+        },
+        timeout: 8000,
+      };
+
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            try {
+              const json = JSON.parse(data);
+              const stocks = json.data || [];
+
+              for (const stock of stocks) {
+                const symbol = stock.symbol;
+                if (!symbol) continue;
+
+                const ltp = stock.lastPrice;
+                if (!ltp || ltp <= 0) continue;
+
+                // Mark as covered so individual fetch loop skips this symbol
+                coveredSymbols.add(symbol);
+
+                const tick = {
+                  symbol,
+                  exchange: 'NSE',
+                  price: ltp,
+                  ltp,
+                  bid: ltp,
+                  ask: ltp,
+                  high: stock.dayHigh || ltp,
+                  low: stock.dayLow || ltp,
+                  open: stock.open || ltp,
+                  prev_close: stock.previousClose || 0,
+                  change: stock.change || 0,
+                  change_percent: stock.pChange || 0,
+                  volume: stock.totalTradedVolume || 0,
+                  timestamp: Date.now(),
+                  _debug: { source: 'nse_bulk', index: nseIndex, providerSymbol: symbol },
+                };
+
+                this.stats.ticksReceived++;
+                this.stats.lastTickTime = Date.now();
+                this.emit('tick', tick);
+              }
+
+              if (stocks.length > 0) {
+                feedLogger.debug?.(`[NSE BULK] ${nseIndex}: ${stocks.length} stocks updated`);
+              }
+
+            } catch (err) {
+              // Parse error — skip
+            }
+          } else if (res.statusCode === 401 || res.statusCode === 403) {
+            this.cookieExpiry = 0;
+          } else if (res.statusCode === 429) {
+            feedLogger.warn(`[NSE BULK] Rate limited on ${nseIndex}`);
+          }
+          resolve();
+        });
+      });
+
+      req.on('error', (err) => {
+        this.stats.errorsEncountered++;
+        resolve();
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve();
+      });
+
+      req.end();
+    });
   }
 
   /**

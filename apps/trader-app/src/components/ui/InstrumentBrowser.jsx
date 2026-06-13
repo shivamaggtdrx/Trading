@@ -134,15 +134,24 @@ export default function InstrumentBrowser({ instruments, onAdd, onClose, activeS
                   {isExpanded && (
                     <div className="bg-surface-2/50">
                       {count > 0 ? (
-                        categorizedInstruments[cat.key].map((inst) => (
-                          <InstrumentRow
-                            key={inst.symbol}
-                            inst={inst}
-                            isAdded={isAdded(inst.symbol)}
-                            onAdd={() => onAdd(inst.symbol)}
-                            fmtPrice={fmtPrice}
-                          />
-                        ))
+                        <>
+                          {categorizedInstruments[cat.key].slice(0, 100).map((inst) => (
+                            <InstrumentRow
+                              key={inst.symbol}
+                              inst={inst}
+                              isAdded={isAdded(inst.symbol)}
+                              onAdd={() => onAdd(inst.symbol)}
+                              fmtPrice={fmtPrice}
+                            />
+                          ))}
+                          {count > 100 && (
+                            <div className="py-3 px-4 text-center border-b border-border/20">
+                              <p className="text-xs text-text-muted">
+                                Showing first 100 of {count} instruments. Use the search bar above to find others.
+                              </p>
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <div className="py-6 text-center">
                           <p className="text-xs text-text-muted">No instruments in this category</p>

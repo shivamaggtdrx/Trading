@@ -16,11 +16,11 @@ const TIMEFRAMES = [
 ];
 
 export default function Charts() {
-  const {
+  const { 
     selectedInstrument, setSelectedInstrument,
     orderType, setOrderType, orderSide, setOrderSide,
-    quantity, setQuantity, getAllInstruments, placeOrder, wallet,
-    updateSubscriptions, instruments,
+    quantity, setQuantity, placeOrder, wallet,
+    updateSubscriptions, instruments, instrumentsMap,
   } = useTradeStore();
   const navigate = useNavigate();
 
@@ -39,10 +39,10 @@ export default function Charts() {
     }
   }, [selectedInstrument?.symbol, updateSubscriptions]);
 
-  const allInstruments = getAllInstruments();
-  // Read LIVE instrument data from the instruments array (not stale selectedInstrument)
+  const allInstruments = instruments || [];
+  // Read LIVE instrument data from the instrumentsMap (not stale selectedInstrument)
   const instrument = (selectedInstrument
-    ? instruments.find(i => i.symbol === selectedInstrument.symbol) || selectedInstrument
+    ? instrumentsMap?.get(selectedInstrument.symbol) || selectedInstrument
     : allInstruments[0]) || {
     symbol: 'LOADING', name: '', price: 0, change: 0, changePercent: 0
   };

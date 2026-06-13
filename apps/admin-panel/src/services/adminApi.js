@@ -57,7 +57,11 @@ export const adminApi = {
   }),
   getRiskHeatmap: () => request('/admin/risk/heatmap'),
   getHouseBook: () => request('/admin/risk/house-book'),
-  getDealingDeskOrderBook: (price) => request(`/admin/dealing-desk/orderbook?price=${price}`),
+  getDealingDeskOrderBook: (symbol, price) => request(`/admin/dealing-desk/orderbook?symbol=${symbol}&price=${price}`),
+  hedgePosition: (data) => request('/admin/risk/hedge', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
 
   // ── Analytics ──
   getChurnPrediction: () => request('/admin/analytics/churn'),

@@ -321,6 +321,12 @@ async function fillLimitOrder(data) {
   // ── Step 6: Update Redis exposure tracking ──
   await updateExposure(symbol, side, quantity);
 
+  // ── Step 7: Invalidate Wallet Cache ──
+  try {
+    const cache = require('../cache');
+    cache.delete(`wallet:${userId}`);
+  } catch (err) {}
+
   console.log(`✅ Limit Order Filled: ${side} ${quantity}x ${symbol} @ ${executionPrice} [${orderId}]`);
   return { orderId, positionId: position.id, executionPrice };
 }
@@ -369,51 +375,20 @@ async function executeSlTp(data) {
   const charges = (spreadAmount * quantity * 0.01) + (totalSwapFees || 0);
   const netPnl = grossPnl - charges;
 
-  // 2. Close position
-  const { error: updateErr } = await supabaseAdmin
-    .from('positions')
-    .update({
-      status: 'closed',
-      current_price: exitPrice,
-      realized_pnl: netPnl,
-      close_reason: triggerType.toLowerCase(),
-      closed_at: new Date().toISOString(),
-    })
-    .eq('id', positionId);
-
-  if (updateErr) throw new Error('Failed to update position to closed: ' + updateErr.message);
-
-  // 3. Create trade record
-  await supabaseAdmin.from('trades').insert({
-    user_id: userId,
-    instrument_id: position.instrument_id,
-    position_id: positionId,
-    symbol: symbol,
-    side: side === 'long' || side === 'BUY' ? 'buy' : 'sell',
-    quantity: quantity,
-    entry_price: entryPrice,
-    exit_price: exitPrice,
-    gross_pnl: grossPnl,
-    charges: charges,
-    net_pnl: netPnl,
-    spread_revenue: spreadAmount * quantity * 0.01,
-    swap_revenue: totalSwapFees || 0,
-    routing: routing,
-    opened_at: position.opened_at,
-  });
-
-  // 4. Settle PNL & release margin atomically
-  const { error: settleErr } = await supabaseAdmin.rpc('settle_position_pnl', {
+  // 2. Close position atomically via DB RPC
+  const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc('close_position_atomic', {
     p_user_id: userId,
-    p_net_pnl: netPnl,
-    p_margin_to_release: marginUsed,
-    p_reference_id: positionId,
-    p_symbol: `${triggerType} ${side.toUpperCase()} ${quantity} ${symbol}`,
+    p_position_id: positionId,
+    p_exit_price: parseFloat(exitPrice),
+    p_gross_pnl: parseFloat(grossPnl),
+    p_net_pnl: parseFloat(netPnl),
+    p_charges: parseFloat(charges - (totalSwapFees || 0)),
+    p_spread_revenue: parseFloat(spreadAmount * quantity * 0.01),
+    p_swap_revenue: parseFloat(totalSwapFees || 0),
+    p_close_reason: triggerType.toLowerCase()
   });
-  if (settleErr) {
-    console.error('Settlement RPC error on SL/TP:', settleErr);
-    // Continue despite settlement failure, but this should be alerted
-  }
+
+  if (rpcErr) throw new Error('Failed to atomically close position via RPC: ' + rpcErr.message);
 
   // 5. Notify user
   try {
@@ -430,6 +405,12 @@ async function executeSlTp(data) {
   // 6. Update exposure (reversing the position)
   // Reversing the quantity because we are closing
   await updateExposure(symbol, side === 'long' || side === 'BUY' ? 'sell' : 'buy', quantity);
+
+  // 7. Invalidate Wallet Cache
+  try {
+    const cache = require('../cache');
+    cache.delete(`wallet:${userId}`);
+  } catch (err) {}
 
   console.log(`✅ ${triggerType} Executed: ${symbol} @ ${exitPrice} PNL: ${netPnl} [Pos: ${positionId}]`);
   return { positionId, exitPrice, netPnl, triggerType };

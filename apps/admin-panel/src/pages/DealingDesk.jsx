@@ -14,7 +14,7 @@ export default function DealingDesk() {
     let isMounted = true;
     
     // Initial fetch
-    adminApi.getDealingDeskOrderBook(2950).then(data => {
+    adminApi.getDealingDeskOrderBook(selectedSymbol, 0).then(data => {
       if (isMounted) {
         setOrderBook(data);
         setLoadingBook(false);
@@ -32,7 +32,7 @@ export default function DealingDesk() {
         setCurrentPrice(tick.price);
         // Only regenerate order book sometimes to simulate realistic jitter without spamming API too hard
         if (Math.random() > 0.5) {
-          adminApi.getDealingDeskOrderBook(tick.price).then(data => {
+          adminApi.getDealingDeskOrderBook(selectedSymbol, tick.price).then(data => {
             if (isMounted) setOrderBook(data);
           }).catch(console.error);
         }

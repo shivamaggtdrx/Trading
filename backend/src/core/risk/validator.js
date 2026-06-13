@@ -31,14 +31,32 @@ async function isKillSwitchActive() {
     // Redis down — fall through to DB check
   }
 
-  // Fallback to Postgres
-  const { data } = await supabaseAdmin
-    .from('system_settings')
-    .select('value')
-    .eq('key', 'global_kill_switch')
-    .single();
+  // Fallback to Postgres: Check both global_kill_switch and trading_enabled
+  try {
+    const { data: killSwitch } = await supabaseAdmin
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'global_kill_switch')
+      .single();
 
-  return data && data.value === 'true';
+    if (killSwitch && (killSwitch.value === 'true' || killSwitch.value === true)) {
+      return true;
+    }
+
+    const { data: tradingEnabled } = await supabaseAdmin
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'trading_enabled')
+      .single();
+
+    if (tradingEnabled && (tradingEnabled.value === 'false' || tradingEnabled.value === false || tradingEnabled.value === '"false"')) {
+      return true;
+    }
+  } catch (err) {
+    // Fall silent and assume healthy to avoid locking trading on DB error
+  }
+
+  return false;
 }
 
 /**

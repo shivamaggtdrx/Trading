@@ -1,0 +1,68 @@
+import { create } from 'zustand';
+import { api } from '../services/api';
+
+function normalizeWallet(raw) {
+  if (!raw) return null;
+  return {
+    ...raw,
+    usedMargin: raw.used_margin ?? raw.usedMargin ?? 0,
+    availableMargin: raw.available_margin ?? raw.availableMargin ?? 0,
+    todayPnl: raw.today_pnl ?? raw.todayPnl ?? 0,
+    weekPnl: raw.week_pnl ?? raw.weekPnl ?? 0,
+    totalPnl: raw.total_pnl ?? raw.totalPnl ?? 0,
+    totalDeposited: raw.total_deposited ?? raw.totalDeposited ?? 0,
+    totalWithdrawn: raw.total_withdrawn ?? raw.totalWithdrawn ?? 0,
+    bonusBalance: raw.bonus_balance ?? raw.bonusBalance ?? 0,
+    todayPnlPercent: raw.balance > 0 ? ((raw.today_pnl ?? 0) / raw.balance) * 100 : 0,
+  };
+}
+
+export const useWalletStore = create((set, get) => ({
+  wallet: null,
+  walletTransactions: [],
+  walletLoading: false,
+  marginCallWarning: null,
+
+  fetchWallet: async () => {
+    set({ walletLoading: true });
+    try {
+      const data = await api.getWallet();
+      set({
+        wallet: normalizeWallet(data.wallet),
+        walletTransactions: data.transactions || [],
+        walletLoading: false
+      });
+    } catch (err) {
+      console.error('Wallet fetch error:', err);
+      set({ walletLoading: false });
+    }
+  },
+
+  submitDeposit: async (amount, method, utr_number) => {
+    set({ walletLoading: true });
+    try {
+      const data = await api.submitDeposit(amount, method, utr_number);
+      await get().fetchWallet();
+      set({ walletLoading: false });
+      return { success: true, ...data };
+    } catch (err) {
+      set({ walletLoading: false });
+      return { success: false, error: err.message };
+    }
+  },
+
+  submitWithdrawal: async (withdrawalData) => {
+    set({ walletLoading: true });
+    try {
+      const data = await api.submitWithdrawal(withdrawalData);
+      await get().fetchWallet();
+      set({ walletLoading: false });
+      return { success: true, ...data };
+    } catch (err) {
+      set({ walletLoading: false });
+      return { success: false, error: err.message };
+    }
+  },
+
+  setWallet: (wallet) => set({ wallet: normalizeWallet(wallet) }),
+}));

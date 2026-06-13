@@ -4,11 +4,30 @@
  */
 const { supabaseAdmin } = require('../config/supabase');
 
-// In-memory active positions for fast execution
-let activePositions = [];
+// In-memory active positions indexed by symbol for O(1) tick lookup
+const positionsBySymbol = new Map(); // symbol → Position[]
+let allPositions = []; // flat list (for re-sync)
 
-// In-memory pending limit orders
-let activeLimitOrders = [];
+// In-memory pending limit orders indexed by symbol for O(1) tick lookup
+const ordersBySymbol = new Map(); // symbol → Order[]
+let allLimitOrders = []; // flat list (for re-sync)
+
+/** Rebuild symbol indexes from flat lists */
+function _rebuildIndexes() {
+  positionsBySymbol.clear();
+  for (const pos of allPositions) {
+    const sym = pos.symbol;
+    if (!positionsBySymbol.has(sym)) positionsBySymbol.set(sym, []);
+    positionsBySymbol.get(sym).push(pos);
+  }
+
+  ordersBySymbol.clear();
+  for (const ord of allLimitOrders) {
+    const sym = ord.symbol;
+    if (!ordersBySymbol.has(sym)) ordersBySymbol.set(sym, []);
+    ordersBySymbol.get(sym).push(ord);
+  }
+}
 
 /**
  * Sync active positions from database into memory
@@ -21,7 +40,8 @@ async function syncPositions() {
       .in('status', ['OPEN', 'open']); // Checking both cases safely
       
     if (!error && data) {
-      activePositions = data;
+      allPositions = data;
+      _rebuildIndexes();
     }
   } catch (err) {
     console.error('Error syncing positions:', err);
@@ -40,7 +60,8 @@ async function syncLimitOrders() {
       .eq('order_type', 'limit');
       
     if (!error && data) {
-      activeLimitOrders = data;
+      allLimitOrders = data;
+      _rebuildIndexes();
     }
   } catch (err) {
     console.error('Error syncing limit orders:', err);
@@ -64,7 +85,8 @@ async function updatePositionTargets(positionId, stopLoss, target, userId) {
       // Update in-memory
       const idx = activePositions.findIndex(p => p.id === positionId);
       if (idx !== -1) {
-        activePositions[idx] = data;
+        allPositions[idx] = data;
+        _rebuildIndexes();
       }
       return data;
     }
@@ -80,8 +102,8 @@ async function updatePositionTargets(positionId, stopLoss, target, userId) {
 async function evaluateTick(tick) {
   const { symbol, ltp, bid, ask } = tick;
   
-  // 1. Evaluate Positions for SL/TP
-  const positionsToEval = activePositions.filter(p => p.symbol === symbol);
+  // 1. Evaluate Positions for SL/TP (O(1) symbol lookup)
+  const positionsToEval = positionsBySymbol.get(symbol) || [];
   
   for (const pos of positionsToEval) {
     let triggered = false;
@@ -124,8 +146,8 @@ async function evaluateTick(tick) {
     }
   }
 
-  // 2. Evaluate Limit Orders for execution
-  const limitsToEval = activeLimitOrders.filter(o => o.symbol === symbol);
+  // 2. Evaluate Limit Orders for execution (O(1) symbol lookup)
+  const limitsToEval = ordersBySymbol.get(symbol) || [];
   for (const order of limitsToEval) {
     let matched = false;
     let execPrice = null;
@@ -141,8 +163,13 @@ async function evaluateTick(tick) {
     }
 
     if (matched) {
-      // Optimistically remove from queue to prevent double-execution
-      activeLimitOrders = activeLimitOrders.filter(o => o.id !== order.id);
+      // Optimistically remove from indexes to prevent double-execution
+      allLimitOrders = allLimitOrders.filter(o => o.id !== order.id);
+      const symOrders = ordersBySymbol.get(symbol);
+      if (symOrders) {
+        const idx = symOrders.findIndex(o => o.id === order.id);
+        if (idx !== -1) symOrders.splice(idx, 1);
+      }
       
       const { executeQueue } = require('../core/queues/queueManager');
       try {
@@ -153,8 +180,9 @@ async function evaluateTick(tick) {
         console.log(`⏱️ Limit order ${order.id} matched at ${execPrice}, queued for execution`);
       } catch (err) {
         console.error('Failed to queue limit order execution:', err);
-        // Put back in queue if failed to send to BullMQ
-        activeLimitOrders.push(order);
+        // Put back in flat list and rebuild indexes if queueing fails
+        allLimitOrders.push(order);
+        _rebuildIndexes();
       }
     }
   }
@@ -166,8 +194,13 @@ async function evaluateTick(tick) {
 async function executeSquareOff(position, exitPrice, triggerType) {
   console.log(`⚡ Auto-Squareoff Triggered: ${position.symbol} ${triggerType} at ${exitPrice}`);
     
-  // Optimistically remove from memory to prevent duplicate triggers
-  activePositions = activePositions.filter(p => p.id !== position.id);
+  // Optimistically remove from indexes to prevent duplicate triggers
+  allPositions = allPositions.filter(p => p.id !== position.id);
+  const symPositions = positionsBySymbol.get(position.symbol);
+  if (symPositions) {
+    const idx = symPositions.findIndex(p => p.id === position.id);
+    if (idx !== -1) symPositions.splice(idx, 1);
+  }
   
   try {
     const { executeQueue } = require('../core/queues/queueManager');
@@ -179,8 +212,9 @@ async function executeSquareOff(position, exitPrice, triggerType) {
     console.log(`⏱️ Position ${position.id} queued for SL/TP squareoff`);
   } catch (err) {
     console.error('Squareoff queueing failed:', err);
-    // Add back to memory if queueing fails
-    activePositions.push(position);
+    // Add back to memory and rebuild indexes if queueing fails
+    allPositions.push(position);
+    _rebuildIndexes();
   }
 }
 

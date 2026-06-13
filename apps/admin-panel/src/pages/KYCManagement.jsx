@@ -238,14 +238,22 @@ export default function KYCManagement() {
 
             {/* Document Previews */}
             <h4 className="text-sm font-bold text-gray-900 mb-3">Uploaded Documents</h4>
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              {['Aadhaar Card (Front)', 'PAN Card', 'Bank Statement'].map((doc, i) => (
-                <div key={doc} className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors cursor-pointer">
-                  <Upload className="h-6 w-6 text-gray-400 mx-auto mb-2" />
-                  <p className="text-[10px] font-bold text-gray-600">{doc}</p>
-                  <p className="text-[9px] text-gray-400 mt-1">Click to view</p>
-                </div>
-              ))}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              {(selectedKyc.document_url ? selectedKyc.document_url.split(',') : []).map((url, i) => {
+                const isBack = i === 1;
+                const label = `${selectedKyc.document_type === 'aadhaar' ? 'Aadhaar' : selectedKyc.document_type === 'pan' ? 'PAN' : 'Driving Licence'} (${isBack ? 'Back' : 'Front'})`;
+                const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:4000';
+                const imageUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+                
+                return (
+                  <div key={i} className="border border-gray-200 rounded-lg p-3 bg-gray-50 flex flex-col items-center">
+                    <span className="text-xs font-bold text-gray-600 mb-2">{label}</span>
+                    <a href={imageUrl} target="_blank" rel="noreferrer" className="w-full flex justify-center bg-white border border-gray-200 rounded-lg p-2 hover:border-blue-400 transition-colors h-48">
+                      <img src={imageUrl} alt={label} className="max-h-full max-w-full object-contain rounded" />
+                    </a>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Admin Notes */}

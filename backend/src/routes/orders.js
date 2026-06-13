@@ -42,14 +42,45 @@ router.post('/', async (req, res) => {
       return res.status(403).json({ error: riskCheck.reason });
     }
 
-    // ── Fetch instrument, wallet, and spread profile IN PARALLEL ──
-    const [instrumentResult, walletResult] = await Promise.all([
-      supabaseAdmin.from('instruments').select('*').eq('symbol', symbol.toUpperCase()).eq('is_active', true).single(),
-      supabaseAdmin.from('wallets').select('*').eq('user_id', userId).single(),
-    ]);
+    // ── Fetch instrument, wallet, and spread profile with LRU Caching ──
+    const cache = require('../core/cache');
+    const symbolKey = `instrument:${symbol.toUpperCase()}`;
+    const walletKey = `wallet:${userId}`;
 
-    const instrument = instrumentResult.data;
-    const wallet = walletResult.data;
+    let instrument = cache.get(symbolKey);
+    let wallet = cache.get(walletKey);
+
+    if (!instrument || !wallet) {
+      const promises = [];
+      
+      if (!instrument) {
+        promises.push(
+          supabaseAdmin.from('instruments').select('*').eq('symbol', symbol.toUpperCase()).eq('is_active', true).single()
+            .then(res => {
+              if (res.data) cache.set(symbolKey, res.data, 60000); // 60s TTL
+              return res.data;
+            })
+        );
+      } else {
+        promises.push(Promise.resolve(instrument));
+      }
+
+      if (!wallet) {
+        promises.push(
+          supabaseAdmin.from('wallets').select('*').eq('user_id', userId).single()
+            .then(res => {
+              if (res.data) cache.set(walletKey, res.data, 5000); // 5s TTL
+              return res.data;
+            })
+        );
+      } else {
+        promises.push(Promise.resolve(wallet));
+      }
+
+      const [instData, walletData] = await Promise.all(promises);
+      instrument = instData;
+      wallet = walletData;
+    }
 
     if (!instrument) return res.status(404).json({ error: 'Instrument not found or inactive' });
     if (!instrument.trading_enabled) return res.status(403).json({ error: 'Trading disabled for this instrument' });
@@ -57,13 +88,23 @@ router.post('/', async (req, res) => {
     if (side === 'sell' && !instrument.sell_enabled) return res.status(403).json({ error: 'Selling disabled for this instrument' });
     if (!wallet) return res.status(404).json({ error: 'Wallet not found' });
 
-    // Fetch spread profile (depends on profile.tier + instrument.segment)
-    const { data: spreadProfile } = await supabaseAdmin
-      .from('spread_profiles')
-      .select('*')
-      .eq('tier', profile.tier)
-      .eq('segment', instrument.segment)
-      .single();
+    // Fetch spread profile (LRU cached)
+    const spreadKey = `spread:${profile.tier}:${instrument.segment}`;
+    let spreadProfile = cache.get(spreadKey);
+    
+    if (!spreadProfile) {
+      const { data } = await supabaseAdmin
+        .from('spread_profiles')
+        .select('*')
+        .eq('tier', profile.tier)
+        .eq('segment', instrument.segment)
+        .single();
+      
+      spreadProfile = data;
+      if (data) {
+        cache.set(spreadKey, data, 300000); // 5m TTL
+      }
+    }
 
     const sp = spreadProfile || { base_spread_pct: 0.05, slippage_min_pct: 0, slippage_max_pct: 0.05, execution_delay_min_ms: 0, execution_delay_max_ms: 200, house_favor_pct: 70 };
 
@@ -98,17 +139,20 @@ router.post('/', async (req, res) => {
     const orderValue = quantity * executionPrice;
     const marginRequired = orderValue * (instrument.margin_required / 100);
 
-    const { error: marginErr } = await supabaseAdmin.rpc('block_margin', {
-      p_user_id: userId,
-      p_margin_amount: marginRequired,
-    });
-
-    if (marginErr) {
-      return res.status(400).json({
-        error: 'Insufficient margin',
-        required: marginRequired,
-        details: marginErr.message
+    // Limit orders block margin before queueing; market orders handle it inside executeMarketOrderSync
+    if (order_type !== 'market') {
+      const { error: marginErr } = await supabaseAdmin.rpc('block_margin', {
+        p_user_id: userId,
+        p_margin_amount: marginRequired,
       });
+
+      if (marginErr) {
+        return res.status(400).json({
+          error: 'Insufficient margin',
+          required: marginRequired,
+          details: marginErr.message
+        });
+      }
     }
 
     // ── Check profit ceiling ──
@@ -126,15 +170,48 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // ── Execution Delay ──
-    const executionDelay = sp.execution_delay_min_ms + Math.floor(Math.random() * (sp.execution_delay_max_ms - sp.execution_delay_min_ms));
+    // ── Execution Delay (0 for market orders, random for limit/sl/tp queues) ──
+    const executionDelay = order_type === 'market' ? 0 : (sp.execution_delay_min_ms + Math.floor(Math.random() * (sp.execution_delay_max_ms - sp.execution_delay_min_ms)));
 
     // ── Generate idempotency key ──
     const idempotencyKey = uuidv4();
 
-    // ── Queue the order for async execution ──
-    const jobName = order_type === 'market' ? 'execute_market_order' : 'execute_limit_order';
-    const priority = order_type === 'market' ? 3 : 5; // Market orders get higher priority
+    // ── Fast Path for Market Orders ──
+    if (order_type === 'market') {
+      const { executeMarketOrderSync } = require('../core/orderExecutor');
+      const execResult = await executeMarketOrderSync({
+        userId,
+        symbol: instrument.symbol,
+        side,
+        quantity,
+        instrumentId: instrument.id,
+        instrument: {
+          margin_required: instrument.margin_required,
+          segment: instrument.segment,
+        },
+        marginRequired,
+        executionPrice,
+        referencePrice,
+        spreadAmount,
+        executionDelay: 0,
+        stopLoss: stop_loss || null,
+        takeProfit: take_profit || null,
+        bidPrice,
+        askPrice,
+      });
+
+      return res.status(200).json({
+        message: 'Order executed successfully',
+        order: execResult.order,
+        position: execResult.position,
+        newBalance: execResult.newBalance,
+        status: 'filled'
+      });
+    }
+
+    // ── Queue the order for async execution (limit, sl, tp) ──
+    const jobName = 'execute_limit_order';
+    const priority = 5;
 
     const job = await enqueueOrder(jobName, {
       idempotencyKey,
@@ -161,7 +238,7 @@ router.post('/', async (req, res) => {
       askPrice,
     }, { priority });
 
-    // Return immediately — the worker will process and notify via Socket.IO
+    // Return immediately for queued orders — the worker will process and notify via Socket.IO
     return res.status(202).json({
       message: 'Order accepted for execution',
       jobId: job.id,

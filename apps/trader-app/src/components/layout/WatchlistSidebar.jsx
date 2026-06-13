@@ -220,16 +220,16 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
               const isUp = (inst.change || 0) >= 0;
               const isFreshTick = Date.now() - (inst.lastTickTime || 0) < 350;
               return (
-                <button
+                <div
                   key={inst.symbol}
                   onClick={() => handleClick(inst)}
-                  className="w-full flex items-center px-3 py-2 text-left border-b border-border/10 hover:bg-surface-2/60 transition-colors min-w-max group"
+                  className="w-full flex items-center px-3 py-2 text-left border-b border-border/10 hover:bg-surface-2/60 transition-colors min-w-max group cursor-pointer"
                 >
                   <div className="w-[180px] flex-shrink-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-[12px] font-bold text-text-primary">{inst.symbol}</span>
                       <span className="text-[9px] font-medium px-1 py-0.5 rounded bg-surface-2 text-text-muted/70 uppercase">
-                        {inst.segment === 'nse_equity' ? 'NSE' : inst.segment === 'forex' ? 'FX' : inst.segment === 'mcx' ? 'CDS' : 'BSE'}
+                        {inst.segment === 'nse_equity' ? 'NSE' : inst.segment === 'forex' ? 'FX' : inst.segment === 'mcx' ? 'MCX' : 'BSE'}
                       </span>
                     </div>
                     <p className="text-[10px] text-text-muted/60 truncate leading-tight">{inst.name}</p>
@@ -275,7 +275,7 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
                       <X size={12} />
                     </button>
                   </span>
-                </button>
+                </div>
               );
             })
           )}
@@ -381,11 +381,11 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
           watchlistInstruments.map((inst) => {
             const isFreshTick = Date.now() - (inst.lastTickTime || 0) < 350;
             return (
-              <button
+              <div
                 key={inst.symbol}
                 onClick={() => handleClick(inst)}
                 className={cn(
-                  'w-full flex items-center justify-between px-3 py-[7px] text-left transition-colors group',
+                  'w-full flex items-center justify-between px-3 py-[7px] text-left transition-colors group cursor-pointer',
                   'hover:bg-surface-2/80 border-b border-border/10'
                 )}
               >
@@ -431,7 +431,7 @@ export default function WatchlistSidebar({ isExpanded, onToggleExpand }) {
                     <X size={10} />
                   </button>
                 </div>
-              </button>
+              </div>
             );
           })
         )}
