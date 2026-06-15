@@ -160,10 +160,14 @@ export const api = {
   },
 
   // ── Deposits ──
-  async submitDeposit(amount, method, utr_number) {
+  async getPaymentMethods() {
+    return request('/deposits/payment-methods');
+  },
+
+  async submitDeposit(amount, utr_number, screenshot_base64, payment_method_slot, method) {
     return request('/deposits', {
       method: 'POST',
-      body: JSON.stringify({ amount, method, utr_number }),
+      body: JSON.stringify({ amount, utr_number, screenshot_base64, payment_method_slot, method }),
     });
   },
 

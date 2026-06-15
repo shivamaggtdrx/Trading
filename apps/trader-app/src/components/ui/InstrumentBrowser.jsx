@@ -87,7 +87,6 @@ export default function InstrumentBrowser({ instruments, onAdd, onClose, activeS
                   inst={inst}
                   isAdded={isAdded(inst.symbol)}
                   onAdd={() => onAdd(inst.symbol)}
-                  fmtPrice={fmtPrice}
                 />
               ))
             ) : (
@@ -141,7 +140,6 @@ export default function InstrumentBrowser({ instruments, onAdd, onClose, activeS
                               inst={inst}
                               isAdded={isAdded(inst.symbol)}
                               onAdd={() => onAdd(inst.symbol)}
-                              fmtPrice={fmtPrice}
                             />
                           ))}
                           {count > 100 && (
@@ -170,7 +168,7 @@ export default function InstrumentBrowser({ instruments, onAdd, onClose, activeS
 }
 
 // ── Individual Instrument Row ──
-function InstrumentRow({ inst, isAdded, onAdd, fmtPrice }) {
+function InstrumentRow({ inst, isAdded, onAdd }) {
   const change = inst.change || inst.change_amount || 0;
   const pct = inst.changePercent || inst.change_percent || 0;
   const isUp = change >= 0;

@@ -38,10 +38,10 @@ export const useWalletStore = create((set, get) => ({
     }
   },
 
-  submitDeposit: async (amount, method, utr_number) => {
+  submitDeposit: async (amount, utr_number, screenshot_base64, payment_method_slot, method) => {
     set({ walletLoading: true });
     try {
-      const data = await api.submitDeposit(amount, method, utr_number);
+      const data = await api.submitDeposit(amount, utr_number, screenshot_base64, payment_method_slot, method);
       await get().fetchWallet();
       set({ walletLoading: false });
       return { success: true, ...data };

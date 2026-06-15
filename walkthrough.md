@@ -1,42 +1,70 @@
-# Walkthrough — Performance & Speed Optimizations
+# Walkthrough — Manual Deposit System & Instrument Browser Fix
 
-I have completed the speed and latency optimizations across all levels of the application. Here is a summary of the achievements and changes:
-
----
-
-## 🚀 Performance Optimizations
-
-### 1. Database Level (Indexes)
-- **Action**: Created SQL migration [027_speed_up_indexes.sql](file:///c:/Users/HP/Desktop/Trading%20Company%20Project/supabase/migrations/027_speed_up_indexes.sql) and ran it successfully on Supabase.
-- **Details**:
-  - Added composite index `idx_trades_user_closed` on `trades(user_id, closed_at DESC)` to drastically speed up paginated closed trade lists.
-  - Added composite index `idx_orders_user_status` on `orders(user_id, status)` to speed up active order filtering.
-
-### 2. Backend HTTP Cache-Control
-- **Action**: Modified [instruments.js](file:///c:/Users/HP/Desktop/Trading%20Company%20Project/backend/src/routes/instruments.js).
-- **Details**:
-  - Added HTTP header `Cache-Control: public, max-age=300, stale-while-revalidate=60` to the `GET /api/instruments` endpoint.
-  - **Impact**: The browser now caches the large 3,000+ active instruments list. Navigating back and forth or refreshing pages now retrieves instruments from browser cache instantly, avoiding network calls and reducing server load to zero.
-
-### 3. Client State Optimization (`usePriceStore.js`)
-- **Action**: Modified [usePriceStore.js](file:///c:/Users/HP/Desktop/Trading%20Company%20Project/apps/trader-app/src/store/usePriceStore.js).
-- **Details**:
-  - Stopped recreating the 3,000+ element `instruments` array on every single animation frame price tick.
-  - The `instruments` array is now completely static after its initial load. Price mutations update the `instrumentsMap` reference which components use for live lookups.
-  - **Impact**: Eliminates high-frequency memory allocation and garbage collection overhead in the browser.
-
-### 4. Client Render & Lookup Optimization (`Markets.jsx`, `Trade.jsx`, `Charts.jsx`)
-- **Action**: Updated lookups from slow $O(N)$ sequential array searches (`.find()`) to instant $O(1)$ hash map gets (`instrumentsMap.get()`).
-- **Files Modified**:
-  - [Markets.jsx](file:///c:/Users/HP/Desktop/Trading%20Company%20Project/apps/trader-app/src/pages/Markets/Markets.jsx): Destructured `instrumentsMap` to locate Nifty/BankNifty and watchlist active symbols instantly.
-  - [Trade.jsx](file:///c:/Users/HP/Desktop/Trading%20Company%20Project/apps/trader-app/src/pages/Trade/Trade.jsx): Replaced `.find` lookups with `instrumentsMap.get`.
-  - [Charts.jsx](file:///c:/Users/HP/Desktop/Trading%20Company%20Project/apps/trader-app/src/pages/Charts/Charts.jsx): Replaced `.find` lookups with `instrumentsMap.get`.
-  - **Impact**: Removes thousands of array iterations on every frame tick, resulting in buttery-smooth rendering and zero UI freezing.
+I have completed the manual deposit system and fixed the category segment browser crash. Here is a summary of the achievements and changes:
 
 ---
 
-## 🧪 Build Status
+## 🛠️ Changes Implemented
 
-- **Trader App**: Production build succeeded in `736ms`.
-- **Admin Panel**: Production build succeeded in `835ms`.
-- **Backend API**: Running normally with auto-restarted nodemon.
+### 1. Database Schema (`029_manual_deposits_options.sql`)
+- **Table Created**: `payment_methods` containing `id`, `slot` (1, 2, 3), `is_active`, `upi_id`, `bank_name`, `account_name`, `account_number`, `ifsc_code`, `qr_code_url`, and `instructions`.
+- **Pre-seeded**: Seaded 3 default payment methods for Options 1, 2, and 3.
+- **Constraints Altered**: Dropped the old `deposit_requests_method_check` constraint on `deposit_requests` table to allow custom options.
+- **Columns Added**: Added `payment_method_slot` (integer 1, 2, 3) to the `deposit_requests` table.
+- **Security (RLS)**: Enabled RLS on `payment_methods` and allowed authenticated users to select active records.
+
+### 2. Express Backend API
+- **User Route (`backend/src/routes/deposits.js`)**:
+  - `GET /api/deposits/payment-methods`: Fetches active manual payment channels.
+  - `POST /api/deposits`:
+    - Enforces mandatory fields: `amount` (minimum ₹500 INR), `utr_number`, and `screenshot_base64`.
+    - Converts `screenshot_base64` payload into an image receipt file and writes it to `uploads/`.
+    - Inserts a new pending deposit request linked to the selected Option slot.
+- **Admin Route (`backend/src/routes/admin.js`)**:
+  - `GET /api/admin/payment-methods`: Retrieves all configured payment options.
+  - `PUT /api/admin/payment-methods/:slot`: Allows updating details, toggling active status, and uploading a base64 QR code to `uploads/` for each channel.
+
+### 3. Trader App (User UI)
+- **API and Store (`api.js`, `useWalletStore.js`, `useTradeStore.js`)**:
+  - Extended `submitDeposit` to pass screenshot base64, payment option slot, and descriptive option names.
+  - Added `getPaymentMethods()` endpoint wrapper.
+- **Wallet UI (`Wallet.jsx`)**:
+  - Replaced the simple UPI modal form with an advanced deposit option selector (Option 1, 2, 3 tabs).
+  - Selected tab displays configured QR code scan image, UPI ID (with "Copy" clipboard button), bank transfer details (with holder name, account number, IFSC, and copy controls), and instructions.
+  - Mandates Amount (₹500 minimum check), UTR number, and screenshot file upload (using FileReader to capture base64).
+  - Displays a clean success message: *"Successful! Please wait to get your payment verified."*
+
+### 4. Admin Panel (Admin UI)
+- **API Client (`adminApi.js`)**:
+  - Added `getPaymentMethods` and `updatePaymentMethod` calls.
+- **Deposit approvals Page (`DepositApprovals.jsx`)**:
+  - Added **Configure Channels** tab to directly manage the payment slot options.
+  - Rendered 3 card modules for Option 1, 2, and 3 channels to easily edit UPI IDs, upload QR code images, modify bank transfer numbers, update user instructions, and toggle online/offline status.
+  - Fixed "View Proof" action to open the static uploaded receipt screenshot in a new tab.
+  - Bound "Rejection reason" notes text area and combined it with selected dropdown reason to save detailed rejection reasons when denying deposit transactions.
+
+### 5. Bug Fix: Mobile Instrument Browser Segment Blank Page Crash
+- **File Fixed**: [`InstrumentBrowser.jsx`](file:///c:/Users/HP/Desktop/Trading%20Company%20Project/apps/trader-app/src/components/ui/InstrumentBrowser.jsx)
+- **Bug**: The code had a reference to an undeclared/unpassed variable `fmtPrice` inside `InstrumentRow` props assignment (`fmtPrice={fmtPrice}`). This threw a runtime `ReferenceError` when expanding any category folder (Stocks, Indices, Forex, etc.) or when typing in search, causing the React render tree to crash and render a blank page.
+- **Fix**: Removed the unused and undeclared `fmtPrice` prop. `InstrumentRow` now correctly formats prices using the statically imported `formatPrice` helper.
+
+---
+
+## 🧪 Verification Plan
+
+### 1. Manual Validation Checklist
+1. **Instrument Browser Expansion**: Login to Trader app → click Watchlist edit/add icon (+) → select any segment category folder (e.g. NSE India Stocks, Global Indices) → verify it expands cleanly showing instrument listings without crashing.
+2. **Instrument Browser Search**: Start typing a search query in the browser (e.g. "RELIANCE") → verify matching results show up instantly.
+3. **Option Selection**: Go to Funds → click Add Funds → verify you can see Option 1, 2, 3.
+4. **Details Display**: Confirm QR, UPI ID, copy button, and bank details change dynamically based on the selected Option tab.
+5. **Form Validations**:
+   - Try submitting with an amount < 500 (shows validation error).
+   - Try submitting without UTR or screenshot (Deposit button is disabled).
+6. **Deposit Submission**: Upload an image, enter a UTR and amount >= 500, click Submit. Confirm success message is shown and modal closes.
+7. **Admin Configuration**: Open Admin panel → go to Deposits → select "Configure Channels" tab. Edit the details of Option 1/2/3 and upload a new QR code image. Click Save. Go back to Trader app and confirm the new details are visible.
+8. **Manual Approval/Rejection**: In Admin panel, click Pending Deposits tab. Locate your transaction, click View Receipt to verify the uploaded screenshot. Click Approve to credit the user's wallet, or click Reject and specify notes.
+
+### 2. Live Services Status
+- **Backend API Server**: Running on `http://localhost:4000/` (Task ID: `task-2352`)
+- **Trader App**: Running on `http://localhost:3000/` (Task ID: `task-2354`)
+- **Admin Panel**: Running on `http://localhost:5173/` (Task ID: `task-2356`)

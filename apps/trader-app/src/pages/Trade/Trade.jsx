@@ -9,7 +9,6 @@ import {
   BarChart2,
   Minus,
   Plus,
-  Check,
   AlertTriangle,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
@@ -42,7 +41,6 @@ export default function Trade() {
   const debugStats = useTradeStore(state => state.debugStats);
   const navigate = useNavigate();
   const [limitPrice, setLimitPrice] = useState('');
-  const [showSuccess, setShowSuccess] = useState(false);
   const [orderError, setOrderError] = useState(null);
 
   // Ensure we're subscribed to the selected instrument's price feed
@@ -62,7 +60,7 @@ export default function Trade() {
   const marginFactor = instrument.margin_required ? parseFloat(instrument.margin_required) / 100 : 1.0;
   const estimatedMargin = totalValue * marginFactor;
 
-  const handleConfirmOrder = async () => {
+  const handleConfirmOrder = () => {
     setOrderError(null);
     const orderData = {
       symbol: instrument.symbol,
@@ -77,18 +75,13 @@ export default function Trade() {
       orderData.trigger_price = Number(limitPrice);
     }
 
-    const result = await placeOrder(orderData);
-    if (result.success) {
-      setShowSuccess(true);
-      setTimeout(() => {
-        setShowSuccess(false);
-        setQuantity('');
-        setLimitPrice('');
-      }, 2000);
-    } else {
-      setOrderError(result.error || 'Order failed');
-      setTimeout(() => setOrderError(null), 4000);
-    }
+    // Navigate INSTANTLY — don't wait for the API round-trip
+    setQuantity('');
+    setLimitPrice('');
+    navigate('/positions');
+
+    // Fire the order in the background (result handled via websocket notification)
+    placeOrder(orderData).catch(() => {});
   };
 
   const adjustQuantity = (delta) => {
@@ -316,14 +309,7 @@ export default function Trade() {
 
       {/* Sticky Bottom Action Bar */}
       <div className="sticky-action-bar max-w-lg mx-auto" style={{ bottom: '64px' }}>
-        {showSuccess ? (
-          <div className="flex items-center justify-center gap-2 py-3 bg-emerald-50 rounded-xl border border-emerald-200">
-            <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
-              <Check size={14} className="text-white" strokeWidth={3} />
-            </div>
-            <span className="text-base font-bold text-emerald-600">Order Placed Successfully!</span>
-          </div>
-        ) : quantity && Number(quantity) > 0 ? (
+        {quantity && Number(quantity) > 0 ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-base px-1">
               <span className="text-text-muted font-medium">

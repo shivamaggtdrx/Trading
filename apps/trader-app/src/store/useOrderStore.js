@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { api } from '../services/api';
 import { usePriceStore } from './usePriceStore';
 import { useWalletStore } from './useWalletStore';
+import { soundEffects } from '../utils/sound';
 
 function normalizeOrder(raw) {
   return {
@@ -48,6 +49,13 @@ export const useOrderStore = create((set, get) => ({
       const priceStore = usePriceStore.getState();
       const walletStore = useWalletStore.getState();
 
+      // Play sound effects depending on status
+      if (data.status === 'filled' || (data.order && data.order.status === 'filled')) {
+        soundEffects.playOrderTriggered();
+      } else {
+        soundEffects.playOrderPlaced();
+      }
+
       if (data.status === 'queued') {
         setTimeout(() => {
           priceStore.fetchPositions();
@@ -63,6 +71,7 @@ export const useOrderStore = create((set, get) => ({
       return { success: true, ...data };
     } catch (err) {
       set({ orderLoading: false });
+      soundEffects.playAlert();
       return { success: false, error: err.message };
     }
   },

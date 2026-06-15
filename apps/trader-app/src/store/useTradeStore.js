@@ -4,6 +4,7 @@ import { useWalletStore } from './useWalletStore';
 import { useOrderStore } from './useOrderStore';
 import { usePriceStore } from './usePriceStore';
 import { api, connectUserSocket } from '../services/api';
+import { soundEffects } from '../utils/sound';
 
 // Main Trade Store — backward-compatible wrapper that delegates to sub-stores
 export const useTradeStore = create((set, get) => {
@@ -33,7 +34,7 @@ export const useTradeStore = create((set, get) => {
     
     // Wallet proxies
     fetchWallet: () => useWalletStore.getState().fetchWallet(),
-    submitDeposit: (amount, method, utr_number) => useWalletStore.getState().submitDeposit(amount, method, utr_number),
+    submitDeposit: (amount, utr_number, screenshot_base64, payment_method_slot, method) => useWalletStore.getState().submitDeposit(amount, utr_number, screenshot_base64, payment_method_slot, method),
     submitWithdrawal: (withdrawalData) => useWalletStore.getState().submitWithdrawal(withdrawalData),
 
     // Order proxies
@@ -136,6 +137,7 @@ export const useTradeStore = create((set, get) => {
       usePriceStore.getState().fetchPositions();
       useOrderStore.getState().fetchOrders();
       useWalletStore.getState().fetchWallet();
+      soundEffects.playOrderTriggered();
     },
 
     handlePnlUpdate: (pnlData) => {

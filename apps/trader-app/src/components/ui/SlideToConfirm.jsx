@@ -52,15 +52,13 @@ export default function SlideToConfirm({
     if (percentage >= 0.85) {
       setConfirmed(true);
       setDragX(getMaxX());
-      // Small delay before triggering the callback
+      // Call onConfirm immediately — no delay
+      onConfirm?.();
+      // Reset visual state after a short pause
       setTimeout(() => {
-        onConfirm?.();
-        // Reset after callback
-        setTimeout(() => {
-          setConfirmed(false);
-          setDragX(0);
-        }, 500);
-      }, 300);
+        setConfirmed(false);
+        setDragX(0);
+      }, 400);
     } else {
       // Spring back
       setDragX(0);

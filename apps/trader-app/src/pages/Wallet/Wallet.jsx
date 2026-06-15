@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, ArrowDownToLine, Clock, CheckCircle2, XCircle,
-  IndianRupee, Shield, AlertCircle, Loader2,
+  IndianRupee, Shield, AlertCircle, Loader2, Copy, Upload, Check,
 } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { useTradeStore } from '../../store/useTradeStore';
 import { formatCurrency, cn } from '../../utils/helpers';
+import { api } from '../../services/api';
 
 export default function WalletPage() {
   const navigate = useNavigate();
@@ -17,6 +18,11 @@ export default function WalletPage() {
   const [modalType, setModalType] = useState('deposit');
   const [amount, setAmount] = useState('');
   const [utrNumber, setUtrNumber] = useState('');
+  const [screenshotBase64, setScreenshotBase64] = useState('');
+  const [screenshotName, setScreenshotName] = useState('');
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [selectedSlot, setSelectedSlot] = useState(1);
+  const [copiedField, setCopiedField] = useState(null);
   const [submitResult, setSubmitResult] = useState(null);
 
   const bal = wallet?.balance || 0;
@@ -26,21 +32,72 @@ export default function WalletPage() {
   const unrealizedPnl = positions.reduce((sum, p) => sum + (p.pnl || 0), 0);
   const equityPct = usedMargin > 0 ? ((equity / usedMargin) * 100).toFixed(2) : '--';
 
+  const fetchPaymentMethods = async () => {
+    try {
+      const data = await api.getPaymentMethods();
+      setPaymentMethods(data.paymentMethods || []);
+    } catch (err) {
+      console.error('Failed to fetch payment methods:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPaymentMethods();
+  }, []);
+
+  const copyToClipboard = (text, fieldName) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
   const openModal = (type) => {
     setModalType(type);
     setAmount('');
     setUtrNumber('');
+    setScreenshotBase64('');
+    setScreenshotName('');
+    setSelectedSlot(1);
+    setCopiedField(null);
     setSubmitResult(null);
     setShowModal(true);
+    if (type === 'deposit') {
+      fetchPaymentMethods();
+    }
   };
 
   const handleSubmit = async () => {
     setSubmitResult(null);
     if (modalType === 'deposit') {
-      const result = await submitDeposit(Number(amount), 'UPI', utrNumber || undefined);
+      const depositAmount = Number(amount);
+      if (!depositAmount || depositAmount < 500) {
+        setSubmitResult({ type: 'error', message: 'Minimum deposit is ₹500 INR' });
+        return;
+      }
+      if (!utrNumber.trim()) {
+        setSubmitResult({ type: 'error', message: 'UTR number is required' });
+        return;
+      }
+      if (!screenshotBase64) {
+        setSubmitResult({ type: 'error', message: 'Screenshot receipt is required' });
+        return;
+      }
+
+      const selectedMethod = paymentMethods.find(m => m.slot === selectedSlot);
+      const methodName = selectedMethod ? `Option ${selectedSlot} (${selectedMethod.bank_name || 'UPI'})` : `Option ${selectedSlot}`;
+
+      const result = await submitDeposit(
+        depositAmount,
+        utrNumber,
+        screenshotBase64,
+        selectedSlot,
+        methodName
+      );
+
       if (result.success) {
-        setSubmitResult({ type: 'success', message: 'Deposit request submitted!' });
-        setTimeout(() => { setShowModal(false); setSubmitResult(null); }, 2500);
+        setSubmitResult({ type: 'success', message: 'Successful! Please wait to get your payment verified.' });
+        setTimeout(() => { setShowModal(false); setSubmitResult(null); }, 3500);
       } else {
         setSubmitResult({ type: 'error', message: result.error || 'Deposit failed' });
       }
@@ -206,74 +263,264 @@ export default function WalletPage() {
       {/* Deposit/Withdraw Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={modalType === 'deposit' ? 'Add Funds' : 'Withdraw Funds'}>
         <div className="space-y-4">
-          <div className="bg-surface rounded-lg p-3">
-            <div className="flex justify-between text-base mb-2">
+          <div className="bg-surface-2 rounded-xl p-3 border border-border/40">
+            <div className="flex justify-between text-sm">
               <span className="text-text-muted">Available Balance</span>
               <span className="font-bold text-text-primary">{formatCurrency(bal)}</span>
             </div>
           </div>
+
+          {modalType === 'deposit' && (
+            <>
+              {/* Option Tabs */}
+              <div>
+                <label className="block text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2">Select Deposit Option</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3].map((slot) => {
+                    const method = paymentMethods.find(m => m.slot === slot);
+                    const isActive = method ? method.is_active : false;
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSlot(slot);
+                          setSubmitResult(null);
+                        }}
+                        className={cn(
+                          'flex-1 py-2 text-xs font-bold rounded-lg border transition-all text-center flex flex-col items-center justify-center gap-0.5',
+                          selectedSlot === slot
+                            ? 'bg-primary text-white border-primary shadow-sm shadow-primary/10'
+                            : 'bg-surface-3 text-text-muted border-border/50 hover:bg-surface-2'
+                        )}
+                      >
+                        <span>Option {slot}</span>
+                        {!isActive && (
+                          <span className="text-[9px] text-red-500 font-medium">(Down)</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Display payment details of selected slot */}
+              {(() => {
+                const currentMethod = paymentMethods.find(m => m.slot === selectedSlot);
+                if (!currentMethod) {
+                  return (
+                    <div className="text-center py-4 bg-surface rounded-xl border border-border/40 text-xs text-text-muted">
+                      Loading payment details...
+                    </div>
+                  );
+                }
+
+                if (!currentMethod.is_active) {
+                  return (
+                    <div className="text-center py-4 bg-red-950/20 rounded-xl border border-red-900/30 text-xs text-red-400">
+                      ⚠️ This payment option is currently offline. Please try another Option slot.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3 p-3 bg-surface-2 rounded-xl border border-border/40">
+                    {currentMethod.instructions && (
+                      <p className="text-xs text-text-muted leading-relaxed mb-2 bg-surface p-2 rounded-lg border border-border/30">
+                        {currentMethod.instructions}
+                      </p>
+                    )}
+
+                    {/* QR Code */}
+                    {currentMethod.qr_code_url && (
+                      <div className="flex flex-col items-center justify-center p-2.5 bg-white rounded-lg mx-auto w-36 h-36">
+                        <img
+                          src={currentMethod.qr_code_url.startsWith('http') ? currentMethod.qr_code_url : `${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:4000'}${currentMethod.qr_code_url}`}
+                          alt={`QR Code Slot ${selectedSlot}`}
+                          className="w-32 h-32 object-contain"
+                        />
+                      </div>
+                    )}
+
+                    {/* UPI ID */}
+                    {currentMethod.upi_id && (
+                      <div className="flex items-center justify-between p-2.5 bg-surface-3 rounded-lg border border-border/30">
+                        <div className="overflow-hidden mr-2">
+                          <span className="text-[10px] text-text-muted block font-semibold uppercase">UPI ID</span>
+                          <span className="text-xs font-mono font-bold text-text-primary block truncate">{currentMethod.upi_id}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(currentMethod.upi_id, 'upi_id')}
+                          className="px-2 py-1 text-[10px] bg-primary/10 text-primary border border-primary/20 rounded hover:bg-primary/20 transition-all font-semibold flex items-center gap-1 flex-shrink-0"
+                        >
+                          {copiedField === 'upi_id' ? <Check size={10} /> : <Copy size={10} />}
+                          {copiedField === 'upi_id' ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Bank Details */}
+                    {(currentMethod.bank_name || currentMethod.account_number) && (
+                      <div className="bg-surface-3 p-2.5 rounded-lg border border-border/30 space-y-2 text-xs">
+                        <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block border-b border-border/20 pb-1">Bank Transfer Details</span>
+                        
+                        {currentMethod.bank_name && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-text-muted">Bank Name</span>
+                            <span className="font-semibold text-text-primary">{currentMethod.bank_name}</span>
+                          </div>
+                        )}
+                        {currentMethod.account_name && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-text-muted">Account Holder</span>
+                            <span className="font-semibold text-text-primary">{currentMethod.account_name}</span>
+                          </div>
+                        )}
+                        {currentMethod.account_number && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-text-muted">Account Number</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-text-primary font-mono">{currentMethod.account_number}</span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(currentMethod.account_number, 'acc_num')}
+                                className="text-primary hover:text-primary-hover"
+                              >
+                                {copiedField === 'acc_num' ? <Check size={10} /> : <Copy size={10} />}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {currentMethod.ifsc_code && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-text-muted">IFSC Code</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-text-primary font-mono">{currentMethod.ifsc_code}</span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(currentMethod.ifsc_code, 'ifsc')}
+                                className="text-primary hover:text-primary-hover"
+                              >
+                                {copiedField === 'ifsc' ? <Check size={10} /> : <Copy size={10} />}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </>
+          )}
+
+          {/* Amount input */}
           <div>
-            <label className="block text-base font-bold text-text-muted uppercase tracking-wider mb-1">Amount (₹)</label>
+            <label className="block text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">
+              Amount (₹) {modalType === 'deposit' && <span className="text-red-500">* (Min 500)</span>}
+            </label>
             <div className="relative">
-              <IndianRupee size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+              <IndianRupee size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
               <input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="Enter amount"
-                className="w-full bg-surface border border-border/50 rounded-xl pl-8 pr-4 py-2.5 text-base font-bold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+                placeholder={modalType === 'deposit' ? "Enter amount (Min ₹500)" : "Enter amount"}
+                className="w-full bg-surface border border-border/50 rounded-xl pl-8 pr-4 py-2 text-sm font-bold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
                 style={{ fontFamily: "'JetBrains Mono', monospace" }}
               />
             </div>
           </div>
+
           {/* Quick amounts */}
           <div className="flex gap-1">
-            {[5000, 10000, 25000, 50000, 100000].map(q => (
+            {(modalType === 'deposit' ? [500, 1000, 5000, 10000, 25000] : [5000, 10000, 25000, 50000, 100000]).map(q => (
               <button key={q} onClick={() => setAmount(String(q))}
-                className={cn('flex-1 py-1.5 text-sm font-bold rounded-lg transition-all',
-                  Number(amount) === q ? 'bg-primary text-white' : 'bg-surface text-text-muted hover:bg-surface-2')}>
-                {q >= 100000 ? '₹1L' : `₹${q/1000}K`}
+                className={cn('flex-1 py-1.5 text-xs font-bold rounded-lg transition-all',
+                  Number(amount) === q ? 'bg-primary text-white' : 'bg-surface-3 text-text-muted hover:bg-surface-2 border border-border/40')}>
+                {q >= 100000 ? '₹1L' : q >= 1000 ? `₹${q/1000}K` : `₹${q}`}
               </button>
             ))}
           </div>
+
           {modalType === 'deposit' && (
             <>
+              {/* UTR Input */}
               <div>
-                <label className="block text-base font-bold text-text-muted uppercase tracking-wider mb-1">UTR Number (optional)</label>
+                <label className="block text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">UTR / Transaction Ref Number <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={utrNumber}
                   onChange={(e) => setUtrNumber(e.target.value)}
-                  placeholder="Enter UTR / Transaction Ref"
-                  className="w-full bg-surface border border-border/50 rounded-xl px-4 py-2.5 text-base font-medium text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+                  placeholder="Enter 12-digit UTR/Ref"
+                  className="w-full bg-surface border border-border/50 rounded-xl px-3 py-2 text-sm font-medium text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+                  required
                 />
               </div>
-              <div className="flex items-start gap-2 bg-blue-50 rounded-lg p-2.5 border border-blue-200/50">
-                <Shield size={14} className="text-blue-600 mt-0.5 flex-shrink-0" />
-                <p className="text-base text-blue-700">Funds will be credited instantly via UPI or within 1 hour via NEFT/IMPS.</p>
+
+              {/* Screenshot Receipt Upload */}
+              <div>
+                <label className="block text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">Upload Receipt Screenshot <span className="text-red-500">*</span></label>
+                <label className="flex flex-col items-center justify-center border border-dashed border-border hover:border-primary/60 bg-surface rounded-xl p-3.5 cursor-pointer transition-all">
+                  <Upload size={18} className="text-text-muted mb-1" />
+                  <span className="text-xs text-text-muted font-medium truncate max-w-full text-center px-2">
+                    {screenshotName || "Choose Screenshot Image"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setScreenshotName(file.name);
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setScreenshotBase64(reader.result);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    required
+                  />
+                </label>
+              </div>
+
+              <div className="flex items-start gap-2 bg-blue-950/20 rounded-lg p-2.5 border border-blue-900/30">
+                <Shield size={13} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-blue-300">Submit your transaction details. Admin will verify manual receipt and credit funds shortly.</p>
               </div>
             </>
           )}
+
           {submitResult && (
             <div className={cn(
-              'flex items-center gap-2 rounded-lg p-2.5 border text-base font-semibold',
-              submitResult.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'
+              'flex items-center gap-2 rounded-lg p-2.5 border text-xs font-semibold',
+              submitResult.type === 'success' ? 'bg-emerald-950/20 border-emerald-900/30 text-emerald-400' : 'bg-red-950/20 border-red-900/30 text-red-400'
             )}>
-              {submitResult.type === 'success' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
-              {submitResult.message}
+              {submitResult.type === 'success' ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
+              <span>{submitResult.message}</span>
             </div>
           )}
+
           <div className="flex gap-2">
             <Button variant="outline" fullWidth size="md" onClick={() => setShowModal(false)}>Cancel</Button>
             <Button
               variant={modalType === 'deposit' ? 'success' : 'danger'}
               fullWidth
               size="md"
-              disabled={!amount || Number(amount) <= 0 || depositLoading || withdrawLoading}
+              disabled={
+                !amount || 
+                Number(amount) <= 0 || 
+                depositLoading || 
+                withdrawLoading ||
+                (modalType === 'deposit' && (Number(amount) < 500 || !utrNumber.trim() || !screenshotBase64))
+              }
               onClick={handleSubmit}
             >
-              {(depositLoading || withdrawLoading) && <Loader2 size={14} className="mr-1.5 animate-spin" />}
-              {modalType === 'deposit' ? 'Deposit' : 'Withdraw'} {amount ? formatCurrency(Number(amount)) : ''}
+              {(depositLoading || withdrawLoading) && <Loader2 size={13} className="mr-1.5 animate-spin" />}
+              {modalType === 'deposit' ? 'Submit Deposit' : `Withdraw ${amount ? formatCurrency(Number(amount)) : ''}`}
             </Button>
           </div>
         </div>

@@ -88,6 +88,8 @@ export const adminApi = {
   getDeposits: (status = 'pending') => request(`/admin/deposits?status=${status}`),
   approveDeposit: (id) => request(`/admin/deposits/${id}/approve`, { method: 'POST' }),
   rejectDeposit: (id, reason) => request(`/admin/deposits/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  getPaymentMethods: () => request('/admin/payment-methods'),
+  updatePaymentMethod: (slot, data) => request(`/admin/payment-methods/${slot}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // ── Withdrawals ──
   getWithdrawals: (status = 'pending') => request(`/admin/withdrawals?status=${status}`),

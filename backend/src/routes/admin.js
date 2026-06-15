@@ -2281,4 +2281,106 @@ router.get('/dealing-desk/orderbook', async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════
+// PAYMENT METHODS MANAGEMENT (Slots 1, 2, 3)
+// ═══════════════════════════════════════════
+router.get('/payment-methods', async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('payment_methods')
+      .select('*')
+      .order('slot', { ascending: true });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ paymentMethods: data || [] });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch payment methods' });
+  }
+});
+
+router.put('/payment-methods/:slot', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const slot = parseInt(req.params.slot);
+    if (![1, 2, 3].includes(slot)) {
+      return res.status(400).json({ error: 'Invalid slot. Must be 1, 2, or 3' });
+    }
+
+    const {
+      upi_id,
+      bank_name,
+      account_name,
+      account_number,
+      ifsc_code,
+      is_active,
+      instructions,
+      qr_code_base64
+    } = req.body;
+
+    let qr_code_url = req.body.qr_code_url || null;
+
+    // Save QR code if provided as base64
+    if (qr_code_base64) {
+      const fs = require('fs');
+      const path = require('path');
+      const matches = qr_code_base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      let ext = '.png';
+      let buffer;
+      
+      if (matches && matches.length === 3) {
+        const type = matches[1];
+        buffer = Buffer.from(matches[2], 'base64');
+        if (type.includes('jpeg') || type.includes('jpg')) ext = '.jpg';
+        else if (type.includes('gif')) ext = '.gif';
+        else if (type.includes('webp')) ext = '.webp';
+      } else {
+        buffer = Buffer.from(qr_code_base64, 'base64');
+      }
+
+      const filename = `qr_code_slot_${slot}_${Date.now()}${ext}`;
+      const uploadsDir = path.join(__dirname, '../../uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      
+      const filePath = path.join(uploadsDir, filename);
+      fs.writeFileSync(filePath, buffer);
+      qr_code_url = `/uploads/${filename}`;
+    }
+
+    // Update the payment method row
+    const { data, error } = await supabaseAdmin
+      .from('payment_methods')
+      .upsert({
+        slot,
+        upi_id: upi_id || null,
+        bank_name: bank_name || null,
+        account_name: account_name || null,
+        account_number: account_number || null,
+        ifsc_code: ifsc_code || null,
+        qr_code_url: qr_code_url || null,
+        is_active: is_active !== undefined ? is_active : true,
+        instructions: instructions || 'Transfer the amount to the details below, copy the UTR, upload screenshot and click Submit.',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'slot' })
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    // Audit log
+    await supabaseAdmin.from('audit_logs').insert({
+      admin_id: req.admin.id,
+      action: 'update_payment_method',
+      target_type: 'system',
+      target_id: `payment_method_slot_${slot}`,
+      description: `Updated payment details for slot ${slot}`,
+      ip_address: req.ip
+    });
+
+    res.json({ message: `Payment method slot ${slot} updated successfully`, paymentMethod: data });
+  } catch (err) {
+    console.error('Update payment method error:', err);
+    res.status(500).json({ error: 'Failed to update payment method: ' + err.message });
+  }
+});
+
 module.exports = router;
