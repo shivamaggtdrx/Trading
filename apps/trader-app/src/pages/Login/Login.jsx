@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTradeStore } from '../../store/useTradeStore';
-import { Eye, EyeOff, TrendingUp, ArrowRight, ShieldCheck, Zap, BarChart3, Activity, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, TrendingUp, ArrowRight, ShieldCheck, Zap, BarChart3, Activity, AlertCircle, Fingerprint } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Login() {
@@ -9,6 +9,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
   
   // Micro-interaction states
   const [isHoveringBtn, setIsHoveringBtn] = useState(false);
@@ -23,6 +24,34 @@ export default function Login() {
     { id: 3, text: "Trade Executed", subtext: "AAPL @ 185.40", delay: 3 }
   ];
 
+  useEffect(() => {
+    // Check if biometric credential save is supported and enabled on this device
+    if (window.PasswordCredential && navigator.credentials && localStorage.getItem('tradex_biometric_enabled') === 'true') {
+      setBiometricAvailable(true);
+    }
+  }, []);
+
+  const handleBiometricLogin = async () => {
+    if (!navigator.credentials) return;
+    try {
+      const cred = await navigator.credentials.get({ password: true, mediation: 'required' });
+      if (cred) {
+        setEmail(cred.id);
+        setPassword(cred.password);
+        
+        setError('');
+        const result = await login(cred.id, cred.password);
+        if (result.success) {
+          navigate('/');
+        } else {
+          setError(result.error);
+        }
+      }
+    } catch (err) {
+      console.error('Biometric credential retrieval failed:', err);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -30,6 +59,20 @@ export default function Login() {
     const result = await login(email, password);
 
     if (result.success) {
+      // Store credentials on first successful manual login
+      if (window.PasswordCredential && navigator.credentials) {
+        try {
+          const cred = new PasswordCredential({
+            id: email,
+            password: password,
+            name: email
+          });
+          await navigator.credentials.store(cred);
+          localStorage.setItem('tradex_biometric_enabled', 'true');
+        } catch (err) {
+          console.warn('Failed to store credentials:', err);
+        }
+      }
       navigate('/');
     } else {
       setError(result.error);
@@ -232,6 +275,27 @@ export default function Login() {
                 )}
               </div>
             </motion.button>
+
+            {biometricAvailable && (
+              <div className="mt-4">
+                <div className="relative flex py-2 items-center">
+                  <div className="flex-grow border-t border-border/30"></div>
+                  <span className="flex-shrink mx-4 text-text-muted text-xs font-semibold">OR</span>
+                  <div className="flex-grow border-t border-border/30"></div>
+                </div>
+
+                <motion.button
+                  type="button"
+                  onClick={handleBiometricLogin}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full py-3.5 bg-surface-2 border border-border/40 text-text-primary font-bold text-sm rounded-xl hover:bg-surface-3 hover:border-blue-500/30 transition-all flex items-center justify-center gap-2 group"
+                >
+                  <Fingerprint className="w-5 h-5 text-blue-500 group-hover:scale-110 transition-transform duration-300" />
+                  <span>Log In with Touch ID / Face ID</span>
+                </motion.button>
+              </div>
+            )}
           </form>
 
           {/* Footer */}

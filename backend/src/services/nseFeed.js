@@ -18,7 +18,7 @@ class NseFeed extends EventEmitter {
   constructor() {
     super();
     this.status = 'DISCONNECTED';
-    this.pollInterval = null;
+    this.pollTimeout = null;
     this.activeSymbols = []; // Internal stock symbols (e.g. RELIANCE, TCS)
     this.indexSymbols = [];  // Internal index symbols (e.g. NIFTY50, BANKNIFTY)
     
@@ -26,6 +26,10 @@ class NseFeed extends EventEmitter {
     this.yahooCookie = '';
     this.yahooCrumb = '';
     this.sessionExpiry = 0;
+
+    // Backoff trackers
+    this.sessionBackoffDelay = 5000;
+    this.nextSessionRetryTime = 0;
 
     this.stats = {
       ticksReceived: 0,
@@ -65,6 +69,11 @@ class NseFeed extends EventEmitter {
    * Establish a new session with Yahoo Finance to get Cookie and Crumb
    */
   async _refreshSession() {
+    if (Date.now() < this.nextSessionRetryTime) {
+      feedLogger.warn(`[NSE/YAHOO] Session refresh skipped (in backoff for another ${Math.round((this.nextSessionRetryTime - Date.now()) / 1000)}s).`);
+      return false;
+    }
+
     try {
       this.stats.sessionRefreshes++;
       
@@ -129,12 +138,19 @@ class NseFeed extends EventEmitter {
       this.yahooCookie = cookie;
       this.yahooCrumb = crumb;
       this.sessionExpiry = Date.now() + 30 * 60 * 1000; // Refresh session every 30 minutes
+      this.sessionBackoffDelay = 5000; // Reset backoff delay on success
       feedLogger.info('[NSE/YAHOO] Established session successfully.');
       return true;
     } catch (err) {
       this.stats.errorsEncountered++;
       this.stats.lastError = err.message;
       feedLogger.error(`[NSE/YAHOO] Failed to establish session: ${err.message}`);
+
+      // Exponential backoff: double up to 120s
+      this.sessionBackoffDelay = Math.min(this.sessionBackoffDelay * 2, 120000);
+      this.nextSessionRetryTime = Date.now() + this.sessionBackoffDelay;
+      feedLogger.warn(`[NSE/YAHOO] Session refresh backoff active. Next retry in ${this.sessionBackoffDelay / 1000} seconds.`);
+
       return false;
     }
   }
@@ -143,7 +159,7 @@ class NseFeed extends EventEmitter {
    * Start polling loop using batch quotes
    */
   _startPolling() {
-    if (this.pollInterval) clearInterval(this.pollInterval);
+    if (this.pollTimeout) clearTimeout(this.pollTimeout);
 
     // Map internal symbols to Yahoo symbols
     const yahooSymbolMap = new Map(); // internal -> yahoo
@@ -174,14 +190,22 @@ class NseFeed extends EventEmitter {
     const BATCH_SIZE = 300;
     const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds for complete coverage of ~3000 symbols
 
-    this.pollInterval = setInterval(async () => {
+    const pollCycle = async () => {
+      if (this.status !== 'CONNECTED') return;
+
       try {
         this.stats.pollCycles++;
 
         // Ensure session cookie & crumb are active
         if (!this.yahooCookie || !this.yahooCrumb || Date.now() > this.sessionExpiry) {
           const ok = await this._refreshSession();
-          if (!ok) return;
+          if (!ok) {
+            // Re-schedule the next check later if refresh was skipped or failed
+            if (this.status === 'CONNECTED') {
+              this.pollTimeout = setTimeout(pollCycle, POLL_INTERVAL_MS);
+            }
+            return;
+          }
         }
 
         // Fetch in sequential batches to prevent rate limits or URL truncation
@@ -234,7 +258,15 @@ class NseFeed extends EventEmitter {
         this.stats.errorsEncountered++;
         this.stats.lastError = err.message;
       }
-    }, POLL_INTERVAL_MS);
+
+      // Self-schedule next run sequentially to prevent overlapping execution
+      if (this.status === 'CONNECTED') {
+        this.pollTimeout = setTimeout(pollCycle, POLL_INTERVAL_MS);
+      }
+    };
+
+    // Trigger initial poll
+    pollCycle();
   }
 
   /**
@@ -279,10 +311,10 @@ class NseFeed extends EventEmitter {
    * Stop the feed service
    */
   stop() {
-    this.status = 'DISCONNECTED';
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
+    this.status = 'STOPPED';
+    if (this.pollTimeout) {
+      clearTimeout(this.pollTimeout);
+      this.pollTimeout = null;
     }
     feedLogger.info('[NSE] Feed service stopped.');
   }

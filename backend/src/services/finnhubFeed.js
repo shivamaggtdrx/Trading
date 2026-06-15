@@ -24,12 +24,12 @@ class FinnhubFeed extends EventEmitter {
     super();
     this.ws = null;
     this.apiKey = '';
-    this.status = 'DISCONNECTED'; // DISCONNECTED, CONNECTING, CONNECTED
+    this.status = 'DISCONNECTED'; // DISCONNECTED, CONNECTING, CONNECTED, STOPPED
     this.reconnectTimeout = null;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 20;
     this.subscribedSymbols = new Set();
-    this.pollInterval = null;
+    this.pollTimeout = null;
     this.pollSymbols = []; // Symbols that need REST polling instead of WebSocket
     this.wsSymbols = [];   // Symbols successfully subscribed via WebSocket
 
@@ -90,6 +90,7 @@ class FinnhubFeed extends EventEmitter {
     });
 
     this.ws.on('close', (code, reason) => {
+      if (this.status === 'STOPPED') return; // Prevent orphan reconnections after stop()
       feedLogger.warn(`[FINNHUB WS] Connection closed (${code}): ${reason || 'No reason'}`);
       this.status = 'DISCONNECTED';
       this.ws = null;
@@ -194,7 +195,7 @@ class FinnhubFeed extends EventEmitter {
    * Also polls ALL Indian stocks since Finnhub WS may not support them on free tier
    */
   _startRestPolling() {
-    if (this.pollInterval) clearInterval(this.pollInterval);
+    if (this.pollTimeout) clearTimeout(this.pollTimeout);
 
     // Get all active Finnhub symbols, but skip Indian stocks (handled by NSE direct feed)
     const allFinnhubSymbols = getAllFinnhubSymbols()
@@ -206,15 +207,19 @@ class FinnhubFeed extends EventEmitter {
     const BATCH_SIZE = 3;
     let batchIndex = 0;
 
-    this.pollInterval = setInterval(async () => {
+    const pollCycle = async () => {
+      if (this.status === 'STOPPED') return; // Stop loop cleanly
+
       try {
         // Get current batch of symbols to poll
-        const symbolsToPoll = allFinnhubSymbols;
-        if (symbolsToPoll.length === 0) return;
+        if (allFinnhubSymbols.length === 0) {
+          this.pollTimeout = setTimeout(pollCycle, POLL_INTERVAL_MS);
+          return;
+        }
 
         const start = batchIndex * BATCH_SIZE;
-        const batch = symbolsToPoll.slice(start, start + BATCH_SIZE);
-        batchIndex = (start + BATCH_SIZE >= symbolsToPoll.length) ? 0 : batchIndex + 1;
+        const batch = allFinnhubSymbols.slice(start, start + BATCH_SIZE);
+        batchIndex = (start + BATCH_SIZE >= allFinnhubSymbols.length) ? 0 : batchIndex + 1;
 
         // Fetch quotes in parallel
         const promises = batch.map(fhSymbol => this._fetchQuote(fhSymbol));
@@ -223,9 +228,15 @@ class FinnhubFeed extends EventEmitter {
       } catch (err) {
         feedLogger.error(`[FINNHUB REST] Poll cycle error: ${err.message}`);
       }
-    }, POLL_INTERVAL_MS);
+
+      // Self-schedule next cycle (sequential, no overlap)
+      if (this.status !== 'STOPPED') {
+        this.pollTimeout = setTimeout(pollCycle, POLL_INTERVAL_MS);
+      }
+    };
 
     feedLogger.info(`[FINNHUB REST] Polling started — ${allFinnhubSymbols.length} symbols, batch size ${BATCH_SIZE}, every ${POLL_INTERVAL_MS}ms`);
+    pollCycle();
   }
 
   /**
@@ -299,6 +310,7 @@ class FinnhubFeed extends EventEmitter {
    * Schedule reconnection with exponential backoff
    */
   _scheduleReconnect() {
+    if (this.status === 'STOPPED') return; // Don't reconnect if explicitly stopped
     if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
 
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
@@ -320,20 +332,23 @@ class FinnhubFeed extends EventEmitter {
    * Stop the Finnhub feed
    */
   stop() {
-    this.status = 'DISCONNECTED';
+    this.status = 'STOPPED';
 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
 
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
+    if (this.pollTimeout) {
+      clearTimeout(this.pollTimeout);
+      this.pollTimeout = null;
     }
 
     if (this.ws) {
-      try { this.ws.close(); } catch (e) {}
+      try {
+        this.ws.removeAllListeners(); // Prevent close event triggering reconnect
+        this.ws.terminate();
+      } catch (e) {}
       this.ws = null;
     }
 

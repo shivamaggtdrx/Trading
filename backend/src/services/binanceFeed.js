@@ -87,6 +87,7 @@ class BinanceFeed extends EventEmitter {
     });
 
     this.ws.on('close', (code, reason) => {
+      if (this.status === 'STOPPED') return; // Prevent orphan reconnections after stop()
       feedLogger.warn(`[BINANCE WS] Disconnected (${code}): ${reason || 'No reason'}`);
       this.status = 'DISCONNECTED';
       this.ws = null;
@@ -210,6 +211,7 @@ class BinanceFeed extends EventEmitter {
    * Schedule reconnection with exponential backoff
    */
   _scheduleReconnect() {
+    if (this.status === 'STOPPED') return; // Don't reconnect if explicitly stopped
     if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
 
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
@@ -241,7 +243,7 @@ class BinanceFeed extends EventEmitter {
    * Stop the Binance feed
    */
   stop() {
-    this.status = 'DISCONNECTED';
+    this.status = 'STOPPED';
 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -251,7 +253,10 @@ class BinanceFeed extends EventEmitter {
     this._stopPingPong();
 
     if (this.ws) {
-      try { this.ws.close(); } catch (e) {}
+      try {
+        this.ws.removeAllListeners(); // Prevent close event triggering reconnect
+        this.ws.terminate();
+      } catch (e) {}
       this.ws = null;
     }
 
