@@ -24,6 +24,10 @@ import HouseBook from './pages/HouseBook';
 import ClientRestrictions from './pages/ClientRestrictions';
 import TradingLimits from './pages/TradingLimits';
 
+import OfflineBanner from './components/pwa/OfflineBanner';
+import PWAInstallPrompt from './components/pwa/PWAInstallPrompt';
+import PWAUpdatePrompt from './components/pwa/PWAUpdatePrompt';
+
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
@@ -40,6 +44,9 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <OfflineBanner />
+        <PWAInstallPrompt />
+        <PWAUpdatePrompt />
         <Routes>
           {/* Public login route */}
           <Route path="/login" element={<LoginRoute />} />
