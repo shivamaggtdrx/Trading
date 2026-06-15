@@ -144,6 +144,13 @@ export const api = {
     return request(`/orders/${orderId}`, { method: 'DELETE' });
   },
 
+  async modifyOrder(orderId, orderData) {
+    return request(`/orders/${orderId}`, {
+      method: 'PUT',
+      body: JSON.stringify(orderData),
+    });
+  },
+
   // ── Positions ──
   async getPositions() {
     return request('/positions');
@@ -251,6 +258,23 @@ export const api = {
   // ── Notifications ──
   async getNotifications() {
     return request('/auth/notifications');
+  },
+
+  // ── Push Notifications ──
+  async getPushVapidPublicKey() {
+    return request('/users/push-subscription/vapid-public-key');
+  },
+  async registerPushSubscription(subscription) {
+    return request('/users/push-subscription', {
+      method: 'POST',
+      body: JSON.stringify(subscription),
+    });
+  },
+  async unregisterPushSubscription(endpoint) {
+    return request('/users/push-subscription', {
+      method: 'DELETE',
+      body: JSON.stringify({ endpoint }),
+    });
   },
 
   // ── KYC ──

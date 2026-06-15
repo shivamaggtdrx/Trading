@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Settings, ToggleLeft, ToggleRight, Sliders,
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import { cn } from '../../utils/helpers';
+import { getPushSubscription, subscribeToPush, unsubscribeFromPush, isPushSupported } from '../../utils/pushSubscription';
 
 export default function TradingPreferences() {
   const navigate = useNavigate();
@@ -28,6 +29,42 @@ export default function TradingPreferences() {
     })(),
     chartType: 'candle',
     defaultTimeframe: '1H',
+  };
+
+  const [pushActive, setPushActive] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
+  useEffect(() => {
+    async function checkPush() {
+      if (isPushSupported()) {
+        try {
+          const sub = await getPushSubscription();
+          setPushActive(!!sub && Notification.permission === 'granted');
+        } catch (e) {}
+      }
+    }
+    checkPush();
+  }, []);
+
+  const handlePushToggle = async () => {
+    if (!isPushSupported()) {
+      alert('Push notifications are not supported on this browser/device.');
+      return;
+    }
+    setPushLoading(true);
+    try {
+      if (pushActive) {
+        await unsubscribeFromPush();
+        setPushActive(false);
+      } else {
+        await subscribeToPush();
+        setPushActive(true);
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to toggle push notifications');
+    } finally {
+      setPushLoading(false);
+    }
   };
 
   const [settings, setSettings] = useState(() => {
@@ -226,6 +263,24 @@ export default function TradingPreferences() {
                 </div>
                 <button onClick={() => toggle('priceAlerts')} className="touch-active-subtle">
                   {settings.priceAlerts ? <ToggleRight size={26} className="text-emerald-500" /> : <ToggleLeft size={26} className="text-text-muted/40" />}
+                </button>
+              </div>
+
+              {/* Push Notifications */}
+              <div className="flex items-center gap-3 px-3 py-2.5">
+                <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                  <Bell size={12} className="text-indigo-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-base font-semibold text-text-primary">Push Notifications</p>
+                  <p className="text-[11px] text-text-muted mt-0.5">SL hit, order filled, margin calls (PWA)</p>
+                </div>
+                <button 
+                  onClick={handlePushToggle} 
+                  disabled={pushLoading}
+                  className={cn("touch-active-subtle", pushLoading && "opacity-50 cursor-not-allowed")}
+                >
+                  {pushActive ? <ToggleRight size={26} className="text-emerald-500" /> : <ToggleLeft size={26} className="text-text-muted/40" />}
                 </button>
               </div>
 

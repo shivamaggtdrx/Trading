@@ -45,6 +45,7 @@ export const useTradeStore = create((set, get) => {
     fetchOrders: () => useOrderStore.getState().fetchOrders(),
     placeOrder: (orderData) => useOrderStore.getState().placeOrder(orderData),
     cancelOrder: (id) => useOrderStore.getState().cancelOrder(id),
+    modifyOrder: (id, orderData) => useOrderStore.getState().modifyOrder(id, orderData),
     getFilteredOrders: () => useOrderStore.getState().getFilteredOrders(),
 
     // Price / Instruments / Watchlists / Positions proxies

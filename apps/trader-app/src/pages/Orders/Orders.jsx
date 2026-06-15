@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, CheckCircle2, XCircle, X, Calendar, ClipboardList, Zap } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle, X, Calendar, ClipboardList, Zap, Edit3 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { useTradeStore } from '../../store/useTradeStore';
@@ -12,9 +12,112 @@ const statusConfig = {
   cancelled: { icon: XCircle, label: 'Cancelled', color: 'text-text-muted', bg: 'bg-surface-3' },
 };
 
+function ModifyOrderForm({ order, onClose }) {
+  const { modifyOrder, updatePositionSlTgt, positions } = useTradeStore();
+  const [qty, setQty] = useState(String(order.quantity));
+  const [price, setPrice] = useState(String(order.price));
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      if (order.isVirtual) {
+        // Find position
+        const pos = positions.find(p => p.id === order.positionId);
+        if (!pos) throw new Error('Open position not found');
+
+        const newPrice = Number(price);
+        if (isNaN(newPrice) || newPrice <= 0) {
+          throw new Error('Please enter a valid trigger price');
+        }
+
+        const newSl = order.virtualType === 'sl' ? newPrice : pos.stop_loss;
+        const newTgt = order.virtualType === 'tgt' ? newPrice : (pos.take_profit || pos.target);
+
+        await updatePositionSlTgt(pos.id, newSl, newTgt);
+      } else {
+        const newQty = Number(qty);
+        const newPrice = Number(price);
+
+        if (isNaN(newQty) || newQty <= 0) throw new Error('Please enter a valid quantity');
+        if (isNaN(newPrice) || newPrice <= 0) throw new Error('Please enter a valid price');
+
+        const res = await modifyOrder(order.id, { quantity: newQty, price: newPrice });
+        if (!res.success) throw new Error(res.error || 'Failed to modify order');
+      }
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl p-2.5 font-medium animate-shake">
+          {error}
+        </div>
+      )}
+      <div className="bg-surface rounded-xl p-3.5 space-y-3">
+        <div className="flex justify-between text-xs border-b border-border/10 pb-2">
+          <span className="text-text-muted">Instrument</span>
+          <span className="font-bold text-text-primary">{order.symbol}</span>
+        </div>
+        <div className="flex justify-between text-xs border-b border-border/10 pb-2">
+          <span className="text-text-muted">Type</span>
+          <span className="font-bold text-text-primary capitalize">{order.type}</span>
+        </div>
+
+        {/* Quantity Field (only editable for real orders) */}
+        <div className="space-y-1">
+          <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">Quantity</label>
+          <input
+            type="number"
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+            disabled={order.isVirtual || loading}
+            required
+            className="w-full bg-surface-2 border border-border/40 rounded-xl px-3 py-2 text-sm font-bold text-text-primary focus:outline-none focus:border-primary/50 disabled:opacity-50"
+          />
+        </div>
+
+        {/* Price Field */}
+        <div className="space-y-1">
+          <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">
+            {order.type.includes('LOSS') || order.type.includes('SL') ? 'Trigger Price' : 'Limit Price'}
+          </label>
+          <input
+            type="number"
+            step="any"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            disabled={loading}
+            required
+            className="w-full bg-surface-2 border border-border/40 rounded-xl px-3 py-2 text-sm font-bold text-text-primary focus:outline-none focus:border-primary/50"
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" fullWidth size="md" onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button type="submit" variant="primary" fullWidth size="md" disabled={loading}>
+          {loading ? 'Modifying...' : 'Modify'}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export default function Orders() {
   const { activeOrderTab, setActiveOrderTab, getFilteredOrders, cancelOrder, orders, fetchOrders, positions, updatePositionSlTgt } = useTradeStore();
   const [cancellingOrder, setCancellingOrder] = useState(null);
+  const [modifyingOrder, setModifyingOrder] = useState(null);
 
   // Synthesize virtual SL/TGT orders from open positions
   const virtualOrders = [];
@@ -136,7 +239,16 @@ export default function Orders() {
                         <div className={cn('flex items-center gap-1 px-1.5 py-0.5 rounded', config.bg)}>
                           <StatusIcon size={10} className={config.color} /><span className={cn('text-[10px] font-bold', config.color)}>{config.label}</span>
                         </div>
-                        {isOpen && <button onClick={() => setCancellingOrder(order)} className="p-1 hover:bg-red-500/10 rounded"><X size={14} className="text-red-400" /></button>}
+                        {isOpen && (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setModifyingOrder(order)} className="p-1 hover:bg-blue-500/10 rounded transition-colors" title="Modify Order">
+                              <Edit3 size={14} className="text-blue-400" />
+                            </button>
+                            <button onClick={() => setCancellingOrder(order)} className="p-1 hover:bg-red-500/10 rounded transition-colors" title="Cancel Order">
+                              <X size={14} className="text-red-400" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
@@ -188,6 +300,14 @@ export default function Orders() {
                 </Button>
               </div>
             </div>
+          );
+        })()}
+      </Modal>
+
+      <Modal isOpen={!!modifyingOrder} onClose={() => setModifyingOrder(null)} title="Modify Trigger / Order">
+        {modifyingOrder && (() => {
+          return (
+            <ModifyOrderForm order={modifyingOrder} onClose={() => setModifyingOrder(null)} />
           );
         })()}
       </Modal>

@@ -52,7 +52,41 @@ Sentry.init({
 
 
 // ── Security Middleware ──
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      connectSrc: [
+        "'self'", 
+        "wss:", 
+        "ws:", 
+        "https://*.supabase.co", 
+        "https://finnhub.io", 
+        "https://*.sentry.io",
+        "http://localhost:4000",
+        "ws://localhost:4000",
+        "wss://localhost:4000"
+      ],
+      imgSrc: ["'self'", "data:", "https://*.supabase.co", "https://images.unsplash.com"],
+      frameAncestors: [
+        "'self'", 
+        process.env.FRONTEND_URL || 'http://localhost:5173', 
+        process.env.ADMIN_URL || 'http://localhost:5174',
+        process.env.LANDING_URL || 'http://localhost:5175',
+        'http://localhost:3000'
+      ],
+    },
+  },
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true,
+  },
+  xFrameOptions: { action: "sameorigin" },
+}));
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:5173',

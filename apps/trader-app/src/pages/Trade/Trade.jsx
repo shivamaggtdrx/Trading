@@ -39,6 +39,7 @@ export default function Trade() {
   const orderLoading = useTradeStore(state => state.orderLoading);
   const updateSubscriptions = useTradeStore(state => state.updateSubscriptions);
   const debugStats = useTradeStore(state => state.debugStats);
+  const wallet = useTradeStore(state => state.wallet);
   const navigate = useNavigate();
   const [limitPrice, setLimitPrice] = useState('');
   const [stopLoss, setStopLoss] = useState('');
@@ -305,32 +306,49 @@ export default function Trade() {
         </div>
 
         {/* Order Summary */}
-        {quantity && Number(quantity) > 0 && (
-          <div className="bg-surface rounded-xl p-3 border border-border/30 space-y-1.5">
-            <div className="flex items-center gap-1 mb-1">
-              <Info size={11} className="text-text-muted" />
-              <span className="text-base font-bold text-text-muted uppercase tracking-wider">Summary</span>
+        {quantity && Number(quantity) > 0 && (() => {
+          const availableMargin = wallet?.availableMargin || 0;
+          const isInsufficientMargin = availableMargin < estimatedMargin;
+          const leverageMultiplier = instrument.margin_required ? Math.round(100 / parseFloat(instrument.margin_required)) : 5;
+          return (
+            <div className="bg-surface rounded-xl p-3 border border-border/30 space-y-1.5">
+              <div className="flex items-center gap-1 mb-1">
+                <Info size={11} className="text-text-muted" />
+                <span className="text-base font-bold text-text-muted uppercase tracking-wider">Summary</span>
+              </div>
+              <div className="data-row py-1">
+                <span className="data-label">Quantity × Price</span>
+                <span className="text-sm font-bold text-text-primary tabular-nums">
+                  {quantity} × {currSymbol}{formatPrice(instrument.price)}
+                </span>
+              </div>
+              <div className="data-row py-1">
+                <span className="data-label">Total Value</span>
+                <span className="text-sm font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  {formatCurrency(totalValue)}
+                </span>
+              </div>
+              <div className="data-row py-1 border-t border-border/20 pt-1.5">
+                <span className="data-label">Available Margin</span>
+                <span className="text-sm font-bold text-text-primary tabular-nums">
+                  {formatCurrency(availableMargin)}
+                </span>
+              </div>
+              <div className="data-row py-1">
+                <span className="data-label">Margin Required ({leverageMultiplier}x)</span>
+                <span className={cn("text-sm font-black tabular-nums", isInsufficientMargin ? "text-red-500 animate-pulse" : "text-primary")}>
+                  {formatCurrency(estimatedMargin)}
+                </span>
+              </div>
+              {isInsufficientMargin && (
+                <div className="mt-2 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-2.5 flex items-start gap-2 animate-pulse">
+                  <AlertTriangle size={14} className="text-red-500 shrink-0 mt-0.5" />
+                  <span>Insufficient margin to place this order. Please deposit funds or close other positions.</span>
+                </div>
+              )}
             </div>
-            <div className="data-row py-1">
-              <span className="data-label">Quantity × Price</span>
-              <span className="text-sm font-bold text-text-primary tabular-nums">
-                {quantity} × {currSymbol}{formatPrice(instrument.price)}
-              </span>
-            </div>
-            <div className="data-row py-1">
-              <span className="data-label">Total Value</span>
-              <span className="text-sm font-extrabold text-text-primary tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                {formatCurrency(totalValue)}
-              </span>
-            </div>
-            <div className="data-row py-1 border-t border-border/30 pt-1.5">
-              <span className="data-label">Margin Required (5x)</span>
-              <span className="text-sm font-bold text-primary tabular-nums">
-                {formatCurrency(estimatedMargin)}
-              </span>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Order Error */}
         {orderError && (
@@ -343,30 +361,35 @@ export default function Trade() {
 
       {/* Sticky Bottom Action Bar */}
       <div className="sticky-action-bar max-w-lg mx-auto" style={{ bottom: '64px' }}>
-        {quantity && Number(quantity) > 0 ? (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-base px-1">
-              <span className="text-text-muted font-medium">
-                {orderSide.toUpperCase()} {quantity} {instrument.symbol}
-              </span>
-              <span className="font-bold text-text-primary" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                {formatCurrency(totalValue)}
-              </span>
+        {quantity && Number(quantity) > 0 ? (() => {
+          const availableMargin = wallet?.availableMargin || 0;
+          const isInsufficientMargin = availableMargin < estimatedMargin;
+          return (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-base px-1">
+                <span className="text-text-muted font-medium">
+                  {orderSide.toUpperCase()} {quantity} {instrument.symbol}
+                </span>
+                <span className="font-bold text-text-primary" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  {formatCurrency(totalValue)}
+                </span>
+              </div>
+              <div className={cn(debugStats?.staleWarning ? 'opacity-80' : '')}>
+                {debugStats?.staleWarning && (
+                  <div className="text-center text-xs text-orange-500 font-bold mb-2">
+                    Market feed delayed. Execution price may vary.
+                  </div>
+                )}
+                <SlideToConfirm
+                  onConfirm={handleConfirmOrder}
+                  label={`Slide to ${orderSide === 'buy' ? 'Buy' : 'Sell'} ${instrument.symbol}`}
+                  variant={orderSide === 'buy' ? 'success' : 'danger'}
+                  disabled={isInsufficientMargin}
+                />
+              </div>
             </div>
-            <div className={cn(debugStats?.staleWarning ? 'opacity-80' : '')}>
-              {debugStats?.staleWarning && (
-                <div className="text-center text-xs text-orange-500 font-bold mb-2">
-                  Market feed delayed. Execution price may vary.
-                </div>
-              )}
-              <SlideToConfirm
-                onConfirm={handleConfirmOrder}
-                label={`Slide to ${orderSide === 'buy' ? 'Buy' : 'Sell'} ${instrument.symbol}`}
-                variant={orderSide === 'buy' ? 'success' : 'danger'}
-              />
-            </div>
-          </div>
-        ) : (
+          );
+        })() : (
           <Button
             fullWidth
             size="xl"

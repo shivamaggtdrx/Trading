@@ -96,6 +96,17 @@ export const useOrderStore = create((set, get) => ({
     }
   },
 
+  modifyOrder: async (id, orderData) => {
+    try {
+      await api.modifyOrder(id, orderData);
+      await get().fetchOrders();
+      await useWalletStore.getState().fetchWallet();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  },
+
   getFilteredOrders: () => {
     const state = get();
     switch (state.activeOrderTab) {

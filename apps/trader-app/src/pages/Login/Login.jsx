@@ -62,11 +62,18 @@ export default function Login() {
       // Store credentials on first successful manual login
       if (window.PasswordCredential && navigator.credentials) {
         try {
-          const cred = new PasswordCredential({
-            id: email,
-            password: password,
-            name: email
-          });
+          let cred;
+          try {
+            // Standard approach: parse from submitted form element
+            cred = new PasswordCredential(e.target);
+          } catch (formErr) {
+            // Fallback approach: construct programmatically
+            cred = new PasswordCredential({
+              id: email,
+              password: password,
+              name: email
+            });
+          }
           await navigator.credentials.store(cred);
           localStorage.setItem('tradex_biometric_enabled', 'true');
         } catch (err) {
@@ -193,6 +200,8 @@ export default function Login() {
               <div className="relative group">
                 <input 
                   type="text" 
+                  name="username"
+                  autocomplete="username"
                   value={email} 
                   onChange={e => setEmail(e.target.value)} 
                   placeholder="Enter Email, Mobile, or User ID" 
@@ -211,6 +220,8 @@ export default function Login() {
               <div className="relative group">
                 <input 
                   type={showPassword ? 'text' : 'password'} 
+                  name="password"
+                  autocomplete="current-password"
                   value={password} 
                   onChange={e => setPassword(e.target.value)} 
                   placeholder="Enter your password" 

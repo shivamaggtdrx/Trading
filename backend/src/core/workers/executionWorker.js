@@ -3,6 +3,7 @@ const { redisOpts } = require('../../redis/client');
 const { supabaseAdmin } = require('../../config/supabase');
 const { getIO } = require('../../ws/socketServer');
 const { updateExposure } = require('../risk/validator');
+const { sendPushNotification } = require('../../services/pushNotifier');
 
 /**
  * Execution Worker
@@ -328,6 +329,13 @@ async function fillLimitOrder(data) {
   } catch (err) {}
 
   console.log(`✅ Limit Order Filled: ${side} ${quantity}x ${symbol} @ ${executionPrice} [${orderId}]`);
+  
+  sendPushNotification(userId, {
+    title: '🟢 Limit Order Filled',
+    body: `Your order to ${side.toUpperCase()} ${quantity} ${symbol} was filled at ${executionPrice}.`,
+    url: '/positions'
+  }).catch(err => console.error('Limit order push failed:', err.message));
+
   return { orderId, positionId: position.id, executionPrice };
 }
 
@@ -413,6 +421,13 @@ async function executeSlTp(data) {
   } catch (err) {}
 
   console.log(`✅ ${triggerType} Executed: ${symbol} @ ${exitPrice} PNL: ${netPnl} [Pos: ${positionId}]`);
+  
+  sendPushNotification(userId, {
+    title: triggerType === 'STOP_LOSS' ? '🛑 Stop Loss Hit' : '🎯 Target Hit',
+    body: `${symbol} position closed at ${exitPrice} (trigger: ${triggerType === 'STOP_LOSS' ? 'SL' : 'TGT'}). PnL: ₹${netPnl.toFixed(2)}`,
+    url: '/history'
+  }).catch(err => console.error('SL/TP push failed:', err.message));
+
   return { positionId, exitPrice, netPnl, triggerType };
 }
 

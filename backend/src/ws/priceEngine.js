@@ -266,16 +266,29 @@ async function flushPricesToDb() {
 }
 
 let openPositionSymbols = new Set();
-// Periodically fetch open positions to simulate and track them for feeds
+let pendingOrderSymbols = new Set();
+
+// Periodically fetch open positions and pending limit orders to simulate and track them for feeds
 setInterval(async () => {
   try {
     const { supabaseAdmin } = require('../config/supabase');
-    const { data } = await supabaseAdmin
-      .from('positions')
-      .select('symbol')
-      .in('status', ['OPEN', 'open']);
-    if (data) {
-      openPositionSymbols = new Set(data.map(p => p.symbol.toUpperCase()));
+    const [positionsRes, ordersRes] = await Promise.all([
+      supabaseAdmin
+        .from('positions')
+        .select('symbol')
+        .in('status', ['OPEN', 'open']),
+      supabaseAdmin
+        .from('orders')
+        .select('symbol')
+        .eq('status', 'pending')
+        .eq('order_type', 'limit')
+    ]);
+
+    if (positionsRes.data) {
+      openPositionSymbols = new Set(positionsRes.data.map(p => p.symbol.toUpperCase()));
+    }
+    if (ordersRes.data) {
+      pendingOrderSymbols = new Set(ordersRes.data.map(o => o.symbol.toUpperCase()));
     }
   } catch (err) {
     // Fail silent
@@ -296,8 +309,8 @@ function startDynamicSymbolPolling() {
 
     const watched = getWatchedSymbols();
     
-    // We can also extract symbols from allLimitOrders
-    const pendingOrders = new Set((allLimitOrders || []).map(o => o.symbol.toUpperCase()));
+    // Replaced undefined allLimitOrders reference with periodically updated pendingOrderSymbols
+    const pendingOrders = pendingOrderSymbols;
 
     const popular = new Set([
       'NIFTY50', 'BANKNIFTY', 'SENSEX',

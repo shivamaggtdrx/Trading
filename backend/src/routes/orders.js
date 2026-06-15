@@ -4,6 +4,16 @@ const { authenticateUser } = require('../middleware/auth');
 const { enqueueOrder } = require('../core/queues/orderQueue');
 const { validateOrder } = require('../core/risk/validator');
 const { v4: uuidv4 } = require('uuid');
+const rateLimit = require('express-rate-limit');
+
+const tradeLimiter = rateLimit({
+  windowMs: 10000, // 10 seconds
+  max: 5, // 5 requests
+  keyGenerator: (req) => req.user?.id || req.ip,
+  message: { error: 'Too many trade actions. Please wait a few seconds before trying again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 router.use(authenticateUser);
 
@@ -12,7 +22,7 @@ router.use(authenticateUser);
  * Place a new order (THE CORE DABBA LOGIC)
  * Now queues to BullMQ for async execution instead of blocking the API.
  */
-router.post('/', async (req, res) => {
+router.post('/', tradeLimiter, async (req, res) => {
   try {
     const { symbol, side, order_type, quantity, price, trigger_price, stop_loss, take_profit } = req.body;
     const userId = req.user.id;
@@ -285,7 +295,7 @@ router.get('/', async (req, res) => {
  * DELETE /api/orders/:id
  * Cancel a pending order
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', tradeLimiter, async (req, res) => {
   try {
     const { data: order } = await supabaseAdmin
       .from('orders')
@@ -318,6 +328,122 @@ router.delete('/:id', async (req, res) => {
     res.json({ message: 'Order cancelled' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to cancel order' });
+  }
+});
+
+/**
+ * PUT /api/orders/:id
+ * Modify a pending limit or stop_loss order
+ */
+router.put('/:id', tradeLimiter, async (req, res) => {
+  try {
+    const { quantity, price } = req.body;
+    const userId = req.user.id;
+    const orderId = req.params.id;
+
+    if (!quantity || !price || isNaN(quantity) || isNaN(price) || quantity <= 0 || price <= 0) {
+      return res.status(400).json({ error: 'Valid quantity and price are required' });
+    }
+
+    // 1. Fetch the order
+    const { data: order, error: orderErr } = await supabaseAdmin
+      .from('orders')
+      .select('*, instrument:instruments(*)')
+      .eq('id', orderId)
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .single();
+
+    if (orderErr || !order) {
+      return res.status(404).json({ error: 'Pending order not found' });
+    }
+
+    const instrument = order.instrument;
+    if (!instrument) {
+      return res.status(404).json({ error: 'Instrument not found' });
+    }
+
+    // 2. Calculate new margin required
+    const orderValue = quantity * price;
+    const newMarginRequired = orderValue * (instrument.margin_required / 100);
+    const oldMarginBlocked = parseFloat(order.margin_blocked || 0);
+    const marginDiff = newMarginRequired - oldMarginBlocked;
+
+    // 3. Adjust blocked margin
+    if (marginDiff > 0) {
+      // Need to block more margin
+      const { error: blockErr } = await supabaseAdmin.rpc('block_margin', {
+        p_user_id: userId,
+        p_margin_amount: marginDiff,
+      });
+
+      if (blockErr) {
+        return res.status(400).json({
+          error: 'Insufficient margin for modification',
+          required: marginDiff,
+          details: blockErr.message
+        });
+      }
+    } else if (marginDiff < 0) {
+      // Need to release margin
+      await supabaseAdmin.rpc('release_margin', {
+        p_user_id: userId,
+        p_amount: Math.abs(marginDiff),
+      }).catch(e => console.warn('Margin release failed during modify:', e.message));
+    }
+
+    // 4. Update order record in Supabase
+    const updateData = {
+      quantity,
+      margin_required: newMarginRequired,
+      margin_blocked: newMarginRequired,
+      updated_at: new Date().toISOString()
+    };
+
+    if (order.order_type === 'limit') {
+      updateData.price = price;
+    } else if (order.order_type === 'stop_loss') {
+      updateData.trigger_price = price;
+    }
+
+    const { data: updatedOrder, error: updateErr } = await supabaseAdmin
+      .from('orders')
+      .update(updateData)
+      .eq('id', orderId)
+      .select()
+      .single();
+
+    if (updateErr) {
+      // Rollback margin block if update failed
+      if (marginDiff > 0) {
+        await supabaseAdmin.rpc('release_margin', {
+          p_user_id: userId,
+          p_amount: marginDiff,
+        }).catch(e => console.warn('Rollback margin release failed:', e.message));
+      }
+      return res.status(500).json({ error: 'Failed to update order in database: ' + updateErr.message });
+    }
+
+    // 5. Invalidate cache
+    try {
+      const cache = require('../core/cache');
+      cache.delete(`wallet:${userId}`);
+    } catch (err) {}
+
+    // 6. Sync with the execution engine memory
+    try {
+      const { syncLimitOrders } = require('../ws/executionEngine');
+      syncLimitOrders();
+    } catch (err) {}
+
+    res.json({
+      message: 'Order modified successfully',
+      order: updatedOrder
+    });
+
+  } catch (err) {
+    console.error('Modify order error:', err);
+    res.status(500).json({ error: 'Failed to modify order' });
   }
 });
 

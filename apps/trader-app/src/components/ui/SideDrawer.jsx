@@ -104,7 +104,13 @@ export default function SideDrawer({ isOpen, onClose }) {
           <div className="mx-2 h-px bg-border my-3" />
 
           <p className="px-3 py-1 text-[10px] font-bold text-blue-400 uppercase tracking-widest">MOBILE APP</p>
-          <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold text-text-muted hover:bg-surface-3 hover:text-text-primary transition-colors">
+          <button
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('trigger-pwa-install-prompt'));
+              onClose();
+            }}
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold text-text-muted hover:bg-surface-3 hover:text-text-primary transition-colors"
+          >
             <Download size={18} strokeWidth={1.8} /> Download App
           </button>
         </div>

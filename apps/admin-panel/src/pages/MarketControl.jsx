@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, Shield, AlertTriangle, Play, Pause, ToggleLeft, ToggleRight, Save, RefreshCw, Globe, TrendingUp, Ban } from 'lucide-react';
+import { Clock, Calendar, Shield, AlertTriangle, Play, Pause, ToggleLeft, ToggleRight, Save, RefreshCw, Globe, TrendingUp, Ban, Megaphone, Send } from 'lucide-react';
 import { adminApi } from '../services/adminApi';
 
 const circuitBreakers = [
@@ -29,6 +29,41 @@ export default function MarketControl() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [breakers, setBreakers] = useState(circuitBreakers);
+  const [broadcasts, setBroadcasts] = useState([]);
+  const [title, setTitle] = useState('');
+  const [message, setMessage] = useState('');
+  const [type, setType] = useState('info');
+  const [submittingBroadcast, setSubmittingBroadcast] = useState(false);
+
+  const fetchBroadcasts = async () => {
+    try {
+      const res = await adminApi.getNotifications();
+      setBroadcasts(res?.notifications || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSendBroadcast = async (e) => {
+    e.preventDefault();
+    if (!title || !message) {
+      alert("Title and message are required.");
+      return;
+    }
+    setSubmittingBroadcast(true);
+    try {
+      await adminApi.sendBroadcast({ title, message, type, target_audience: 'all' });
+      setTitle('');
+      setMessage('');
+      setType('info');
+      alert('Broadcast sent successfully!');
+      fetchBroadcasts();
+    } catch (err) {
+      alert(err.message || 'Failed to send broadcast');
+    } finally {
+      setSubmittingBroadcast(false);
+    }
+  };
 
   const fetchSessions = async () => {
     try {
@@ -55,6 +90,7 @@ export default function MarketControl() {
 
   useEffect(() => {
     fetchSessions();
+    fetchBroadcasts();
   }, []);
 
   const toggleSession = async (session) => {
@@ -283,6 +319,125 @@ export default function MarketControl() {
               <button onClick={() => console.log('Action triggered')} className="text-red-500 hover:text-red-700 text-xs font-bold bg-red-50 px-3 py-1.5 rounded hover:bg-red-100 border border-red-200">Remove</button>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* System Broadcast / Announcements */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+        {/* Form */}
+        <div className="lg:col-span-1 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-gray-200 bg-gray-50/50">
+            <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <Megaphone className="h-4 w-4 text-blue-600" />
+              Send System Broadcast
+            </h2>
+          </div>
+          <form onSubmit={handleSendBroadcast} className="p-4 space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Title</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g., Scheduled Maintenance"
+                className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Message</label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Details of the announcement..."
+                rows="3"
+                className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Type</label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+                className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="info">Information (Blue)</option>
+                <option value="warning">Warning (Yellow)</option>
+                <option value="system">System Notice (Orange)</option>
+                <option value="alert">Alert (Red)</option>
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={submittingBroadcast}
+              className="w-full inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 h-10 px-4 py-2 shadow-sm"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {submittingBroadcast ? 'Sending...' : 'Broadcast Announcement'}
+            </button>
+          </form>
+        </div>
+
+        {/* Broadcast History */}
+        <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <RefreshCw className="h-4 w-4 text-purple-600" />
+              Broadcast History (Last 5)
+            </h2>
+            <button
+              onClick={fetchBroadcasts}
+              className="text-xs font-bold text-blue-600 hover:text-blue-800"
+            >
+              Refresh
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-[10px] text-gray-500 uppercase bg-gray-100 border-b border-gray-200 tracking-wider">
+                <tr>
+                  <th className="px-4 py-2.5 font-semibold">Created At</th>
+                  <th className="px-4 py-2.5 font-semibold">Title & Message</th>
+                  <th className="px-4 py-2.5 font-semibold text-center">Type</th>
+                  <th className="px-4 py-2.5 font-semibold">By</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {broadcasts.slice(0, 5).map((b) => (
+                  <tr key={b.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                      {new Date(b.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-bold text-gray-900">{b.title}</div>
+                      <div className="text-xs text-gray-500 line-clamp-2">{b.message}</div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded uppercase border ${
+                        b.type === 'warning' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                        b.type === 'system' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                        b.type === 'alert' ? 'bg-red-100 text-red-800 border-red-200' :
+                        'bg-blue-100 text-blue-800 border-blue-200'
+                      }`}>
+                        {b.type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      {b.admin?.email || 'System'}
+                    </td>
+                  </tr>
+                ))}
+                {broadcasts.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="text-center py-6 text-gray-500">
+                      No announcements broadcasted yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

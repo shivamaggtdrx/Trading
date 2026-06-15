@@ -1,6 +1,7 @@
 const { redisClient } = require('../../redis/client');
 const { supabaseAdmin } = require('../../config/supabase');
 const { getIO } = require('../../ws/socketServer');
+const { sendPushNotification } = require('../../services/pushNotifier');
 
 /**
  * MTM (Mark-to-Market) PNL Calculator
@@ -363,6 +364,13 @@ async function calculateMTM() {
                 description: `Margin Call warning triggered. Margin Level: ${marginLevel.toFixed(2)}%, Equity: ₹${equity.toFixed(2)}, Required Margin: ₹${usedMargin.toFixed(2)}`,
                 ip_address: '127.0.0.1'
               });
+
+              sendPushNotification(userId, {
+                title: '⚠️ Margin Call Alert',
+                body: `Your margin level has dropped to ${marginLevel.toFixed(2)}% (required: ${marginCallLevel}%). Please deposit funds or close positions to avoid auto-liquidation.`,
+                url: '/wallet'
+              }).catch(err => console.error('Margin call push warning failed:', err.message));
+
               await redisClient.setex(`warn:margin:${userId}`, 300, 'true'); // cache warning status for 5 mins
             }
           } catch (_) {}

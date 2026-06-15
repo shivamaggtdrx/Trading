@@ -250,4 +250,85 @@ router.post('/kyc', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/users/push-subscription/vapid-public-key
+ * Fetch VAPID public key for subscribing
+ */
+router.get('/push-subscription/vapid-public-key', async (req, res) => {
+  try {
+    const publicKey = process.env.VAPID_PUBLIC_KEY;
+    if (!publicKey) {
+      return res.status(500).json({ error: 'Push notifications are not configured on this server.' });
+    }
+    res.json({ publicKey });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch public key' });
+  }
+});
+
+/**
+ * POST /api/users/push-subscription
+ * Register a web push subscription for a user
+ */
+router.post('/push-subscription', async (req, res) => {
+  try {
+    const { endpoint, keys, expirationTime } = req.body;
+    if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
+      return res.status(400).json({ error: 'Endpoint and subscription keys (auth, p256dh) are required' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('push_subscriptions')
+      .upsert(
+        {
+          user_id: req.user.id,
+          endpoint,
+          expiration_time: expirationTime || null,
+          keys_p256dh: keys.p256dh,
+          keys_auth: keys.auth,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'user_id, endpoint' }
+      )
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ message: 'Subscription registered successfully', subscription: data });
+  } catch (err) {
+    console.error('Subscription error:', err);
+    res.status(500).json({ error: 'Failed to register subscription' });
+  }
+});
+
+/**
+ * DELETE /api/users/push-subscription
+ * Remove a push subscription for a user
+ */
+router.delete('/push-subscription', async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    if (!endpoint) {
+      return res.status(400).json({ error: 'Endpoint is required to remove subscription' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('push_subscriptions')
+      .delete()
+      .eq('user_id', req.user.id)
+      .eq('endpoint', endpoint);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ message: 'Subscription removed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete subscription' });
+  }
+});
+
 module.exports = router;

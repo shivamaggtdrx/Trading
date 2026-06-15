@@ -54,6 +54,21 @@ export default function PWAInstallPrompt() {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
   }, []);
 
+  useEffect(() => {
+    const handleTriggerPrompt = () => {
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+      if (isPWA) {
+        alert('App is already installed!');
+        return;
+      }
+      setShowBanner(true);
+    };
+
+    window.addEventListener('trigger-pwa-install-prompt', handleTriggerPrompt);
+    return () => window.removeEventListener('trigger-pwa-install-prompt', handleTriggerPrompt);
+  }, []);
+
   const handleInstall = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
@@ -113,7 +128,7 @@ export default function PWAInstallPrompt() {
                 <strong className="text-white">"Add to Home Screen"</strong>
               </p>
             </div>
-          ) : (
+          ) : deferredPrompt ? (
             <button
               onClick={handleInstall}
               className="mt-4 w-full bg-[#f06428] hover:bg-[#d4541f] text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors active:scale-[0.98]"
@@ -121,6 +136,12 @@ export default function PWAInstallPrompt() {
               <Download className="w-5 h-5" />
               Install App
             </button>
+          ) : (
+            <div className="mt-4 bg-[#0d1117] border border-[#30363d] rounded-xl p-3">
+              <p className="text-gray-300 text-sm text-center">
+                To install the app, please select the <strong className="text-white">"Install App"</strong> option from your browser's menu/address bar.
+              </p>
+            </div>
           )}
         </div>
       </div>
