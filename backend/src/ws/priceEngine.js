@@ -266,22 +266,81 @@ async function flushPricesToDb() {
 }
 
 let openPositionSymbols = new Set();
-// Periodically fetch open positions to simulate them in mock feed
-if (process.env.NODE_ENV !== 'production') {
-  setInterval(async () => {
-    try {
-      const { supabaseAdmin } = require('../config/supabase');
-      const { data } = await supabaseAdmin
-        .from('positions')
-        .select('symbol')
-        .in('status', ['OPEN', 'open']);
-      if (data) {
-        openPositionSymbols = new Set(data.map(p => p.symbol.toUpperCase()));
-      }
-    } catch (err) {
-      // Fail silent
+// Periodically fetch open positions to simulate and track them for feeds
+setInterval(async () => {
+  try {
+    const { supabaseAdmin } = require('../config/supabase');
+    const { data } = await supabaseAdmin
+      .from('positions')
+      .select('symbol')
+      .in('status', ['OPEN', 'open']);
+    if (data) {
+      openPositionSymbols = new Set(data.map(p => p.symbol.toUpperCase()));
     }
-  }, 10000);
+  } catch (err) {
+    // Fail silent
+  }
+}, 10000);
+
+let dynamicSymbolTimer = null;
+
+/**
+ * Periodically rebuild the list of required symbols to poll from Yahoo Feed
+ * based on watched list, open positions, pending limit orders, and popular instruments.
+ */
+function startDynamicSymbolPolling() {
+  if (dynamicSymbolTimer) clearInterval(dynamicSymbolTimer);
+
+  const updateSymbols = () => {
+    if (nseFeed.status !== 'CONNECTED') return;
+
+    const watched = getWatchedSymbols();
+    
+    // We can also extract symbols from allLimitOrders
+    const pendingOrders = new Set((allLimitOrders || []).map(o => o.symbol.toUpperCase()));
+
+    const popular = new Set([
+      'NIFTY50', 'BANKNIFTY', 'SENSEX',
+      'GOLD', 'SILVER', 'CRUDEOIL', 'NATURALGAS', 'COPPER',
+      'EURUSD', 'GBPUSD', 'USDJPY', 'USDINR',
+      'BTCUSDT', 'ETHUSDT', 'SOLUSDT',
+      'RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'TATAMOTORS', 'SBIN'
+    ]);
+
+    const activeSymbols = new Set();
+    for (const sym of watched) activeSymbols.add(sym);
+    for (const sym of openPositionSymbols) activeSymbols.add(sym);
+    for (const sym of pendingOrders) activeSymbols.add(sym);
+    for (const sym of popular) activeSymbols.add(sym);
+
+    const symbolsToPoll = [];
+    const indicesToPoll = [];
+
+    for (const sym of activeSymbols) {
+      if (sym === 'NIFTY50' || sym === 'BANKNIFTY' || sym === 'SENSEX') {
+        indicesToPoll.push(sym);
+      } else {
+        const details = getInstrumentDetails(sym);
+        if (details && (
+          details.segment === 'nse_equity' || 
+          details.segment === 'bse_equity' || 
+          details.segment === 'fo_futures' || 
+          details.segment === 'fo_options' || 
+          details.segment === 'mcx'
+        )) {
+          symbolsToPoll.push(sym);
+        }
+      }
+    }
+
+    // Update nseFeed properties
+    nseFeed.activeSymbols = [...new Set(symbolsToPoll)];
+    nseFeed.indexSymbols = [...new Set(indicesToPoll)];
+  };
+
+  // Run immediately and then every 10 seconds
+  updateSymbols();
+  dynamicSymbolTimer = setInterval(updateSymbols, 10000);
 }
 
 function getWatchedSymbols() {
@@ -461,9 +520,20 @@ async function initPriceEngine() {
     const yahooStocks = [...new Set([...nseEquities, ...foFutures, ...mcxSymbols])];
     
     feedLogger.info(`[PRICE ENGINE] 🇮🇳 Starting NSE India feed (FREE — Yahoo fallback)`);
-    feedLogger.info(`[PRICE ENGINE]    ${yahooStocks.length} equities + ${indianIndices.length} indices`);
+    
+    // Start with a small initial set of popular stocks to prevent startup memory spikes.
+    // The dynamic polling loop will quickly expand this to whatever is actually needed.
+    const initialStocks = yahooStocks.filter(sym => {
+      const popular = new Set(['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'TATAMOTORS', 'SBIN']);
+      return popular.has(sym);
+    });
+
+    feedLogger.info(`[PRICE ENGINE]    Starting with ${initialStocks.length} initial equities + ${indianIndices.length} indices`);
     nseFeed.on('tick', handleTick);
-    await nseFeed.start(yahooStocks, indianIndices);
+    await nseFeed.start(initialStocks, indianIndices);
+    
+    // Begin dynamic polling of active symbols
+    startDynamicSymbolPolling();
   }
 
   // ── US Stocks, Forex, Commodities: Finnhub (FREE with API key) ──
@@ -530,6 +600,10 @@ async function initPriceEngine() {
  * Stop Price Engine
  */
 function stopPriceEngine() {
+  if (dynamicSymbolTimer) {
+    clearInterval(dynamicSymbolTimer);
+    dynamicSymbolTimer = null;
+  }
   if (mockInterval) {
     clearInterval(mockInterval);
     mockInterval = null;

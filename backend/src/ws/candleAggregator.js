@@ -24,35 +24,56 @@ function initSymbol(symbol, initialPrice = 100) {
       '1m': [],
       '5m': [],
       '15m': [],
-      '1h': []
+      '1h': [],
+      seeded: {} // timeframe -> boolean
     };
+  }
+}
+
+/**
+ * Seed historical mock candles for a symbol's timeframe on-demand
+ */
+function seedMockCandles(symbol, tf, initialPrice = 100) {
+  if (!candleStore[symbol]) {
+    initSymbol(symbol, initialPrice);
+  }
+  if (candleStore[symbol].seeded[tf]) return;
+
+  const tfMs = TIMEFRAMES[tf];
+  const count = 200;
+  let currentPrice = initialPrice;
+  const now = Date.now();
+  let time = now - (count * tfMs);
+  
+  const tempCandles = [];
+  for (let i = 0; i < count; i++) {
+    const bucketTime = getBucketTime(time, tfMs) / 1000;
+    const volatility = currentPrice * 0.003;
+    const open = currentPrice + (Math.random() - 0.5) * volatility;
+    const high = open + Math.random() * volatility;
+    const low = open - Math.random() * volatility;
+    const close = low + Math.random() * (high - low);
     
-    // Seed historical data so chart isn't empty initially
-    const now = Date.now();
-    Object.keys(TIMEFRAMES).forEach(tf => {
-      const tfMs = TIMEFRAMES[tf];
-      const count = 200;
-      let currentPrice = initialPrice;
-      let time = now - (count * tfMs);
-      
-      for(let i=0; i<count; i++) {
-        const bucketTime = getBucketTime(time, tfMs) / 1000;
-        const volatility = currentPrice * 0.003;
-        const open = currentPrice + (Math.random() - 0.5) * volatility;
-        const high = open + Math.random() * volatility;
-        const low = open - Math.random() * volatility;
-        const close = low + Math.random() * (high - low);
-        
-        candleStore[symbol][tf].push({
-          time: bucketTime,
-          open, high, low, close,
-          volume: Math.floor(Math.random() * 1000)
-        });
-        
-        currentPrice = close;
-        time += tfMs;
-      }
+    tempCandles.push({
+      time: bucketTime,
+      open, high, low, close,
+      volume: Math.floor(Math.random() * 1000)
     });
+    
+    currentPrice = close;
+    time += tfMs;
+  }
+  
+  // Prepend mock candles to any live candles that have arrived
+  const existing = candleStore[symbol][tf] || [];
+  candleStore[symbol][tf] = [...tempCandles, ...existing];
+  
+  // Set flag
+  candleStore[symbol].seeded[tf] = true;
+
+  // Keep memory bounded
+  if (candleStore[symbol][tf].length > 500) {
+    candleStore[symbol][tf] = candleStore[symbol][tf].slice(-500);
   }
 }
 
@@ -108,6 +129,21 @@ function processTickForCandles(tick) {
  * Get historical candles from memory
  */
 function getCandles(symbol, timeframe) {
+  if (!candleStore[symbol]) {
+    initSymbol(symbol);
+  }
+  
+  // Lazy-seed mock historical candles on first request
+  if (candleStore[symbol] && !candleStore[symbol].seeded[timeframe]) {
+    // Determine a fallback price if there's no live candle yet
+    let fallbackPrice = 100;
+    const tfCandles = candleStore[symbol][timeframe];
+    if (tfCandles && tfCandles.length > 0) {
+      fallbackPrice = tfCandles[0].open || tfCandles[0].close || 100;
+    }
+    seedMockCandles(symbol, timeframe, fallbackPrice);
+  }
+
   if (candleStore[symbol] && candleStore[symbol][timeframe]) {
     return candleStore[symbol][timeframe];
   }

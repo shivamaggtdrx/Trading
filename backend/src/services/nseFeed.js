@@ -90,6 +90,7 @@ class NseFeed extends EventEmitter {
         };
 
         const req = https.request(options, (res) => {
+          res.resume(); // Always consume the response stream to release the socket
           const setCookies = res.headers['set-cookie'];
           if (setCookies) {
             resolve(setCookies.map(c => c.split(';')[0]).join('; '));
@@ -161,37 +162,38 @@ class NseFeed extends EventEmitter {
   _startPolling() {
     if (this.pollTimeout) clearTimeout(this.pollTimeout);
 
-    // Map internal symbols to Yahoo symbols
-    const yahooSymbolMap = new Map(); // internal -> yahoo
-    const reverseSymbolMap = new Map(); // yahoo -> internal
-
-    // Process indices
-    this.indexSymbols.forEach(sym => {
-      let yhSym = '';
-      if (sym === 'NIFTY50' || sym === 'NIFTY') yhSym = '^NSEI';
-      else if (sym === 'BANKNIFTY') yhSym = '^NSEBANK';
-      else if (sym === 'SENSEX') yhSym = '^BSESN';
-      else yhSym = sym;
-
-      yahooSymbolMap.set(sym, yhSym);
-      reverseSymbolMap.set(yhSym, sym);
-    });
-
-    // Process stocks
-    this.activeSymbols.forEach(sym => {
-      let yhSym = `${sym}.NS`;
-      if (sym === 'SENSEX') yhSym = '^BSESN';
-      
-      yahooSymbolMap.set(sym, yhSym);
-      reverseSymbolMap.set(yhSym, sym);
-    });
-
-    const allYahooSymbols = Array.from(yahooSymbolMap.values());
     const BATCH_SIZE = 300;
-    const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds for complete coverage of ~3000 symbols
+    const POLL_INTERVAL_MS = 5000; // Poll interval
 
     const pollCycle = async () => {
       if (this.status !== 'CONNECTED') return;
+
+      // Map internal symbols to Yahoo symbols dynamically on each cycle
+      const yahooSymbolMap = new Map(); // internal -> yahoo
+      const reverseSymbolMap = new Map(); // yahoo -> internal
+
+      // Process indices
+      this.indexSymbols.forEach(sym => {
+        let yhSym = '';
+        if (sym === 'NIFTY50' || sym === 'NIFTY') yhSym = '^NSEI';
+        else if (sym === 'BANKNIFTY') yhSym = '^NSEBANK';
+        else if (sym === 'SENSEX') yhSym = '^BSESN';
+        else yhSym = sym;
+
+        yahooSymbolMap.set(sym, yhSym);
+        reverseSymbolMap.set(yhSym, sym);
+      });
+
+      // Process stocks
+      this.activeSymbols.forEach(sym => {
+        let yhSym = `${sym}.NS`;
+        if (sym === 'SENSEX') yhSym = '^BSESN';
+        
+        yahooSymbolMap.set(sym, yhSym);
+        reverseSymbolMap.set(yhSym, sym);
+      });
+
+      const allYahooSymbols = Array.from(yahooSymbolMap.values());
 
       try {
         this.stats.pollCycles++;

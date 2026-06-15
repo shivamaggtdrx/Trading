@@ -79,13 +79,15 @@ async function flushBucket(symbol, bucket) {
 
   // 1. Cache in Redis (sorted set by timestamp for fast range queries)
   try {
-    await redisClient.zadd(
+    const pipeline = redisClient.pipeline();
+    pipeline.zadd(
       `ohlc:${symbol}:1m`,
       bucket.bucketTime,
       JSON.stringify(candle)
     );
     // Keep only last 500 candles in Redis (trim old ones)
-    await redisClient.zremrangebyrank(`ohlc:${symbol}:1m`, 0, -501);
+    pipeline.zremrangebyrank(`ohlc:${symbol}:1m`, 0, -501);
+    await pipeline.exec();
   } catch (err) {
     // Redis down — candle still gets persisted to Postgres below
   }
