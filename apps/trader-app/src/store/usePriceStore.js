@@ -130,13 +130,19 @@ export const usePriceStore = create((set, get) => ({
     }
   },
 
-  closePosition: async (id) => {
+  closePosition: async (id, quantity) => {
     try {
-      const data = await api.closePosition(id);
-      // Optimistic delete
+      const data = await api.closePosition(id, quantity);
+      // Update state
       set((state) => {
         const map = new Map(state.positionsMap);
-        map.delete(id);
+        if (data.position && (data.position.status === 'closed' || data.position.status === 'CLOSED')) {
+          map.delete(id);
+        } else if (data.position) {
+          map.set(id, normalizePosition(data.position));
+        } else {
+          map.delete(id);
+        }
         return {
           positionsMap: map,
           positions: Array.from(map.values())
@@ -154,7 +160,7 @@ export const usePriceStore = create((set, get) => ({
       const map = new Map(state.positionsMap);
       const pos = map.get(positionId);
       if (pos) {
-        map.set(positionId, { ...pos, stop_loss: stopLoss, target: target });
+        map.set(positionId, { ...pos, stop_loss: stopLoss, target: target, take_profit: target });
       }
       return {
         positionsMap: map,
@@ -347,6 +353,7 @@ export const usePriceStore = create((set, get) => ({
 
           return {
             instrumentsMap: newInstrumentsMap,
+            instruments: Array.from(newInstrumentsMap.values()),
             positionsMap: newPositionsMap,
             positions: Array.from(newPositionsMap.values())
           };

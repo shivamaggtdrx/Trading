@@ -13,7 +13,6 @@ import { formatCurrency, cn } from '../../utils/helpers';
 const reportTabs = [
   { key: 'ledger', label: 'Ledger' },
   { key: 'pnl', label: 'P&L' },
-  { key: 'tax', label: 'Tax' },
 ];
 
 export default function Reports() {
@@ -166,21 +165,6 @@ export default function Reports() {
           </div>
         )}
 
-        {/* Tax Report */}
-        {activeTab === 'tax' && (
-          <Card padding="p-4" className="text-center">
-            <div className="w-12 h-12 bg-surface rounded-xl flex items-center justify-center mx-auto mb-3">
-              <BarChart3 size={22} className="text-text-muted/50" />
-            </div>
-            <p className="text-sm font-bold text-text-primary mb-1">Tax Statement — FY 2024-25</p>
-            <p className="text-base text-text-muted mb-3">
-              Download your annual P&L statement for income tax filing
-            </p>
-            <Button variant="primary" size="sm">
-              <Download size={12} className="mr-1.5" /> Download PDF
-            </Button>
-          </Card>
-        )}
 
         {/* Download Options */}
         <div className="grid grid-cols-2 gap-2">

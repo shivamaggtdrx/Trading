@@ -75,7 +75,7 @@ async function updatePositionTargets(positionId, stopLoss, target, userId) {
   try {
     const { data, error } = await supabaseAdmin
       .from('positions')
-      .update({ stop_loss: stopLoss, target: target })
+      .update({ stop_loss: stopLoss, take_profit: target })
       .eq('id', positionId)
       .eq('user_id', userId)
       .select()
@@ -83,7 +83,7 @@ async function updatePositionTargets(positionId, stopLoss, target, userId) {
       
     if (!error && data) {
       // Update in-memory
-      const idx = activePositions.findIndex(p => p.id === positionId);
+      const idx = allPositions.findIndex(p => p.id === positionId);
       if (idx !== -1) {
         allPositions[idx] = data;
         _rebuildIndexes();
@@ -121,7 +121,7 @@ async function evaluateTick(tick) {
         exitPrice = evalPrice;
       }
       // Check Target
-      else if (pos.target && evalPrice >= pos.target) {
+      else if ((pos.take_profit || pos.target) && evalPrice >= (pos.take_profit || pos.target)) {
         triggered = true;
         triggerType = 'TARGET';
         exitPrice = evalPrice;
@@ -134,7 +134,7 @@ async function evaluateTick(tick) {
         exitPrice = evalPrice;
       }
       // Check Target
-      else if (pos.target && evalPrice <= pos.target) {
+      else if ((pos.take_profit || pos.target) && evalPrice <= (pos.take_profit || pos.target)) {
         triggered = true;
         triggerType = 'TARGET';
         exitPrice = evalPrice;
@@ -171,9 +171,9 @@ async function evaluateTick(tick) {
         if (idx !== -1) symOrders.splice(idx, 1);
       }
       
-      const { executeQueue } = require('../core/queues/queueManager');
+      const { orderQueue } = require('../core/queues/orderQueue');
       try {
-        await executeQueue.add('fill_limit_order', {
+        await orderQueue.add('fill_limit_order', {
           orderId: order.id,
           executionPrice: execPrice
         });
@@ -203,8 +203,8 @@ async function executeSquareOff(position, exitPrice, triggerType) {
   }
   
   try {
-    const { executeQueue } = require('../core/queues/queueManager');
-    await executeQueue.add('execute_sl_tp', {
+    const { orderQueue } = require('../core/queues/orderQueue');
+    await orderQueue.add('execute_sl_tp', {
       positionId: position.id,
       exitPrice: exitPrice,
       triggerType: triggerType

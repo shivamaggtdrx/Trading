@@ -56,7 +56,7 @@ export const useTradeStore = create((set, get) => {
     fetchInstruments: () => usePriceStore.getState().fetchInstruments(),
     fetchPositions: () => usePriceStore.getState().fetchPositions(),
     fetchHistory: () => usePriceStore.getState().fetchHistory(),
-    closePosition: (id) => usePriceStore.getState().closePosition(id),
+    closePosition: (id, quantity) => usePriceStore.getState().closePosition(id, quantity),
     updatePositionSlTgt: (positionId, stopLoss, target) => usePriceStore.getState().updatePositionSlTgt(positionId, stopLoss, target),
     loadWatchlists: () => usePriceStore.getState().loadWatchlists(),
     setActiveWatchlistId: (id) => usePriceStore.getState().setActiveWatchlistId(id),

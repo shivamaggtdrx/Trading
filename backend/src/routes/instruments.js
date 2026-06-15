@@ -44,12 +44,36 @@ router.get('/', async (req, res) => {
     const segment = req.query.segment; // optional filter
     const cache = require('../core/cache');
     const cacheKey = 'instruments:active';
+    
+    // Check in-memory cache first (extremely fast)
     let data = cache.get(cacheKey);
+
+    if (!data) {
+      // Check Redis cache (persistent across server restarts)
+      try {
+        const { redisClient } = require('../redis/client');
+        const redisKey = 'instruments:active_list';
+        const cached = await redisClient.get(redisKey);
+        if (cached) {
+          data = JSON.parse(cached);
+          cache.set(cacheKey, data, 300000); // sync to memory cache
+        }
+      } catch (cacheErr) {}
+    }
 
     if (!data) {
       const { fetchAllActiveInstruments } = require('../config/supabase');
       data = await fetchAllActiveInstruments('*');
+      
+      // Save to memory cache
       cache.set(cacheKey, data, 300000); // 5 minutes TTL
+      
+      // Save to Redis cache
+      try {
+        const { redisClient } = require('../redis/client');
+        const redisKey = 'instruments:active_list';
+        await redisClient.setex(redisKey, 3600, JSON.stringify(data)); // 1 hour TTL
+      } catch (cacheErr) {}
     }
 
     // Clone the cached array before mutating (filtering/sorting)
@@ -97,18 +121,28 @@ router.get('/:symbol/candles', async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
     const limit = parseInt(req.query.limit) || 100;
     
-    // We fetch the latest candles and order by timestamp descending
+    // We fetch the latest candles and order by bucket_time descending
     const { data, error } = await supabaseAdmin
       .from('ohlc_1m')
-      .select('timestamp, open, high, low, close, volume')
+      .select('bucket_time, open, high, low, close, volume')
       .eq('symbol', symbol)
-      .order('timestamp', { ascending: false })
+      .order('bucket_time', { ascending: false })
       .limit(limit);
 
     if (error) return res.status(500).json({ error: error.message });
     
-    // Sort ascending for charts
-    const candles = (data || []).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    // Map bucket_time to timestamp for compatibility and sort ascending for charts
+    const candles = (data || [])
+      .map(c => ({
+        timestamp: c.bucket_time,
+        open: parseFloat(c.open),
+        high: parseFloat(c.high),
+        low: parseFloat(c.low),
+        close: parseFloat(c.close),
+        volume: parseInt(c.volume)
+      }))
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
     res.json({ symbol, candles });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch historical candles' });

@@ -144,15 +144,15 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             
-            {/* Email Input */}
+            {/* Email / Mobile / User ID Input */}
             <motion.div whileTap={{ scale: 0.995 }}>
-              <label className="block text-sm font-bold text-text-secondary mb-2">Email Address</label>
+              <label className="block text-sm font-bold text-text-secondary mb-2">Email, Mobile, or User ID</label>
               <div className="relative group">
                 <input 
-                  type="email" 
+                  type="text" 
                   value={email} 
                   onChange={e => setEmail(e.target.value)} 
-                  placeholder="name@example.com" 
+                  placeholder="Enter Email, Mobile, or User ID" 
                   className="w-full px-4 py-3.5 bg-surface-2 border border-border/50 rounded-xl text-base text-text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all group-hover:border-border" 
                   required 
                 />

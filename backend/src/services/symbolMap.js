@@ -13,12 +13,12 @@ const { feedLogger } = require('../core/monitoring/logger');
 // ── Segment-to-provider routing ──
 // Determines which feed provider handles each instrument segment
 const SEGMENT_PROVIDER = {
-  'nse_equity': 'finnhub',
-  'bse_equity': 'finnhub',
-  'fo_futures': 'finnhub',
-  'fo_options': 'finnhub',
+  'nse_equity': 'shoonya',
+  'bse_equity': 'shoonya',
+  'fo_futures': 'shoonya',
+  'fo_options': 'shoonya',
   'forex': 'finnhub',
-  'mcx': 'finnhub',
+  'mcx': 'finnhub', // Kept on finnhub (derived INR ticks from Spot)
   'crypto': 'binance',
   'us_equity': 'finnhub',
   'global_indices': 'finnhub',
@@ -263,6 +263,7 @@ for (const [internal, provider] of Object.entries(BINANCE_MAP)) {
 
 // ── Active instruments (populated from DB on startup) ──
 let activeInstruments = [];
+const activeInstrumentsMap = new Map();
 let instrumentsBySegment = {};
 
 /**
@@ -270,15 +271,41 @@ let instrumentsBySegment = {};
  */
 async function loadFromDatabase() {
   try {
-    const { fetchAllActiveInstruments } = require('../config/supabase');
-    const data = await fetchAllActiveInstruments('symbol, segment, name, is_active');
+    const { redisClient } = require('../redis/client');
+    const cacheKey = 'symbols:active_instruments';
+    
+    let cachedData = null;
+    try {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        cachedData = JSON.parse(cached);
+        feedLogger.info(`[SYMBOL MAP] Loaded instruments from Redis cache`);
+      }
+    } catch (cacheErr) {
+      feedLogger.warn(`[SYMBOL MAP] Redis cache read failed: ${cacheErr.message}`);
+    }
+
+    let data = cachedData;
+    if (!data) {
+      const { fetchAllActiveInstruments } = require('../config/supabase');
+      data = await fetchAllActiveInstruments('symbol, segment, name, is_active');
+      
+      try {
+        await redisClient.setex(cacheKey, 3600, JSON.stringify(data)); // Cache for 1 hour
+        feedLogger.info(`[SYMBOL MAP] Cached instruments in Redis`);
+      } catch (cacheErr) {}
+    }
 
     if (data && data.length > 0) {
       activeInstruments = data;
+      activeInstrumentsMap.clear();
       
       // Group by segment
       instrumentsBySegment = {};
       data.forEach(inst => {
+        if (inst.symbol) {
+          activeInstrumentsMap.set(inst.symbol.toUpperCase().trim(), inst);
+        }
         const seg = inst.segment || 'unknown';
         if (!instrumentsBySegment[seg]) instrumentsBySegment[seg] = [];
         instrumentsBySegment[seg].push(inst.symbol);
@@ -301,18 +328,18 @@ function getProvider(symbol) {
   if (!symbol) return null;
   const upper = symbol.toUpperCase().trim();
   
+  // Try to infer from segment in DB first (source of truth)
+  const inst = activeInstruments.find(i => i.symbol === upper);
+  if (inst && inst.segment) {
+    return SEGMENT_PROVIDER[inst.segment] || (BINANCE_MAP[upper] ? 'binance' : 'finnhub');
+  }
+
   // Check Binance first (crypto)
   if (BINANCE_MAP[upper]) return 'binance';
   
   // Check Finnhub
   if (FINNHUB_MAP[upper]) return 'finnhub';
   
-  // Try to infer from segment in DB
-  const inst = activeInstruments.find(i => i.symbol === upper);
-  if (inst && inst.segment) {
-    return SEGMENT_PROVIDER[inst.segment] || 'finnhub';
-  }
-
   // Default: try Finnhub
   return 'finnhub';
 }
@@ -443,6 +470,11 @@ function getInstrumentsBySegment() {
   return { ...instrumentsBySegment };
 }
 
+function getInstrumentDetails(symbol) {
+  if (!symbol) return null;
+  return activeInstrumentsMap.get(symbol.toUpperCase().trim()) || null;
+}
+
 module.exports = {
   loadFromDatabase,
   getProvider,
@@ -454,5 +486,6 @@ module.exports = {
   getAllBinanceSymbols,
   getActiveSymbols,
   getInstrumentsBySegment,
+  getInstrumentDetails,
   SEGMENT_PROVIDER,
 };

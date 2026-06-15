@@ -26,6 +26,7 @@ const History = lazy(() => import('./pages/History/History'));
 const Markets = lazy(() => import('./pages/Markets/Markets'));
 const Trade = lazy(() => import('./pages/Trade/Trade'));
 const KYCSubmit = lazy(() => import('./pages/KYC/KYCSubmit'));
+const BankAccounts = lazy(() => import('./pages/BankAccounts/BankAccounts'));
 
 // ── Minimal loading spinner for Suspense fallback ──
 function PageLoader() {
@@ -79,6 +80,7 @@ export default function App() {
               <Route path="/kyc/submit" element={<KYCSubmit />} />
               <Route path="/history" element={<History />} />
               <Route path="/wallet" element={<Wallet />} />
+              <Route path="/bank-accounts" element={<BankAccounts />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/referral" element={<Referral />} />
               <Route path="/reports" element={<Reports />} />

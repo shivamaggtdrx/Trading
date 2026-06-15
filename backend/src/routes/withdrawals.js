@@ -10,11 +10,31 @@ router.use(authenticateUser);
  */
 router.post('/', async (req, res) => {
   try {
-    const { amount, method, bank_name, account_number, ifsc_code, upi_id } = req.body;
+    const { amount, bank_account_id } = req.body;
     const userId = req.user.id;
 
-    if (!amount || !method) {
-      return res.status(400).json({ error: 'Amount and method are required' });
+    if (!amount) {
+      return res.status(400).json({ error: 'Amount is required' });
+    }
+
+    if (amount < 500) {
+      return res.status(400).json({ error: 'Minimum withdrawal amount is ₹500' });
+    }
+
+    if (!bank_account_id) {
+      return res.status(400).json({ error: 'Bank account is required' });
+    }
+
+    // Get bank account details
+    const { data: bankAccount, error: bankErr } = await supabaseAdmin
+      .from('user_bank_accounts')
+      .select('*')
+      .eq('id', bank_account_id)
+      .eq('user_id', userId)
+      .single();
+
+    if (bankErr || !bankAccount) {
+      return res.status(400).json({ error: 'Selected bank account was not found or is invalid' });
     }
 
     // Get wallet
@@ -72,8 +92,14 @@ router.post('/', async (req, res) => {
       .insert({
         user_id: userId,
         amount,
-        method,
-        bank_name, account_number, ifsc_code, upi_id,
+        method: 'bank_transfer',
+        bank_name: bankAccount.bank_name,
+        account_number: bankAccount.account_number,
+        ifsc_code: bankAccount.ifsc_code,
+        metadata: {
+          account_holder_name: bankAccount.account_holder_name,
+          bank_account_id: bankAccount.id
+        },
         status,
         flag_reason: flagReason,
         hold_until: holdUntil.toISOString(),

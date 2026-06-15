@@ -16,32 +16,40 @@ function clearSession() {
 }
 
 // ── Token refresh ──
-let isRefreshing = false;
+let refreshTokenPromise = null;
+
 async function tryRefreshToken() {
-  if (isRefreshing) return false;
-  isRefreshing = true;
-  try {
-    const refreshToken = localStorage.getItem('tradex_refresh_token');
-    if (!refreshToken) return false;
-    const res = await fetch(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-      credentials: 'include'
-    });
-    
-    if (!res.ok) return false;
-    const data = await res.json();
-    if (data.session) {
-      localStorage.setItem('tradex_access_token', data.session.access_token);
-      localStorage.setItem('tradex_refresh_token', data.session.refresh_token);
-    }
-    return true;
-  } catch {
-    return false;
-  } finally {
-    isRefreshing = false;
+  if (refreshTokenPromise) {
+    return refreshTokenPromise;
   }
+
+  refreshTokenPromise = (async () => {
+    try {
+      const refreshToken = localStorage.getItem('tradex_refresh_token');
+      if (!refreshToken) return false;
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+        credentials: 'include'
+      });
+      
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (data.session) {
+        localStorage.setItem('tradex_access_token', data.session.access_token);
+        localStorage.setItem('tradex_refresh_token', data.session.refresh_token);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    } finally {
+      refreshTokenPromise = null;
+    }
+  })();
+
+  return refreshTokenPromise;
 }
 
 // ── HTTP helper ──
@@ -141,8 +149,11 @@ export const api = {
     return request('/positions');
   },
 
-  async closePosition(positionId) {
-    return request(`/positions/${positionId}/close`, { method: 'POST' });
+  async closePosition(positionId, quantity) {
+    return request(`/positions/${positionId}/close`, {
+      method: 'POST',
+      body: quantity !== undefined && quantity !== null ? JSON.stringify({ quantity }) : undefined
+    });
   },
 
   async getTradeHistory(page = 1, limit = 20) {
@@ -185,6 +196,24 @@ export const api = {
 
   async getWithdrawals() {
     return request('/withdrawals');
+  },
+
+  // ── Bank Accounts ──
+  async getBankAccounts() {
+    return request('/bank-accounts');
+  },
+
+  async addBankAccount(data) {
+    return request('/bank-accounts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteBankAccount(id) {
+    return request(`/bank-accounts/${id}`, {
+      method: 'DELETE',
+    });
   },
 
   // ── User Profile ──

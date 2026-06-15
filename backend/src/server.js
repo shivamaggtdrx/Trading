@@ -1,4 +1,7 @@
-require('dotenv').config();
+require('dotenv').config(); // trigger reload
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -20,6 +23,7 @@ const orderRoutes = require('./routes/orders');
 const positionRoutes = require('./routes/positions');
 const depositRoutes = require('./routes/deposits');
 const withdrawalRoutes = require('./routes/withdrawals');
+const bankAccountRoutes = require('./routes/bankAccounts');
 const adminRoutes = require('./routes/admin');
 
 // ── Import WebSocket ──
@@ -160,6 +164,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/positions', positionRoutes);
 app.use('/api/deposits', depositRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
+app.use('/api/bank-accounts', bankAccountRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Optional fallback route for testing Sentry

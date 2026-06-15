@@ -13,22 +13,79 @@ const statusConfig = {
 };
 
 export default function Orders() {
-  const { activeOrderTab, setActiveOrderTab, getFilteredOrders, cancelOrder, orders, fetchOrders } = useTradeStore();
-  const [cancellingId, setCancellingId] = useState(null);
+  const { activeOrderTab, setActiveOrderTab, getFilteredOrders, cancelOrder, orders, fetchOrders, positions, updatePositionSlTgt } = useTradeStore();
+  const [cancellingOrder, setCancellingOrder] = useState(null);
 
-  const filteredOrders = getFilteredOrders();
-  const openCount = orders.filter((o) => o.status === 'pending').length;
+  // Synthesize virtual SL/TGT orders from open positions
+  const virtualOrders = [];
+  positions.forEach(pos => {
+    if (pos.stop_loss) {
+      virtualOrders.push({
+        id: `v-sl-${pos.id}`,
+        positionId: pos.id,
+        symbol: pos.symbol,
+        side: pos.type === 'BUY' ? 'SELL' : 'BUY',
+        type: 'STOP LOSS',
+        quantity: pos.quantity,
+        price: pos.stop_loss,
+        status: 'pending',
+        isVirtual: true,
+        virtualType: 'sl',
+        createdAt: pos.opened_at || pos.created_at,
+      });
+    }
+    if (pos.take_profit || pos.target) {
+      virtualOrders.push({
+        id: `v-tgt-${pos.id}`,
+        positionId: pos.id,
+        symbol: pos.symbol,
+        side: pos.type === 'BUY' ? 'SELL' : 'BUY',
+        type: 'TARGET',
+        quantity: pos.quantity,
+        price: pos.take_profit || pos.target,
+        status: 'pending',
+        isVirtual: true,
+        virtualType: 'tgt',
+        createdAt: pos.opened_at || pos.created_at,
+      });
+    }
+  });
+
+  const dbOrders = getFilteredOrders();
+  let filteredOrders = dbOrders;
+  if (activeOrderTab === 'open') {
+    filteredOrders = [...dbOrders, ...virtualOrders];
+    filteredOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
+
+  const openCount = orders.filter((o) => o.status === 'pending').length + virtualOrders.length;
   const filledCount = orders.filter((o) => o.status === 'filled').length;
   const cancelledCount = orders.filter((o) => o.status === 'cancelled').length;
 
   const fetchWallet = useTradeStore(s => s.fetchWallet);
 
   const { containerProps, isRefreshing, pullProgress } = usePullToRefresh(async () => {
-    await Promise.all([fetchOrders(), fetchWallet()]);
+    const fetchPositions = useTradeStore.getState().fetchPositions;
+    await Promise.all([fetchOrders(), fetchWallet(), fetchPositions()]);
   });
 
-  const handleCancelOrder = () => { if (cancellingId) { cancelOrder(cancellingId); setCancellingId(null); } };
-    const fmtTime = (ts) => {
+  const handleCancelOrder = () => {
+    if (cancellingOrder) {
+      if (cancellingOrder.isVirtual) {
+        const pos = positions.find(p => p.id === cancellingOrder.positionId);
+        if (pos) {
+          const newSl = cancellingOrder.virtualType === 'sl' ? null : pos.stop_loss;
+          const newTgt = cancellingOrder.virtualType === 'tgt' ? null : (pos.take_profit || pos.target);
+          updatePositionSlTgt(pos.id, newSl, newTgt);
+        }
+      } else {
+        cancelOrder(cancellingOrder.id);
+      }
+      setCancellingOrder(null);
+    }
+  };
+
+  const fmtTime = (ts) => {
     if (!ts) return '—';
     return new Date(ts).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
   };
@@ -79,7 +136,7 @@ export default function Orders() {
                         <div className={cn('flex items-center gap-1 px-1.5 py-0.5 rounded', config.bg)}>
                           <StatusIcon size={10} className={config.color} /><span className={cn('text-[10px] font-bold', config.color)}>{config.label}</span>
                         </div>
-                        {isOpen && <button onClick={() => setCancellingId(order.id)} className="p-1 hover:bg-red-500/10 rounded"><X size={14} className="text-red-400" /></button>}
+                        {isOpen && <button onClick={() => setCancellingOrder(order)} className="p-1 hover:bg-red-500/10 rounded"><X size={14} className="text-red-400" /></button>}
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
@@ -92,7 +149,12 @@ export default function Orders() {
                     </div>
                     {isOpen && (
                       <div className="mt-2 flex items-center gap-1.5 bg-amber-500/5 rounded-lg px-2.5 py-1.5">
-                        <Zap size={10} className="text-amber-400" /><span className="text-[11px] font-medium text-amber-400">Awaiting execution at {formatPrice(order.price)}</span>
+                        <Zap size={10} className="text-amber-400" />
+                        <span className="text-[11px] font-medium text-amber-400">
+                          {order.isVirtual 
+                            ? `Position ${order.virtualType === 'sl' ? 'Stop Loss' : 'Target'} trigger at ${formatPrice(order.price)}` 
+                            : `Awaiting execution at ${formatPrice(order.price)}`}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -109,20 +171,21 @@ export default function Orders() {
         </div>
       </div>
 
-      <Modal isOpen={!!cancellingId} onClose={() => setCancellingId(null)} title="Cancel Order">
-        {cancellingId && (() => {
-          const order = orders.find((o) => o.id === cancellingId);
-          if (!order) return null;
+      <Modal isOpen={!!cancellingOrder} onClose={() => setCancellingOrder(null)} title="Cancel Trigger / Order">
+        {cancellingOrder && (() => {
           return (
             <div className="space-y-4">
               <div className="bg-surface rounded-lg p-3 space-y-2">
-                <div className="flex justify-between text-sm"><span className="text-text-muted">Symbol</span><span className="font-bold text-text-primary">{order.symbol}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-text-muted">Side</span><span className={cn('font-semibold', order.side === 'BUY' ? 'text-emerald-500' : 'text-red-500')}>{order.side}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-text-muted">Qty × Price</span><span className="font-bold text-text-primary">{order.quantity} × {formatPrice(order.price)}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-text-muted">Symbol</span><span className="font-bold text-text-primary">{cancellingOrder.symbol}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-text-muted">Side</span><span className={cn('font-semibold', cancellingOrder.side === 'BUY' ? 'text-emerald-500' : 'text-red-500')}>{cancellingOrder.side}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-text-muted">Type</span><span className="font-bold text-text-primary">{cancellingOrder.type}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-text-muted">Qty × Price</span><span className="font-bold text-text-primary">{cancellingOrder.quantity} × {formatPrice(cancellingOrder.price)}</span></div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" fullWidth size="md" onClick={() => setCancellingId(null)}>Keep</Button>
-                <Button variant="danger" fullWidth size="md" onClick={handleCancelOrder}>Cancel Order</Button>
+                <Button variant="outline" fullWidth size="md" onClick={() => setCancellingOrder(null)}>Keep</Button>
+                <Button variant="danger" fullWidth size="md" onClick={handleCancelOrder}>
+                  {cancellingOrder.isVirtual ? 'Remove Trigger' : 'Cancel Order'}
+                </Button>
               </div>
             </div>
           );

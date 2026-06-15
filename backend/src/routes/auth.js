@@ -117,31 +117,36 @@ const loginLimiter = rateLimit({
  */
 router.post('/login', loginLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const identifier = (req.body.identifier || req.body.email || '').trim();
+    const { password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    if (!identifier || !password) {
+      return res.status(400).json({ error: 'Email/Mobile/User ID and password are required' });
     }
 
-    const { data, error } = await supabasePublic.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
-
-    // Get profile
-    const { data: profile } = await supabaseAdmin
+    // Resolve email and check user existence/status
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('*')
-      .eq('id', data.user.id)
-      .single();
+      .or(`email.eq.${identifier.toLowerCase()},phone.eq.${identifier},client_id.eq.${identifier.toUpperCase()}`)
+      .maybeSingle();
 
-    if (!profile) {
-      return res.status(404).json({ error: 'Profile not found' });
+    if (profileError || !profile) {
+      return res.status(401).json({ error: 'Invalid Email, Mobile, or User ID' });
     }
 
     if (profile.status !== 'active') {
       return res.status(403).json({ error: `Account is ${profile.status}. Contact support.` });
+    }
+
+    // Authenticate with Supabase using the resolved email and password
+    const { data, error: authError } = await supabasePublic.auth.signInWithPassword({
+      email: profile.email,
+      password,
+    });
+
+    if (authError) {
+      return res.status(401).json({ error: 'Incorrect password' });
     }
 
     // Update last login

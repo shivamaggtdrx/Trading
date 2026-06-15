@@ -11,9 +11,10 @@
  */
 
 const { nseFeed } = require('../services/nseFeed');
+const { shoonyaFeed } = require('../services/shoonyaFeed');
 const { finnhubFeed } = require('../services/finnhubFeed');
 const { binanceFeed } = require('../services/binanceFeed');
-const { loadFromDatabase: loadSymbolMap, getInstrumentsBySegment } = require('../services/symbolMap');
+const { loadFromDatabase: loadSymbolMap, getInstrumentsBySegment, getInstrumentDetails } = require('../services/symbolMap');
 const candleAggregator = require('./candleAggregator');
 const executionEngine = require('./executionEngine');
 const { getIO } = require('./socketServer');
@@ -36,7 +37,7 @@ const lastKnownPrices = new Map(); // symbol → { price, timestamp }
 // ── Pending DB updates (batched every 5s to avoid hammering Supabase) ──
 const pendingDbUpdates = new Map(); // symbol → tick data
 let dbFlushInterval = null;
-const DB_FLUSH_INTERVAL_MS = 5000; // Flush to DB every 5 seconds
+const DB_FLUSH_INTERVAL_MS = process.env.NODE_ENV === 'production' ? 5000 : 60000; // Flush to DB every 5 seconds (60s in dev)
 
 /**
  * Handle a normalized tick from any source
@@ -197,45 +198,141 @@ async function flushPricesToDb() {
     const updates = new Map(pendingDbUpdates);
     pendingDbUpdates.clear();
 
+    const updateEntries = Array.from(updates.entries());
+    
+    // Convert map entries to list of objects for bulk upsert, validating that required fields are present
+    const payload = [];
+    const skippedEntries = [];
+
+    for (const [symbol, data] of updateEntries) {
+      if (!symbol || symbol === 'undefined' || symbol === 'null') {
+        skippedEntries.push({ symbol, reason: 'invalid/falsy symbol' });
+        continue;
+      }
+
+      const details = getInstrumentDetails(symbol);
+      const name = details?.name || symbol;
+      const segment = details?.segment || 'nse_equity';
+
+      if (!name || name === 'undefined' || name === 'null') {
+        skippedEntries.push({ symbol, name, reason: 'invalid/falsy name' });
+        continue;
+      }
+
+      payload.push({
+        symbol,
+        name,
+        segment,
+        ...data
+      });
+    }
+
+    if (skippedEntries.length > 0) {
+      feedLogger.warn(`[DB FLUSH] Skipped ${skippedEntries.length} invalid entries from batch flush. Sample: ${JSON.stringify(skippedEntries.slice(0, 5))}`);
+    }
+
     let successCount = 0;
     let errorCount = 0;
+    const BATCH_SIZE = 100;
 
-    // Batch update: one update per symbol
-    const promises = [];
-    for (const [symbol, data] of updates) {
-      promises.push(
-        supabaseAdmin
+    for (let i = 0; i < payload.length; i += BATCH_SIZE) {
+      const batch = payload.slice(i, i + BATCH_SIZE);
+      try {
+        const { error } = await supabaseAdmin
           .from('instruments')
-          .update(data)
-          .eq('symbol', symbol)
-          .then((result) => {
-            if (result.error) {
-              errorCount++;
-              feedLogger.error(`[DB FLUSH] Error updating ${symbol}: ${result.error.message}`);
-            } else {
-              successCount++;
-            }
-          })
-          .catch(err => {
-            errorCount++;
-            feedLogger.error(`[DB FLUSH] Exception updating ${symbol}: ${err.message}`);
-          })
-      );
+          .upsert(batch, { onConflict: 'symbol' });
+        
+        if (error) {
+          errorCount += batch.length;
+          feedLogger.error(`[DB FLUSH] Bulk upsert error for batch of ${batch.length}: ${error.message}`);
+        } else {
+          successCount += batch.length;
+        }
+      } catch (err) {
+        errorCount += batch.length;
+        feedLogger.error(`[DB FLUSH] Bulk upsert exception: ${err.message}`);
+      }
+      
+      // Short delay between batches
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
 
-    // Execute in batches of 20 to avoid overwhelming the DB
-    const BATCH_SIZE = 20;
-    for (let i = 0; i < promises.length; i += BATCH_SIZE) {
-      await Promise.allSettled(promises.slice(i, i + BATCH_SIZE));
-    }
-
-    // Log summary (only periodically to avoid log spam)
     if (errorCount > 0) {
-      feedLogger.warn(`[DB FLUSH] ${successCount} updated, ${errorCount} errors out of ${updates.size} symbols`);
+      feedLogger.warn(`[DB FLUSH] Bulk update complete. ${successCount} updated successfully, ${errorCount} failed out of ${updateEntries.length} symbols.`);
     }
   } catch (err) {
     feedLogger.error(`[DB FLUSH] Failed to flush prices: ${err.message}`);
   }
+}
+
+let openPositionSymbols = new Set();
+// Periodically fetch open positions to simulate them in mock feed
+if (process.env.NODE_ENV !== 'production') {
+  setInterval(async () => {
+    try {
+      const { supabaseAdmin } = require('../config/supabase');
+      const { data } = await supabaseAdmin
+        .from('positions')
+        .select('symbol')
+        .in('status', ['OPEN', 'open']);
+      if (data) {
+        openPositionSymbols = new Set(data.map(p => p.symbol.toUpperCase()));
+      }
+    } catch (err) {
+      // Fail silent
+    }
+  }, 10000);
+}
+
+function getWatchedSymbols() {
+  const watched = new Set();
+  
+  // 1. Get from Native WS Server
+  try {
+    const { roomSubscriptions } = require('./nativeWsServer');
+    if (roomSubscriptions) {
+      for (const [symbol, subs] of roomSubscriptions.entries()) {
+        if (subs && subs.size > 0) {
+          watched.add(symbol.toUpperCase());
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 2. Get from Socket.IO rooms
+  try {
+    const io = getIO();
+    if (io) {
+      const marketRooms = io.of('/market').adapter.rooms;
+      const adminRooms = io.of('/admin').adapter.rooms;
+      
+      if (marketRooms) {
+        for (const roomName of marketRooms.keys()) {
+          if (roomName.startsWith('feed:')) {
+            const sym = roomName.replace('feed:', '').toUpperCase();
+            const subs = marketRooms.get(roomName);
+            if (subs && subs.size > 0) {
+              watched.add(sym);
+            }
+          }
+        }
+      }
+
+      if (adminRooms) {
+        for (const roomName of adminRooms.keys()) {
+          if (roomName.startsWith('admin:feed:')) {
+            const sym = roomName.replace('admin:feed:', '').toUpperCase();
+            const subs = adminRooms.get(roomName);
+            if (subs && subs.size > 0) {
+              watched.add(sym);
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {}
+
+  return watched;
 }
 
 /**
@@ -264,14 +361,30 @@ async function startMockFeed() {
       prices[i.symbol] = parseFloat(i.last_price) || 100;
     });
 
-    feedLogger.info(`Development Backup: Simulated ${instruments.length} active instruments.`);
+    const popularSymbols = new Set([
+      'NIFTY50', 'BANKNIFTY', 'SENSEX',
+      'GOLD', 'SILVER', 'CRUDEOIL', 'NATURALGAS', 'COPPER',
+      'EURUSD', 'GBPUSD', 'USDJPY', 'USDINR',
+      'BTCUSDT', 'ETHUSDT', 'SOLUSDT',
+      'RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'TATAMOTORS', 'SBIN'
+    ]);
+
+    feedLogger.info(`Development Backup: Simulated ${instruments.length} active instruments loaded.`);
 
     mockInterval = setInterval(() => {
       // Only simulate if no live feed ticks have arrived in the last 10 seconds
       const isLiveFeedOffline = (Date.now() - lastLiveTickTime) > 10000;
       if (!isLiveFeedOffline) return;
 
+      const watched = getWatchedSymbols();
+
       instruments.forEach(inst => {
+        const symUpper = inst.symbol.toUpperCase();
+        
+        // Only simulate watched symbols, popular symbols, or symbols with active positions
+        const shouldSimulate = watched.has(symUpper) || popularSymbols.has(symUpper) || openPositionSymbols.has(symUpper);
+        if (!shouldSimulate) return;
+
         const currentPrice = prices[inst.symbol];
         const changePct = (Math.random() - 0.5) * 0.0006; // Micro price changes
         const changeAmount = currentPrice * changePct;
@@ -297,7 +410,7 @@ async function startMockFeed() {
 
         handleTick(tick);
       });
-    }, 200);
+    }, 1000);
 
   } catch (err) {
     feedLogger.error('Failed to initialize local backup simulator:', err);
@@ -321,18 +434,36 @@ async function initPriceEngine() {
   // Get instruments by segment to route to the right provider
   const segmented = getInstrumentsBySegment();
   
-  // ── Indian Stocks: NSE India Direct (FREE, no key) ──
   const nseEquities = segmented['nse_equity'] || [];
+  const bseEquities = segmented['bse_equity'] || [];
   const foFutures = segmented['fo_futures'] || [];
+  const foOptions = segmented['fo_options'] || [];
   const mcxSymbols = segmented['mcx'] || [];
-  const indianStocks = [...new Set([...nseEquities, ...foFutures, ...mcxSymbols])];
+
+  const shoonyaSymbols = [...new Set([...nseEquities, ...bseEquities, ...foFutures, ...foOptions])];
   const indianIndices = ['NIFTY50', 'BANKNIFTY'];
 
-  if (indianStocks.length > 0 || indianIndices.length > 0) {
-    feedLogger.info(`[PRICE ENGINE] 🇮🇳 Starting NSE India feed (FREE — no key needed)`);
-    feedLogger.info(`[PRICE ENGINE]    ${indianStocks.length} equities + ${indianIndices.length} indices`);
+  // Start Shoonya Feed if credentials are provided in environment
+  let isShoonyaStarted = false;
+  if (process.env.SHOONYA_USER_ID && process.env.SHOONYA_TOTP_SECRET) {
+    feedLogger.info(`[PRICE ENGINE] 🇮🇳 Attempting to start Shoonya Real-Time Feed...`);
+    shoonyaFeed.on('tick', handleTick);
+    isShoonyaStarted = await shoonyaFeed.start();
+    if (isShoonyaStarted) {
+      await shoonyaFeed.subscribe([...shoonyaSymbols, ...indianIndices]);
+      feedLogger.info(`[PRICE ENGINE]    Subscribed to ${shoonyaSymbols.length} instruments + ${indianIndices.length} indices on Shoonya.`);
+    }
+  }
+
+  // Fallback to Yahoo (nseFeed) only if Shoonya is not configured or failed to start
+  if (!isShoonyaStarted && (shoonyaSymbols.length > 0 || indianIndices.length > 0)) {
+    feedLogger.warn(`[PRICE ENGINE] ⚠️ Shoonya credentials missing or login failed. Falling back to 15-min delayed Yahoo Feed.`);
+    const yahooStocks = [...new Set([...nseEquities, ...foFutures, ...mcxSymbols])];
+    
+    feedLogger.info(`[PRICE ENGINE] 🇮🇳 Starting NSE India feed (FREE — Yahoo fallback)`);
+    feedLogger.info(`[PRICE ENGINE]    ${yahooStocks.length} equities + ${indianIndices.length} indices`);
     nseFeed.on('tick', handleTick);
-    await nseFeed.start(indianStocks, indianIndices);
+    await nseFeed.start(yahooStocks, indianIndices);
   }
 
   // ── US Stocks, Forex, Commodities: Finnhub (FREE with API key) ──
@@ -386,7 +517,7 @@ async function initPriceEngine() {
   // 8. Log summary
   feedLogger.info('═══════════════════════════════════════════════');
   feedLogger.info('  Price Engine Initialized — ALL FREE');
-  feedLogger.info(`  🇮🇳 NSE India: ${indianStocks.length > 0 ? 'ACTIVE' : 'NO SYMBOLS'} (free, no key)`);
+  feedLogger.info(`  🇮🇳 NSE India: ${(nseEquities.length + bseEquities.length) > 0 ? 'ACTIVE' : 'NO SYMBOLS'} (free, no key)`);
   feedLogger.info(`  🌍 Finnhub:   ${finnhubApiKey ? 'ACTIVE' : 'DISABLED (no key)'} (free tier)`);
   feedLogger.info(`  ₿  Binance:   ACTIVE (free, no key)`);
   feedLogger.info(`  💾 DB Flush:  every ${DB_FLUSH_INTERVAL_MS / 1000}s`);
@@ -414,6 +545,7 @@ function stopPriceEngine() {
   // Final flush before shutdown
   flushPricesToDb();
   stopAnimator();
+  shoonyaFeed.stop();
   nseFeed.stop();
   finnhubFeed.stop();
   binanceFeed.stop();
@@ -425,6 +557,7 @@ function stopPriceEngine() {
  */
 function getFeedStatus() {
   return {
+    shoonya: shoonyaFeed.getStatus(),
     nse: nseFeed.getStatus(),
     finnhub: finnhubFeed.getStatus(),
     binance: binanceFeed.getStatus(),

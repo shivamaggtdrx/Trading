@@ -7,11 +7,30 @@ import { formatCurrency, formatPercent, cn , formatPrice} from '../../utils/help
 import { usePullToRefresh, PullIndicator } from '../../hooks/usePullToRefresh';
 
 export default function Positions() {
-  const { positions, closePosition, fetchPositions } = useTradeStore();
+  const { positions, closePosition, fetchPositions, updatePositionSlTgt } = useTradeStore();
   const [closingId, setClosingId] = useState(null);
+  const [closeQtyInput, setCloseQtyInput] = useState('');
   const [closeLoading, setCloseLoading] = useState(false);
   const [closeError, setCloseError] = useState(null);
   const [selectAll, setSelectAll] = useState(false);
+  const [editingSlTgtId, setEditingSlTgtId] = useState(null);
+  const [slInput, setSlInput] = useState('');
+  const [tgtInput, setTgtInput] = useState('');
+
+  const openSlTgtModal = (pos) => {
+    setEditingSlTgtId(pos.id);
+    setSlInput(pos.stop_loss ? String(pos.stop_loss) : '');
+    setTgtInput(pos.take_profit ? String(pos.take_profit) : '');
+  };
+
+  const handleSaveSlTgt = () => {
+    updatePositionSlTgt(
+      editingSlTgtId,
+      slInput.trim() ? Number(slInput) : null,
+      tgtInput.trim() ? Number(tgtInput) : null
+    );
+    setEditingSlTgtId(null);
+  };
 
   const totalPnl = positions.reduce((sum, p) => sum + (p.pnl || 0), 0);
   const totalPnlPct = positions.length > 0
@@ -25,10 +44,19 @@ export default function Positions() {
 
   const handleClose = async () => {
     if (!closingId || closeLoading) return;
+    const qty = parseFloat(closeQtyInput);
+    const pos = positions.find((p) => p.id === closingId);
+    if (!pos) return;
+
+    if (isNaN(qty) || qty <= 0 || qty > parseFloat(pos.quantity)) {
+      setCloseError('Please enter a valid quantity to close (must be positive and <= current quantity)');
+      return;
+    }
+
     setCloseLoading(true);
     setCloseError(null);
     try {
-      const result = await closePosition(closingId);
+      const result = await closePosition(closingId, qty);
       if (result?.success) {
         setClosingId(null);
         // Refresh positions and wallet to reflect the closed position
@@ -84,7 +112,11 @@ export default function Positions() {
                           {pos.type}
                         </span>
                       </div>
-                      <p className="text-xs text-text-muted mt-0.5">Qty: {pos.quantity}</p>
+                      <p className="text-xs text-text-muted mt-0.5">
+                        Qty: {pos.quantity}
+                        {pos.stop_loss ? ` | SL: ${pos.stop_loss}` : ''}
+                        {pos.take_profit ? ` | TGT: ${pos.take_profit}` : ''}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className={cn('text-sm font-bold tabular-nums', isProfit ? 'text-emerald-400' : 'text-red-400')}>
@@ -99,8 +131,12 @@ export default function Positions() {
                     <div><p className="text-[10px] text-text-muted font-medium uppercase">Entry</p><p className="text-xs font-bold text-text-secondary tabular-nums">{formatPrice(pos.entryPrice)}</p></div>
                     <div><p className="text-[10px] text-text-muted font-medium uppercase">Current</p><p className={cn('text-xs font-bold tabular-nums', isProfit ? 'text-emerald-400' : 'text-red-400')}>{formatPrice(pos.currentPrice)}</p></div>
                     <div><p className="text-[10px] text-text-muted font-medium uppercase">Margin</p><p className="text-xs font-bold text-text-secondary tabular-nums">{formatCurrency(pos.margin)}</p></div>
-                    <button onClick={() => setClosingId(pos.id)}
-                      className="px-3 py-1.5 border border-red-500/40 rounded-lg text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors">Close</button>
+                    <div className="flex gap-2">
+                      <button onClick={() => openSlTgtModal(pos)}
+                        className="px-3 py-1.5 border border-primary/40 rounded-lg text-xs font-bold text-primary hover:bg-primary/10 transition-colors">SL/TGT</button>
+                      <button onClick={() => { setClosingId(pos.id); setCloseQtyInput(String(pos.quantity)); }}
+                        className="px-3 py-1.5 border border-red-500/40 rounded-lg text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors">Close</button>
+                    </div>
                   </div>
                 </div>
               );
@@ -132,12 +168,35 @@ export default function Positions() {
               <div className="bg-surface rounded-lg p-4 space-y-2.5">
                 <div className="flex justify-between text-sm"><span className="text-text-muted">Symbol</span><span className="font-bold text-text-primary">{pos.symbol}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-text-muted">Type</span><span className={cn('font-semibold', pos.type === 'BUY' ? 'text-emerald-500' : 'text-red-500')}>{pos.type}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-text-muted">Quantity</span><span className="font-semibold text-text-primary">{pos.quantity}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-text-muted">Total Quantity</span><span className="font-semibold text-text-primary">{pos.quantity}</span></div>
+                
+                <div className="border-t border-border/50 pt-2.5 space-y-1.5">
+                  <label className="block text-xs font-bold text-text-muted uppercase tracking-wider">Quantity to Close</label>
+                  <div className="relative flex items-center">
+                    <input
+                      type="number"
+                      step="any"
+                      min="0.0001"
+                      max={pos.quantity}
+                      value={closeQtyInput}
+                      onChange={(e) => setCloseQtyInput(e.target.value)}
+                      className="w-full bg-surface-3 border border-border/50 rounded-xl px-3 py-2 text-sm font-semibold text-text-primary focus:outline-none focus:ring-2 focus:ring-red-500/15 focus:border-red-500/40 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setCloseQtyInput(String(pos.quantity))}
+                      className="absolute right-2 px-2 py-0.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold rounded transition-colors"
+                    >
+                      MAX
+                    </button>
+                  </div>
+                </div>
+
                 <div className="border-t border-border/50 pt-2.5">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-text-muted">Estimated P&L</span>
+                    <span className="text-sm text-text-muted">Estimated P&L (Proportional)</span>
                     <span className={cn('font-extrabold text-lg tabular-nums', isProfit ? 'text-emerald-500' : 'text-red-500')}>
-                      {isProfit ? '+' : ''}{formatCurrency(pos.pnl || 0)}
+                      {isProfit ? '+' : ''}{formatCurrency(((pos.pnl || 0) / pos.quantity) * (Number(closeQtyInput) || 0))}
                     </span>
                   </div>
                 </div>
@@ -151,6 +210,55 @@ export default function Positions() {
                 <Button variant="outline" fullWidth size="lg" onClick={() => { setClosingId(null); setCloseError(null); }} disabled={closeLoading}>Cancel</Button>
                 <Button variant="danger" fullWidth size="lg" onClick={handleClose} disabled={closeLoading}>
                   {closeLoading ? 'Closing...' : 'Close Position'}
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
+      <Modal isOpen={!!editingSlTgtId} onClose={() => setEditingSlTgtId(null)} title="Update SL / Target">
+        {editingSlTgtId && (() => {
+          const pos = positions.find((p) => p.id === editingSlTgtId);
+          if (!pos) return null;
+          return (
+            <div className="space-y-4">
+              <div className="bg-surface rounded-lg p-4 space-y-2.5">
+                <div className="flex justify-between text-sm"><span className="text-text-muted">Symbol</span><span className="font-bold text-text-primary">{pos.symbol}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-text-muted">Entry Price</span><span className="font-semibold text-text-primary">{formatPrice(pos.entryPrice)}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-text-muted">Current Price</span><span className="font-semibold text-text-primary">{formatPrice(pos.currentPrice)}</span></div>
+              </div>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5">Stop Loss Price</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={slInput}
+                    onChange={(e) => setSlInput(e.target.value)}
+                    placeholder="No Stop Loss"
+                    className="w-full bg-surface-3 border border-border/50 rounded-xl px-4 py-2.5 text-sm font-semibold text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5">Target Price (Take Profit)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={tgtInput}
+                    onChange={(e) => setTgtInput(e.target.value)}
+                    placeholder="No Target"
+                    className="w-full bg-surface-3 border border-border/50 rounded-xl px-4 py-2.5 text-sm font-semibold text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" fullWidth size="lg" onClick={() => setEditingSlTgtId(null)}>Cancel</Button>
+                <Button variant="primary" fullWidth size="lg" onClick={handleSaveSlTgt}>
+                  Save Settings
                 </Button>
               </div>
             </div>

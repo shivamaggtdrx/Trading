@@ -15,13 +15,16 @@ const { supabaseAdmin } = require('../../config/supabase');
 
 // In-memory buffer: { symbol: { open, high, low, close, volume, bucketTime } }
 const activeBuckets = {};
+const pendingDbCandles = [];
 const BUCKET_MS = 60 * 1000; // 1-minute buckets
 
 /**
  * Process a normalized tick into the 1m OHLC bucket
  */
 function processTick(tick) {
-  const { symbol, ltp, timestamp } = tick;
+  if (!tick || !tick.symbol) return;
+  const symbol = tick.symbol.toUpperCase().trim();
+  const { ltp, timestamp } = tick;
   const bucketTime = Math.floor(timestamp / BUCKET_MS) * BUCKET_MS;
 
   if (!activeBuckets[symbol]) {
@@ -87,14 +90,8 @@ async function flushBucket(symbol, bucket) {
     // Redis down — candle still gets persisted to Postgres below
   }
 
-  // 2. Persist to Postgres (upsert to handle duplicates on restart)
-  try {
-    await supabaseAdmin
-      .from('ohlc_1m')
-      .upsert(candle, { onConflict: 'symbol,bucket_time' });
-  } catch (err) {
-    console.error(`OHLC flush failed for ${symbol}:`, err.message);
-  }
+  // 2. Queue for Postgres bulk upsert
+  pendingDbCandles.push(candle);
 }
 
 /**
@@ -147,11 +144,52 @@ function startSafetyFlush() {
 }
 
 /**
+ * Flush pending candles to Postgres in batch
+ */
+async function flushPendingCandlesToDb() {
+  if (pendingDbCandles.length === 0) return;
+  
+  const rawCandles = [...pendingDbCandles];
+  pendingDbCandles.length = 0; // Clear the queue
+
+  // Deduplicate by symbol + bucket_time, keeping the latest one, normalizing case and whitespace
+  const uniqueCandlesMap = new Map();
+  rawCandles.forEach(c => {
+    if (!c.symbol) return;
+    const normSymbol = c.symbol.toUpperCase().trim();
+    c.symbol = normSymbol; // Ensure the stored symbol is normalized
+    const key = `${normSymbol}_${c.bucket_time}`;
+    uniqueCandlesMap.set(key, c);
+  });
+  
+  const candlesToFlush = Array.from(uniqueCandlesMap.values());
+
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < candlesToFlush.length; i += BATCH_SIZE) {
+    const batch = candlesToFlush.slice(i, i + BATCH_SIZE);
+    try {
+      const { error } = await supabaseAdmin
+        .from('ohlc_1m')
+        .upsert(batch, { onConflict: 'symbol,bucket_time' });
+      if (error) {
+        console.error(`[OHLC DB BATCH FLUSH] Error flushing batch of ${batch.length} candles:`, error.message);
+      }
+    } catch (err) {
+      console.error(`[OHLC DB BATCH FLUSH] Exception during flush:`, err.message);
+    }
+    // Short delay to avoid slamming the DB pool
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+}
+
+/**
  * Initialize the OHLC aggregator
  */
 function initOHLCAggregator() {
   startSafetyFlush();
-  console.log('📊 OHLC 1m Aggregator started (flush every minute boundary)');
+  // Flush pending candles to database every 5 seconds
+  setInterval(flushPendingCandlesToDb, 5000);
+  console.log('📊 OHLC 1m Aggregator started (flush every minute boundary, batch DB upsert every 5s)');
 }
 
 module.exports = { processTick, getHistoricalCandles, initOHLCAggregator };

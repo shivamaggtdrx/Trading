@@ -24,6 +24,9 @@ export default function WalletPage() {
   const [selectedSlot, setSelectedSlot] = useState(1);
   const [copiedField, setCopiedField] = useState(null);
   const [submitResult, setSubmitResult] = useState(null);
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState('');
+  const [bankAccountsLoading, setBankAccountsLoading] = useState(false);
 
   const bal = wallet?.balance || 0;
   const availMargin = wallet?.availableMargin || 0;
@@ -45,6 +48,24 @@ export default function WalletPage() {
     fetchPaymentMethods();
   }, []);
 
+  const fetchBankAccounts = async () => {
+    setBankAccountsLoading(true);
+    try {
+      const data = await api.getBankAccounts();
+      const accounts = data.bankAccounts || [];
+      setBankAccounts(accounts);
+      if (accounts.length > 0) {
+        setSelectedBankAccountId(accounts[0].id);
+      } else {
+        setSelectedBankAccountId('');
+      }
+    } catch (err) {
+      console.error('Failed to fetch bank accounts:', err);
+    } finally {
+      setBankAccountsLoading(false);
+    }
+  };
+
   const copyToClipboard = (text, fieldName) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
@@ -64,6 +85,8 @@ export default function WalletPage() {
     setShowModal(true);
     if (type === 'deposit') {
       fetchPaymentMethods();
+    } else if (type === 'withdraw') {
+      fetchBankAccounts();
     }
   };
 
@@ -107,11 +130,15 @@ export default function WalletPage() {
         setSubmitResult({ type: 'error', message: `Cannot withdraw more than available margin (${formatCurrency(availMargin)})` });
         return;
       }
-      if (Number(amount) < 100) {
-        setSubmitResult({ type: 'error', message: 'Minimum withdrawal amount is ₹100' });
+      if (Number(amount) < 500) {
+        setSubmitResult({ type: 'error', message: 'Minimum withdrawal amount is ₹500' });
         return;
       }
-      const result = await submitWithdrawal({ amount: Number(amount), method: 'bank_transfer' });
+      if (!selectedBankAccountId) {
+        setSubmitResult({ type: 'error', message: 'Please add and select a bank account first' });
+        return;
+      }
+      const result = await submitWithdrawal({ amount: Number(amount), bank_account_id: selectedBankAccountId });
       if (result.success) {
         setSubmitResult({ type: 'success', message: 'Withdrawal request submitted!' });
         setTimeout(() => { setShowModal(false); setSubmitResult(null); }, 2500);
@@ -415,10 +442,53 @@ export default function WalletPage() {
             </>
           )}
 
+          {/* Bank Accounts select for withdrawals */}
+          {modalType === 'withdraw' && (
+            <div>
+              <label className="block text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">
+                Select Bank Account <span className="text-red-500">*</span>
+              </label>
+              {bankAccountsLoading ? (
+                <div className="flex items-center gap-2 py-2 px-3 bg-surface-2 rounded-xl border border-border/40 text-xs text-text-muted">
+                  <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span>Loading saved accounts...</span>
+                </div>
+              ) : bankAccounts.length === 0 ? (
+                <div className="p-3 bg-red-950/20 border border-red-900/30 rounded-xl text-center space-y-2">
+                  <p className="text-xs text-red-400 font-semibold leading-relaxed">
+                    No saved bank accounts found. You must add an account before applying for withdrawal.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModal(false);
+                      navigate('/bank-accounts');
+                    }}
+                    className="px-3 py-1.5 bg-primary/20 text-primary border border-primary/30 text-[11px] font-bold rounded-lg hover:bg-primary/30 transition-all cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    Add Bank Account
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={selectedBankAccountId}
+                  onChange={(e) => setSelectedBankAccountId(e.target.value)}
+                  className="w-full bg-surface border border-border/50 rounded-xl px-3 py-2 text-sm font-bold text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all cursor-pointer"
+                >
+                  {bankAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.bank_name} - {acc.account_number.slice(-4)} ({acc.account_holder_name})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
           {/* Amount input */}
           <div>
             <label className="block text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">
-              Amount (₹) {modalType === 'deposit' && <span className="text-red-500">* (Min 500)</span>}
+              Amount (₹) <span className="text-red-500">* (Min 500)</span>
             </label>
             <div className="relative">
               <IndianRupee size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
@@ -426,7 +496,7 @@ export default function WalletPage() {
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder={modalType === 'deposit' ? "Enter amount (Min ₹500)" : "Enter amount"}
+                placeholder="Enter amount (Min ₹500)"
                 className="w-full bg-surface border border-border/50 rounded-xl pl-8 pr-4 py-2 text-sm font-bold text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
                 style={{ fontFamily: "'JetBrains Mono', monospace" }}
               />
@@ -515,7 +585,8 @@ export default function WalletPage() {
                 Number(amount) <= 0 || 
                 depositLoading || 
                 withdrawLoading ||
-                (modalType === 'deposit' && (Number(amount) < 500 || !utrNumber.trim() || !screenshotBase64))
+                (modalType === 'deposit' && (Number(amount) < 500 || !utrNumber.trim() || !screenshotBase64)) ||
+                (modalType === 'withdraw' && (Number(amount) < 500 || !selectedBankAccountId))
               }
               onClick={handleSubmit}
             >

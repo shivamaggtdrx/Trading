@@ -19,7 +19,16 @@ export const useOrderStore = create((set, get) => ({
   orders: [],
   ordersLoading: false,
   activeOrderTab: 'open',
-  orderType: 'market',
+  orderType: (() => {
+    try {
+      const saved = localStorage.getItem('tradex_preferences');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.defaultOrderType) return parsed.defaultOrderType;
+      }
+    } catch {}
+    return 'market';
+  })(),
   orderSide: 'buy',
   quantity: '',
   orderLoading: false,

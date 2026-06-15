@@ -10,7 +10,7 @@ import { cn } from '../../utils/helpers';
 
 export default function TradingPreferences() {
   const navigate = useNavigate();
-  const [settings, setSettings] = useState({
+  const DEFAULT_SETTINGS = {
     defaultOrderType: 'market',
     confirmBeforeOrder: true,
     oneClickTrading: false,
@@ -19,12 +19,67 @@ export default function TradingPreferences() {
     priceAlerts: true,
     tradeNotifications: true,
     soundEffects: true,
-    darkMode: false,
+    darkMode: (() => {
+      try {
+        return localStorage.getItem('theme') !== 'light';
+      } catch {
+        return true;
+      }
+    })(),
     chartType: 'candle',
     defaultTimeframe: '1H',
+  };
+
+  const [settings, setSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('tradex_preferences');
+      const base = saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
+      // sync with actual theme settings
+      base.darkMode = localStorage.getItem('theme') !== 'light';
+      return base;
+    } catch {
+      return DEFAULT_SETTINGS;
+    }
   });
 
-  const toggle = (key) => setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+  const saveSettings = (newSettings) => {
+    setSettings(newSettings);
+    try {
+      localStorage.setItem('tradex_preferences', JSON.stringify(newSettings));
+    } catch (err) {
+      console.error('Failed to save preferences:', err);
+    }
+  };
+
+  const toggle = (key) => {
+    const updated = { ...settings, [key]: !settings[key] };
+    if (key === 'oneClickTrading' && updated.oneClickTrading) {
+      updated.confirmBeforeOrder = false;
+    } else if (key === 'confirmBeforeOrder' && updated.confirmBeforeOrder) {
+      updated.oneClickTrading = false;
+    }
+
+    if (key === 'darkMode') {
+      const isDarkNow = updated.darkMode;
+      try {
+        localStorage.setItem('theme', isDarkNow ? 'dark' : 'light');
+        if (isDarkNow) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch (err) {
+        console.error('Failed to update theme:', err);
+      }
+    }
+
+    saveSettings(updated);
+  };
+
+  const updateSetting = (key, value) => {
+    const updated = { ...settings, [key]: value };
+    saveSettings(updated);
+  };
 
   return (
     <div className="page-enter">
@@ -56,7 +111,7 @@ export default function TradingPreferences() {
                 </div>
                 <div className="flex gap-1 ml-9.5">
                   {['market', 'limit', 'stoploss'].map(type => (
-                    <button key={type} onClick={() => setSettings(prev => ({ ...prev, defaultOrderType: type }))}
+                    <button key={type} onClick={() => updateSetting('defaultOrderType', type)}
                       className={cn('flex-1 py-1.5 text-sm font-bold rounded-lg transition-all capitalize',
                         settings.defaultOrderType === type ? 'bg-primary text-white' : 'bg-surface text-text-muted')}>
                       {type === 'stoploss' ? 'Stop Loss' : type}
@@ -111,7 +166,7 @@ export default function TradingPreferences() {
                 </div>
                 <div className="flex gap-1 ml-9.5">
                   {['candle', 'line', 'bar', 'area'].map(type => (
-                    <button key={type} onClick={() => setSettings(prev => ({ ...prev, chartType: type }))}
+                    <button key={type} onClick={() => updateSetting('chartType', type)}
                       className={cn('flex-1 py-1.5 text-sm font-bold rounded-lg transition-all capitalize',
                         settings.chartType === type ? 'bg-primary text-white' : 'bg-surface text-text-muted')}>
                       {type}
@@ -130,7 +185,7 @@ export default function TradingPreferences() {
                 </div>
                 <div className="flex gap-1 ml-9.5">
                   {['1M', '5M', '15M', '1H', '4H', '1D'].map(tf => (
-                    <button key={tf} onClick={() => setSettings(prev => ({ ...prev, defaultTimeframe: tf }))}
+                    <button key={tf} onClick={() => updateSetting('defaultTimeframe', tf)}
                       className={cn('flex-1 py-1.5 text-sm font-bold rounded-lg transition-all',
                         settings.defaultTimeframe === tf ? 'bg-primary text-white' : 'bg-surface text-text-muted')}>
                       {tf}

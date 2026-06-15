@@ -26,10 +26,11 @@ router.get('/', async (req, res) => {
 
 /**
  * POST /api/positions/:id/close
- * Close a position (square off)
+ * Close a position (square off or partial exit)
  */
 router.post('/:id/close', async (req, res) => {
   try {
+    const { quantity } = req.body; // optional quantity for partial exit
     // 1. Fetch position AND instrument in parallel
     const { data: position } = await supabaseAdmin
       .from('positions')
@@ -43,6 +44,15 @@ router.post('/:id/close', async (req, res) => {
 
     const instrument = position.instrument;
     if (!instrument) return res.status(404).json({ error: 'Instrument not found' });
+
+    // Validate exit quantity if provided
+    let exitQty = parseFloat(position.quantity);
+    if (quantity !== undefined && quantity !== null) {
+      exitQty = parseFloat(quantity);
+      if (isNaN(exitQty) || exitQty <= 0 || exitQty > parseFloat(position.quantity)) {
+        return res.status(400).json({ error: 'Invalid exit quantity' });
+      }
+    }
 
     // 2. Fetch spread profile (LRU Cached)
     const profile = req.user.profile;
@@ -66,17 +76,18 @@ router.post('/:id/close', async (req, res) => {
 
     const spreadPct = spreadProfile ? spreadProfile.base_spread_pct : 0.05;
 
-    // 3. Execute atomic square-off via Supabase RPC
-    const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc('close_position_v2', {
+    // 3. Execute atomic square-off via Supabase RPC (partial-compatible)
+    const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc('close_position_partial_v2', {
       p_user_id: req.user.id,
       p_position_id: position.id,
       p_last_price: parseFloat(instrument.last_price || position.current_price || 0),
       p_spread_pct: parseFloat(spreadPct),
+      p_exit_qty: exitQty,
       p_close_reason: 'manual'
     });
 
     if (rpcErr) {
-      console.error('close_position_v2 RPC failed:', rpcErr.message);
+      console.error('close_position_partial_v2 RPC failed:', rpcErr.message);
       return res.status(500).json({ error: 'Square-off failed: ' + rpcErr.message });
     }
 
@@ -98,8 +109,15 @@ router.post('/:id/close', async (req, res) => {
       });
     } catch (e) { /* socket not available */ }
 
+    // Re-sync memory positions in execution engine
+    try {
+      const { syncPositions } = require('../ws/executionEngine');
+      syncPositions();
+    } catch (e) {}
+
     res.json({
       message: 'Position closed',
+      position: closedPos,
       trade: {
         symbol: trade.symbol,
         side: position.side,
@@ -135,22 +153,14 @@ router.put('/:id/sl-tgt', async (req, res) => {
 
     if (!position) return res.status(404).json({ error: 'Open position not found' });
 
-    const updates = {};
-    if (stop_loss !== undefined) updates.stop_loss = stop_loss;
-    if (target !== undefined) updates.target = target;
+    const { updatePositionTargets } = require('../ws/executionEngine');
+    const updated = await updatePositionTargets(position.id, stop_loss, target, req.user.id);
 
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
+    if (!updated) {
+      return res.status(500).json({ error: 'Failed to update SL/TGT in engine' });
     }
 
-    const { error } = await supabaseAdmin
-      .from('positions')
-      .update(updates)
-      .eq('id', position.id);
-
-    if (error) return res.status(500).json({ error: error.message });
-
-    res.json({ message: 'SL/TGT updated', ...updates });
+    res.json({ message: 'SL/TGT updated', stop_loss: updated.stop_loss, target: updated.take_profit });
   } catch (err) {
     console.error('SL/TGT update error:', err);
     res.status(500).json({ error: 'Failed to update SL/TGT' });

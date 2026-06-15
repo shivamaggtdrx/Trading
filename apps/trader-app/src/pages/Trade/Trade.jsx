@@ -41,6 +41,8 @@ export default function Trade() {
   const debugStats = useTradeStore(state => state.debugStats);
   const navigate = useNavigate();
   const [limitPrice, setLimitPrice] = useState('');
+  const [stopLoss, setStopLoss] = useState('');
+  const [takeProfit, setTakeProfit] = useState('');
   const [orderError, setOrderError] = useState(null);
 
   // Ensure we're subscribed to the selected instrument's price feed
@@ -74,10 +76,18 @@ export default function Trade() {
     if (orderType === 'stop_loss' && limitPrice) {
       orderData.trigger_price = Number(limitPrice);
     }
+    if (stopLoss) {
+      orderData.stop_loss = Number(stopLoss);
+    }
+    if (takeProfit) {
+      orderData.take_profit = Number(takeProfit);
+    }
 
     // Navigate INSTANTLY — don't wait for the API round-trip
     setQuantity('');
     setLimitPrice('');
+    setStopLoss('');
+    setTakeProfit('');
     navigate('/positions');
 
     // Fire the order in the background (result handled via websocket notification)
@@ -269,6 +279,30 @@ export default function Trade() {
             compact
           />
         )}
+
+        {/* Stop Loss & Target Profit (Optional) */}
+        <div className="grid grid-cols-2 gap-3 bg-surface-2 p-3 rounded-xl border border-border/30">
+          <Input
+            label="Stop Loss (SL)"
+            type="number"
+            step="any"
+            value={stopLoss}
+            onChange={(e) => setStopLoss(e.target.value)}
+            placeholder="No SL"
+            prefix={currSymbol}
+            compact
+          />
+          <Input
+            label="Target (TGT)"
+            type="number"
+            step="any"
+            value={takeProfit}
+            onChange={(e) => setTakeProfit(e.target.value)}
+            placeholder="No TGT"
+            prefix={currSymbol}
+            compact
+          />
+        </div>
 
         {/* Order Summary */}
         {quantity && Number(quantity) > 0 && (

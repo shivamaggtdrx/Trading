@@ -17,7 +17,19 @@ function getAudioContext() {
  * Plays a sequence of synthesized notes
  * @param {Array<Object>} notes - Array of { freq, duration, type, volume, delay }
  */
+function shouldPlaySound() {
+  try {
+    const saved = localStorage.getItem('tradex_preferences');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return parsed.soundEffects !== false;
+    }
+  } catch {}
+  return true;
+}
+
 function playChime(notes) {
+  if (!shouldPlaySound()) return;
   try {
     const ctx = getAudioContext();
     if (!ctx) return;

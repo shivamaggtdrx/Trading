@@ -175,9 +175,32 @@ export default function WithdrawalApprovals() {
                     <span className="font-black text-gray-900">₹{wd.amount.toLocaleString('en-IN')}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-xs font-medium text-gray-700 bg-gray-100 px-2 py-0.5 rounded">{wd.method}</span>
+                    <span className="text-xs font-medium text-gray-700 bg-gray-100 px-2 py-0.5 rounded uppercase">{wd.method}</span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-600 font-medium">{wd.bank_details || 'N/A'}</td>
+                  <td className="px-4 py-3 text-xs font-medium text-gray-600">
+                    {wd.method === 'upi' ? (
+                      <div>
+                        <span className="text-[10px] text-gray-500 font-semibold bg-gray-100 px-1.5 py-0.5 rounded mr-1">UPI</span>
+                        <span className="font-mono text-gray-700">{wd.upi_id || 'N/A'}</span>
+                      </div>
+                    ) : (
+                      wd.bank_name ? (
+                        <div className="space-y-0.5">
+                          <div className="font-bold text-gray-800">{wd.bank_name}</div>
+                          <div className="text-[11px] font-mono text-gray-600">
+                            A/C: {wd.account_number} | IFSC: {wd.ifsc_code}
+                          </div>
+                          {wd.metadata?.account_holder_name && (
+                            <div className="text-[10px] text-gray-500 font-semibold bg-blue-50 px-1 py-0.5 rounded inline-block">
+                              Holder: {wd.metadata.account_holder_name}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">N/A</span>
+                      )
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right text-xs font-medium text-gray-600">--</td>
                   <td className="px-4 py-3 text-center font-bold text-gray-700">--</td>
                   <td className="px-4 py-3">
@@ -240,10 +263,28 @@ export default function WithdrawalApprovals() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
             <h3 className="text-lg font-bold text-gray-900 mb-2">Approve Withdrawal</h3>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4 space-y-1">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4 space-y-2">
               <div className="flex justify-between text-sm"><span className="text-gray-600">Client</span><span className="font-bold">{selectedWd.profiles?.client_id} — {selectedWd.profiles?.full_name}</span></div>
               <div className="flex justify-between text-sm"><span className="text-gray-600">Amount</span><span className="font-black text-green-700">₹{selectedWd.amount.toLocaleString('en-IN')}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-gray-600">Method</span><span className="font-bold">{selectedWd.method} → {selectedWd.bank_details || 'N/A'}</span></div>
+              <div className="flex justify-between text-sm items-start border-t border-green-150 pt-2">
+                <span className="text-gray-600 flex-shrink-0">Payout Details</span>
+                <span className="font-bold text-right text-xs">
+                  {selectedWd.method === 'upi' ? (
+                    `UPI: ${selectedWd.upi_id || 'N/A'}`
+                  ) : (
+                    selectedWd.bank_name ? (
+                      <div className="space-y-0.5">
+                        <div className="font-black">{selectedWd.bank_name}</div>
+                        <div className="font-mono text-gray-600">A/C: {selectedWd.account_number}</div>
+                        <div className="font-mono text-gray-600">IFSC: {selectedWd.ifsc_code}</div>
+                        {selectedWd.metadata?.account_holder_name && (
+                          <div className="text-[11px] text-gray-500 mt-1 bg-white px-1 py-0.5 rounded inline-block border border-gray-100">Holder: {selectedWd.metadata.account_holder_name}</div>
+                        )}
+                      </div>
+                    ) : 'N/A'
+                  )}
+                </span>
+              </div>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setShowApproveModal(false)} className="flex-1 py-2 rounded-lg border border-gray-300 text-sm font-bold text-gray-700 hover:bg-gray-50">Cancel</button>
