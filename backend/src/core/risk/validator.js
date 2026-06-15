@@ -11,14 +11,19 @@ const { supabaseAdmin } = require('../../config/supabase');
  *   3. User margin sufficiency
  *   4. User-level position limits
  *   5. Symbol trading status
+ *   6. [NEW] Per-user daily order count limit
+ *   7. [NEW] Per-user max position size (qty per order)
+ *   8. [NEW] Per-user max open positions
  */
 
 // ── Redis Key Conventions ──
-// risk:kill_switch        → '1' or '0'
-// risk:symbol_disabled:{SYMBOL} → '1' if disabled
-// exp:symbol:{SYMBOL}     → Net exposure (sum of all user quantities, +buy -sell)
-// exp:user:{USER_ID}      → Total margin used by user
-// risk:max_exposure:{SYMBOL} → Max allowed net exposure for a symbol
+// risk:kill_switch                → '1' or '0'
+// risk:symbol_disabled:{SYMBOL}  → '1' if disabled
+// exp:symbol:{SYMBOL}            → Net exposure (sum of all user quantities, +buy -sell)
+// exp:user:{USER_ID}             → Total margin used by user
+// risk:max_exposure:{SYMBOL}     → Max allowed net exposure for a symbol
+// risk:limits:{USER_ID}          → Cached user trading limits (JSON, 5-min TTL)
+// risk:user_daily_orders:{USER_ID}:{DATE}  → Int counter, TTL to midnight
 
 /**
  * Check if the global kill switch is active
@@ -137,12 +142,117 @@ async function unfreezeUser(userId) {
   } catch (err) {}
 }
 
+// ── User Trading Limits ──────────────────────────────────────
+
+/**
+ * Fetch user-specific trading limits from DB with Redis caching (5-min TTL).
+ * Returns null if no limits are configured (meaning no restrictions apply).
+ */
+async function getUserTradingLimits(userId) {
+  const cacheKey = `risk:limits:${userId}`;
+  try {
+    const cached = await redisClient.get(cacheKey);
+    if (cached !== null) {
+      return cached === 'null' ? null : JSON.parse(cached);
+    }
+  } catch (err) {
+    // Redis error — fall through to DB
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('user_trading_limits')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle(); // Returns null if no row (not an error)
+
+    if (error) {
+      console.warn(`[RiskValidator] Could not fetch trading limits for ${userId}:`, error.message);
+      return null;
+    }
+
+    // Cache the result — even "no limits" is cached to prevent DB hammering
+    try {
+      await redisClient.set(cacheKey, data ? JSON.stringify(data) : 'null', { EX: 300 }); // 5-min TTL
+    } catch (err) {}
+
+    return data || null;
+  } catch (err) {
+    console.error('[RiskValidator] getUserTradingLimits failed:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Invalidate user trading limits cache (call after admin updates limits)
+ */
+async function invalidateLimitsCache(userId) {
+  try {
+    await redisClient.del(`risk:limits:${userId}`);
+  } catch (err) {}
+}
+
+/**
+ * Increment the user's daily order counter and return new count.
+ * The key auto-expires at the next midnight IST (UTC+5:30).
+ */
+async function incrementDailyOrderCount(userId) {
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const key = `risk:user_daily_orders:${userId}:${date}`;
+  try {
+    const count = await redisClient.incr(key);
+    // Set TTL to 24h if this is the first increment today
+    if (count === 1) {
+      await redisClient.expire(key, 86400);
+    }
+    return count;
+  } catch (err) {
+    console.error('[RiskValidator] Failed to increment daily order count:', err.message);
+    return 0;
+  }
+}
+
+/**
+ * Get the user's current daily order count.
+ */
+async function getDailyOrderCount(userId) {
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10);
+  const key = `risk:user_daily_orders:${userId}:${date}`;
+  try {
+    const val = await redisClient.get(key);
+    return parseInt(val) || 0;
+  } catch (err) {
+    return 0;
+  }
+}
+
+/**
+ * Get the user's current open position count.
+ * Reads from DB — this is a low-frequency check so no Redis needed.
+ */
+async function getOpenPositionCount(userId) {
+  try {
+    const { count, error } = await supabaseAdmin
+      .from('positions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .in('status', ['open', 'OPEN']);
+
+    if (error) return 0;
+    return count || 0;
+  } catch (err) {
+    return 0;
+  }
+}
+
 /**
  * Full pre-trade validation
  * Returns { allowed: true } or { allowed: false, reason: string }
  */
 async function validateOrder(orderData) {
-  const { userId, symbol, side, quantity } = orderData;
+  const { userId, symbol, side, quantity, price } = orderData;
 
   // 1. Kill switch
   if (await isKillSwitchActive()) {
@@ -159,6 +269,73 @@ async function validateOrder(orderData) {
     return { allowed: false, reason: 'Your account has been frozen. Contact support.' };
   }
 
+  // 3b. Market Hours and Holiday Calendar Check
+  const cache = require('../cache');
+  const symbolKey = `instrument:${symbol.toUpperCase()}`;
+  let inst = cache.get(symbolKey);
+  if (!inst) {
+    try {
+      const { data } = await supabaseAdmin
+        .from('instruments')
+        .select('segment, trading_enabled, last_price')
+        .eq('symbol', symbol.toUpperCase())
+        .maybeSingle();
+      inst = data;
+      if (inst) {
+        cache.set(symbolKey, inst, 60000); // Cache for 60s
+      }
+    } catch (err) {
+      console.warn('[RiskValidator] Failed to query instrument for hours validation:', err.message);
+    }
+  }
+
+  if (inst) {
+    if (!inst.trading_enabled) {
+      return { allowed: false, reason: `Trading is disabled for ${symbol}.` };
+    }
+    const { checkMarketHours } = require('./marketHours');
+    const hoursCheck = await checkMarketHours(inst.segment);
+    if (!hoursCheck.open) {
+      return { allowed: false, reason: hoursCheck.reason || 'Market is currently closed for this segment.' };
+    }
+  }
+
+  // 3c. Client Restrictions Check
+  try {
+    const { getClientRestrictions } = require('./clientRestrictions');
+    const restrictions = await getClientRestrictions(userId);
+    if (restrictions) {
+      if (restrictions.trading === false) {
+        return { allowed: false, reason: 'Trading is currently blocked for your account. Contact support.' };
+      }
+
+      if (inst) {
+        const segmentLower = (inst.segment || '').toLowerCase();
+        if (restrictions.options === false && segmentLower.includes('option')) {
+          return { allowed: false, reason: 'Options trading is disabled for your account.' };
+        }
+        if (restrictions.mcx === false && segmentLower === 'mcx') {
+          return { allowed: false, reason: 'MCX commodity trading is disabled for your account.' };
+        }
+      }
+
+      if (restrictions.max_order_value !== null) {
+        const orderPrice = price || inst?.last_price || 0;
+        if (orderPrice > 0) {
+          const orderValue = quantity * orderPrice;
+          if (orderValue > restrictions.max_order_value) {
+            return {
+              allowed: false,
+              reason: `Order value (₹${orderValue.toLocaleString('en-IN')}) exceeds your maximum allowed single order value of ₹${restrictions.max_order_value.toLocaleString('en-IN')}.`
+            };
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[RiskValidator] Client restrictions check error:', err.message);
+  }
+
   // 4. Symbol exposure check
   const currentExposure = await getSymbolExposure(symbol);
   const maxExposure = await getMaxExposure(symbol);
@@ -173,7 +350,49 @@ async function validateOrder(orderData) {
     };
   }
 
+  // 5. Per-user trading limits (daily orders, position size, open positions)
+  const limits = await getUserTradingLimits(userId);
+  if (limits) {
+    // 5a. Max position size (qty per order)
+    if (limits.max_position_size !== null && quantity > limits.max_position_size) {
+      return {
+        allowed: false,
+        reason: `Order quantity (${quantity}) exceeds your maximum allowed position size of ${limits.max_position_size} units.`,
+      };
+    }
+
+    // 5b. Daily order count limit
+    if (limits.daily_order_limit !== null) {
+      const dailyCount = await getDailyOrderCount(userId);
+      if (dailyCount >= limits.daily_order_limit) {
+        return {
+          allowed: false,
+          reason: `Daily order limit reached (${limits.daily_order_limit} orders/day). Your limit resets at midnight.`,
+        };
+      }
+    }
+
+    // 5c. Max concurrent open positions
+    if (limits.max_open_positions !== null) {
+      const openCount = await getOpenPositionCount(userId);
+      if (openCount >= limits.max_open_positions) {
+        return {
+          allowed: false,
+          reason: `You have reached the maximum allowed open positions (${limits.max_open_positions}). Close an existing position before placing a new one.`,
+        };
+      }
+    }
+  }
+
   return { allowed: true };
+}
+
+/**
+ * Increment daily order counter after a successful order is accepted.
+ * Call this AFTER validateOrder() returns allowed:true, from the order route.
+ */
+async function recordOrderPlaced(userId) {
+  await incrementDailyOrderCount(userId);
 }
 
 // ── Admin Emergency Controls ──
@@ -220,6 +439,7 @@ async function setMaxExposure(symbol, maxQty) {
 
 module.exports = {
   validateOrder,
+  recordOrderPlaced,
   updateExposure,
   isKillSwitchActive,
   isSymbolDisabled,
@@ -232,4 +452,8 @@ module.exports = {
   enableSymbol,
   setMaxExposure,
   getSymbolExposure,
+  getUserTradingLimits,
+  invalidateLimitsCache,
+  getDailyOrderCount,
+  getOpenPositionCount,
 };

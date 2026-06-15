@@ -13,6 +13,13 @@ router.post('/', async (req, res) => {
     const { amount, bank_account_id } = req.body;
     const userId = req.user.id;
 
+    // Check client restrictions for withdrawal access block
+    const { getClientRestrictions } = require('../core/risk/clientRestrictions');
+    const restrictions = await getClientRestrictions(userId);
+    if (restrictions && restrictions.withdrawals === false) {
+      return res.status(403).json({ error: 'Withdrawals are currently blocked for your account. Contact support.' });
+    }
+
     if (!amount) {
       return res.status(400).json({ error: 'Amount is required' });
     }

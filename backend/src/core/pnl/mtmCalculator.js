@@ -415,4 +415,4 @@ function startMTMCalculator() {
   setInterval(calculateMTM, CALC_INTERVAL_MS);
 }
 
-module.exports = { startMTMCalculator, cacheTickPrice, getCachedPrice };
+module.exports = { startMTMCalculator, cacheTickPrice, getCachedPrice, calculateMTM };

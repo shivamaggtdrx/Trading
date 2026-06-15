@@ -6,6 +6,8 @@ export default function SquareOffPanel() {
   const [selected, setSelected] = useState([]);
   const [openPositions, setOpenPositions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [marginFilter, setMarginFilter] = useState('all');
 
   const fetchPositions = async () => {
     try {
@@ -27,9 +29,32 @@ export default function SquareOffPanel() {
     setSelected(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
   };
 
+  const filteredPositions = openPositions.filter(p => {
+    const matchesSearch = 
+      p.client.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      p.instrument.toLowerCase().includes(searchQuery.toLowerCase());
+      
+    let matchesMargin = true;
+    if (marginFilter === '80') {
+      matchesMargin = p.margin >= 80;
+    } else if (marginFilter === '90') {
+      matchesMargin = p.margin >= 90;
+    } else if (marginFilter === 'margin_call') {
+      matchesMargin = p.margin >= 80;
+    }
+    
+    return matchesSearch && matchesMargin;
+  });
+
   const selectAll = () => {
-    if (selected.length === openPositions.length) setSelected([]);
-    else setSelected(openPositions.map(p => p.id));
+    const filteredIds = filteredPositions.map(p => p.id);
+    if (filteredIds.length === 0) return;
+    const allSelected = filteredIds.every(id => selected.includes(id));
+    if (allSelected) {
+      setSelected(prev => prev.filter(id => !filteredIds.includes(id)));
+    } else {
+      setSelected(prev => [...new Set([...prev, ...filteredIds])]);
+    }
   };
 
   return (
@@ -74,15 +99,25 @@ export default function SquareOffPanel() {
           <div className="flex items-center gap-2 flex-1 min-w-[200px]">
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type="text" placeholder="Search by Client, Instrument..." className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input 
+                type="text" 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search by Client, Instrument..." 
+                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" 
+              />
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <select className="border border-gray-300 rounded-lg text-sm px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option>Filter by Margin Utilized</option>
-              <option>&gt; 80% Utilized</option>
-              <option>&gt; 90% Utilized</option>
-              <option>Margin Call Active</option>
+            <select 
+              value={marginFilter}
+              onChange={e => setMarginFilter(e.target.value)}
+              className="border border-gray-300 rounded-lg text-sm px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
+            >
+              <option value="all">Filter by Margin Utilized</option>
+              <option value="80">&gt; 80% Utilized</option>
+              <option value="90">&gt; 90% Utilized</option>
+              <option value="margin_call">Margin Call Active</option>
             </select>
           </div>
         </div>
@@ -93,7 +128,7 @@ export default function SquareOffPanel() {
               <tr>
                 <th className="py-3 px-4 w-12 text-center">
                    <button onClick={selectAll} className="text-gray-400 hover:text-blue-600">
-                      {selected.length === openPositions.length && openPositions.length > 0 ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+                      {filteredPositions.length > 0 && filteredPositions.every(p => selected.includes(p.id)) ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
                    </button>
                 </th>
                 <th className="py-3 px-4">Client</th>
@@ -107,7 +142,7 @@ export default function SquareOffPanel() {
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr><td colSpan="7" className="py-8 text-center text-gray-500">Loading open positions...</td></tr>
-              ) : openPositions.length > 0 ? openPositions.map((item) => (
+              ) : filteredPositions.length > 0 ? filteredPositions.map((item) => (
                 <tr key={item.id} className={`transition-colors ${selected.includes(item.id) ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
                   <td className="py-3 px-4 text-center">
                     <button onClick={() => toggleSelect(item.id)} className={`hover:text-blue-600 ${selected.includes(item.id) ? 'text-blue-600' : 'text-gray-400'}`}>

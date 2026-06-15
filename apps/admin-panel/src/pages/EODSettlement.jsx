@@ -6,6 +6,13 @@ export default function EODSettlement() {
   const [status, setStatus] = useState('idle'); // idle, running, completed
   const [reports, setReports] = useState([]);
   const [currentReport, setCurrentReport] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportDetail, setReportDetail] = useState(null);
+
+  const openReportDetail = (report) => {
+    setReportDetail(report);
+    setShowReportModal(true);
+  };
 
   useEffect(() => {
     adminApi.getEodReports()
@@ -29,6 +36,7 @@ export default function EODSettlement() {
          const res = await adminApi.runEodSettlement();
          setCurrentReport(res.report);
          setStatus('completed');
+         openReportDetail(res.report);
        } catch (err) {
          console.error('Failed to run EOD', err);
          alert('EOD Settlement Failed. Check logs.');
@@ -44,15 +52,9 @@ export default function EODSettlement() {
     }
   };
 
-  const showPreviousReports = () => {
-    if (reports.length === 0) return alert('No previous reports found.');
-    const reportList = reports.map(r => `• ${new Date(r.settlement_date).toLocaleDateString()} — Settled ✓ (ID: ${r.id})`).join('\n');
-    alert(`Previous Settlement Reports:\n\n${reportList}`);
-  };
-
   const showCurrentReport = () => {
     if (!currentReport) return;
-    alert(`Settlement Report\n\nTotal Clients Settled: ${currentReport.totalClients}\nProfit Credited: ₹${currentReport.profitCredited.toLocaleString('en-IN')}\nLosses Debited: ₹${currentReport.lossesDebited.toLocaleString('en-IN')}\nBrokerage Collected: ₹${currentReport.brokerageCollected.toLocaleString('en-IN')}\nPenalties Applied: ₹${currentReport.penaltiesApplied.toLocaleString('en-IN')}\n\nSettlement ID: ${currentReport.settlementId}`);
+    openReportDetail(currentReport);
   };
 
   return (
@@ -69,10 +71,6 @@ export default function EODSettlement() {
               Reset
             </button>
           )}
-          <button onClick={showPreviousReports} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
-            <FileText className="w-4 h-4" />
-            Previous Reports
-          </button>
         </div>
       </div>
 
@@ -130,6 +128,102 @@ export default function EODSettlement() {
             ))}
          </div>
       </div>
+
+      {/* Settlement History Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+          <h2 className="text-sm font-bold text-gray-900">Settlement History</h2>
+          <span className="text-xs text-gray-500">Log of past EOD cycles</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left whitespace-nowrap">
+            <thead className="text-[11px] text-gray-500 uppercase bg-gray-100 border-b border-gray-200 tracking-wider">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Date</th>
+                <th className="px-4 py-3 font-semibold text-center">Clients Settled</th>
+                <th className="px-4 py-3 font-semibold text-right">Profit Credited</th>
+                <th className="px-4 py-3 font-semibold text-right">Losses Debited</th>
+                <th className="px-4 py-3 font-semibold text-right">House Net PNL</th>
+                <th className="px-4 py-3 text-right font-semibold">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {reports.length === 0 ? (
+                <tr><td colSpan="6" className="p-4 text-center text-gray-500">No previous settlement runs logged.</td></tr>
+              ) : reports.map(r => (
+                <tr key={r.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-bold text-gray-900">{new Date(r.settlement_date).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-center font-bold text-gray-700">{r.total_clients_settled}</td>
+                  <td className="px-4 py-3 text-right font-medium text-green-600">₹{parseFloat(r.total_profit_credited || 0).toLocaleString('en-IN')}</td>
+                  <td className="px-4 py-3 text-right font-medium text-red-600">₹{parseFloat(r.total_losses_debited || 0).toLocaleString('en-IN')}</td>
+                  <td className={`px-4 py-3 text-right font-bold ${r.total_house_pnl >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    {r.total_house_pnl >= 0 ? '+' : ''}₹{parseFloat(r.total_house_pnl || 0).toLocaleString('en-IN')}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => openReportDetail({
+                      totalClients: r.total_clients_settled,
+                      profitCredited: parseFloat(r.total_profit_credited || 0),
+                      lossesDebited: parseFloat(r.total_losses_debited || 0),
+                      brokerageCollected: parseFloat(r.total_swap_charged || 0),
+                      settlementId: `STL-${r.settlement_date.replace(/-/g, '')}`,
+                      settlementDate: r.settlement_date
+                    })} className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded hover:bg-blue-100 border border-blue-200 font-medium">
+                      View Report
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Custom Report Detail Modal */}
+      {showReportModal && reportDetail && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-gray-200">
+            <h3 className="text-lg font-black text-gray-900 mb-4 border-b pb-2 flex justify-between items-center">
+              <span>Settlement Report</span>
+              <span className="text-xs font-mono text-gray-500 font-normal">{reportDetail.settlementId}</span>
+            </h3>
+            
+            <div className="space-y-3 mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+              {reportDetail.settlementDate && (
+                <div className="flex justify-between text-sm border-b border-gray-200 pb-1.5">
+                  <span className="text-gray-500 font-medium">Settlement Date</span>
+                  <span className="font-bold text-gray-900">{new Date(reportDetail.settlementDate).toLocaleDateString()}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500 font-medium">Total Clients Settled</span>
+                <span className="font-bold text-gray-900">{reportDetail.totalClients}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500 font-medium">Profit Credited</span>
+                <span className="font-bold text-green-600">₹{reportDetail.profitCredited.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500 font-medium">Losses Debited</span>
+                <span className="font-bold text-red-600">₹{reportDetail.lossesDebited.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between text-sm border-t border-gray-200 pt-1.5">
+                <span className="text-gray-500 font-medium">Brokerage/Swap Collected</span>
+                <span className="font-bold text-blue-600">₹{reportDetail.brokerageCollected.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between text-sm border-t border-gray-200 pt-1.5">
+                <span className="text-gray-700 font-bold">House Net Revenue</span>
+                <span className={`font-black ${(reportDetail.lossesDebited - reportDetail.profitCredited + reportDetail.brokerageCollected) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                  ₹{(reportDetail.lossesDebited - reportDetail.profitCredited + reportDetail.brokerageCollected).toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+
+            <button onClick={() => setShowReportModal(false)} className="w-full py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-lg text-sm font-bold shadow-sm transition-colors">
+              Close Report
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

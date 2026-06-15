@@ -78,6 +78,17 @@ async function authenticateUser(req, res, next) {
       return res.status(403).json({ error: `Account is ${profile.status}` });
     }
 
+    // Check client restrictions for login access block
+    try {
+      const { getClientRestrictions } = require('../core/risk/clientRestrictions');
+      const restrictions = await getClientRestrictions(userId);
+      if (restrictions && restrictions.login === false) {
+        return res.status(403).json({ error: 'Your account access has been blocked. Contact support.' });
+      }
+    } catch (e) {
+      console.warn('[AuthMiddleware] Client restrictions check error:', e.message);
+    }
+
     req.user = { id: userId, email: profile.email, profile };
     next();
   } catch (err) {

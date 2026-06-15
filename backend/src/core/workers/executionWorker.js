@@ -57,6 +57,7 @@ async function processMarketOrder(data) {
     executionDelay,
     stopLoss,
     takeProfit,
+    isBracketOrder,
     bidPrice,
     askPrice,
   } = data;
@@ -80,6 +81,9 @@ async function processMarketOrder(data) {
     margin_blocked: marginRequired,
     status: 'filled',
     filled_at: new Date().toISOString(),
+    is_bracket_order: isBracketOrder === true,
+    stop_loss: stopLoss || null,
+    take_profit: takeProfit || null,
   };
 
   const { data: order, error: orderErr } = await supabaseAdmin
@@ -98,6 +102,11 @@ async function processMarketOrder(data) {
   }
 
   // ── Step 2: Create position ──
+  const { getClientRestrictions } = require('../risk/clientRestrictions');
+  const restrictions = await getClientRestrictions(userId);
+  const multiplier = (restrictions && restrictions.leverage_multiplier) ? parseFloat(restrictions.leverage_multiplier) : 1.0;
+  const leverage = (100 / (instrument.margin_required || 10)) * multiplier;
+
   const positionData = {
     user_id: userId,
     instrument_id: instrumentId,
@@ -108,9 +117,10 @@ async function processMarketOrder(data) {
     entry_price: executionPrice,
     current_price: referencePrice,
     margin_used: marginRequired,
-    leverage: 100 / (instrument.margin_required || 10),
+    leverage,
     stop_loss: stopLoss || null,
     take_profit: takeProfit || null,
+    is_bracket_order: isBracketOrder === true,
     routing: 'b_book',
   };
 
@@ -179,7 +189,7 @@ async function processMarketOrder(data) {
 async function processLimitOrder(data) {
   // For now, just insert the pending order. The execution engine
   // will match it when price reaches the limit.
-  const { userId, symbol, side, quantity, price, instrumentId, marginRequired } = data;
+  const { userId, symbol, side, quantity, price, instrumentId, marginRequired, isBracketOrder, stopLoss, takeProfit } = data;
 
   const { data: order, error } = await supabaseAdmin
     .from('orders')
@@ -194,6 +204,9 @@ async function processLimitOrder(data) {
       margin_required: marginRequired,
       margin_blocked: marginRequired,
       status: 'pending',
+      is_bracket_order: isBracketOrder === true,
+      stop_loss: stopLoss || null,
+      take_profit: takeProfit || null,
     })
     .select()
     .single();
@@ -240,7 +253,10 @@ async function fillLimitOrder(data) {
     instrument_id: instrumentId,
     instrument,
     margin_required: marginRequired,
-    price: referencePrice
+    price: referencePrice,
+    is_bracket_order: isBracketOrder,
+    stop_loss: stopLoss,
+    take_profit: takeProfit
   } = order;
 
   // Assuming 0.01% spread markup for calculation
@@ -263,6 +279,11 @@ async function fillLimitOrder(data) {
   if (updateErr) throw new Error('Failed to update limit order: ' + updateErr.message);
 
   // ── Step 3: Create position ──
+  const { getClientRestrictions } = require('../risk/clientRestrictions');
+  const restrictions = await getClientRestrictions(userId);
+  const multiplier = (restrictions && restrictions.leverage_multiplier) ? parseFloat(restrictions.leverage_multiplier) : 1.0;
+  const leverage = (100 / (instrument.margin_required || 10)) * multiplier;
+
   const positionData = {
     user_id: userId,
     instrument_id: instrumentId,
@@ -273,7 +294,10 @@ async function fillLimitOrder(data) {
     entry_price: executionPrice,
     current_price: executionPrice,
     margin_used: marginRequired, // Margin was already blocked!
-    leverage: 100 / (instrument.margin_required || 10),
+    leverage,
+    is_bracket_order: isBracketOrder === true,
+    stop_loss: stopLoss || null,
+    take_profit: takeProfit || null,
     routing: 'b_book',
   };
 

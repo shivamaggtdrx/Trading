@@ -142,15 +142,200 @@ router.put('/users/:id/status', requireRole('super_admin', 'admin', 'compliance'
   }
 });
 
+// Send password reset email
+router.post('/users/:id/reset-password', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { data: user } = await supabaseAdmin.auth.admin.getUserById(req.params.id);
+    if (!user?.user) return res.status(404).json({ error: 'User not found' });
+    
+    // Generate a password reset link via Supabase Auth
+    const { error } = await supabaseAdmin.auth.admin.generateLink({ 
+      type: 'recovery', 
+      email: user.user.email 
+    });
+    
+    if (error) return res.status(500).json({ error: error.message });
+    
+    await supabaseAdmin.from('audit_logs').insert({ 
+      admin_id: req.admin.id, action: 'reset_user_password', target_type: 'user', 
+      target_id: req.params.id, description: `Sent password reset to ${user.user.email}`, ip_address: req.ip 
+    });
+    
+    res.json({ message: `Password reset link sent to ${user.user.email}` });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to send password reset' });
+  }
+});
+
+// Revoke all user sessions (sign out all devices)
+router.post('/users/:id/revoke-sessions', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin.auth.admin.signOut(req.params.id, 'global');
+    if (error && !error.message.includes('not found')) return res.status(500).json({ error: error.message });
+    
+    await supabaseAdmin.from('audit_logs').insert({ 
+      admin_id: req.admin.id, action: 'revoke_user_sessions', target_type: 'user', 
+      target_id: req.params.id, description: 'Revoked all active sessions for user', ip_address: req.ip 
+    });
+    
+    res.json({ message: 'All sessions revoked. User will need to login again.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to revoke sessions' });
+  }
+});
+
+
+// ═══════════════════════════════════════════
+// USER TRADING LIMITS
+// ═══════════════════════════════════════════
+
+router.get('/users/:id/trading-limits', requireRole('super_admin', 'admin', 'compliance', 'risk_manager'), async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('user_trading_limits')
+      .select('*')
+      .eq('user_id', req.params.id)
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ limits: data || null });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user trading limits' });
+  }
+});
+
+router.put('/users/:id/trading-limits', requireRole('super_admin', 'admin', 'risk_manager'), async (req, res) => {
+  try {
+    const { daily_order_limit, max_position_size, max_open_positions, notes } = req.body;
+    const userId = req.params.id;
+
+    // Clean numeric values (nullify if empty or not provided)
+    const dailyLimit = daily_order_limit !== undefined && daily_order_limit !== '' && daily_order_limit !== null ? parseInt(daily_order_limit) : null;
+    const maxSize = max_position_size !== undefined && max_position_size !== '' && max_position_size !== null ? parseInt(max_position_size) : null;
+    const maxOpen = max_open_positions !== undefined && max_open_positions !== '' && max_open_positions !== null ? parseInt(max_open_positions) : null;
+
+    const limitData = {
+      user_id: userId,
+      daily_order_limit: dailyLimit,
+      max_position_size: maxSize,
+      max_open_positions: maxOpen,
+      notes: notes || null,
+      created_by: req.admin.id,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabaseAdmin
+      .from('user_trading_limits')
+      .upsert(limitData, { onConflict: 'user_id' })
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Invalidate Redis cache
+    const { invalidateLimitsCache } = require('../core/risk/validator');
+    await invalidateLimitsCache(userId);
+
+    // Audit log
+    await supabaseAdmin.from('audit_logs').insert({
+      admin_id: req.admin.id,
+      action: 'update_trading_limits',
+      target_type: 'user',
+      target_id: userId,
+      description: `Updated trading limits: daily orders=${dailyLimit}, max size=${maxSize}, max open positions=${maxOpen}`,
+      ip_address: req.ip
+    });
+
+    res.json({ message: 'Trading limits updated successfully', limits: data });
+  } catch (err) {
+    console.error('Failed to update trading limits:', err);
+    res.status(500).json({ error: 'Failed to update trading limits' });
+  }
+});
+
+router.delete('/users/:id/trading-limits', requireRole('super_admin', 'admin', 'risk_manager'), async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const { error } = await supabaseAdmin
+      .from('user_trading_limits')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Invalidate Redis cache
+    const { invalidateLimitsCache } = require('../core/risk/validator');
+    await invalidateLimitsCache(userId);
+
+    // Audit log
+    await supabaseAdmin.from('audit_logs').insert({
+      admin_id: req.admin.id,
+      action: 'delete_trading_limits',
+      target_type: 'user',
+      target_id: userId,
+      description: `Cleared trading limits`,
+      ip_address: req.ip
+    });
+
+    res.json({ message: 'Trading limits cleared successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to clear trading limits' });
+  }
+});
+
 // ═══════════════════════════════════════════
 // DEPOSIT APPROVALS
 // ═══════════════════════════════════════════
 router.get('/deposits', async (req, res) => {
   try {
-    const status = req.query.status || 'pending';
-    const { data, error } = await supabaseAdmin.from('deposit_requests').select('*, profiles(full_name, client_id, email)').eq('status', status).order('created_at', { ascending: false }).limit(50);
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ deposits: data || [] });
+    const status = req.query.status;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    let query = supabaseAdmin.from('deposit_requests')
+      .select('*, profiles(full_name, client_id, email, wallets(balance))')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
+    }
+
+    const [
+      { data: depositsData, error: listError },
+      { data: pendingStats, error: pendingError },
+      { data: approvedTodayStats, error: approvedError }
+    ] = await Promise.all([
+      query,
+      supabaseAdmin.from('deposit_requests').select('amount').eq('status', 'pending'),
+      supabaseAdmin.from('deposit_requests').select('amount').eq('status', 'approved').gte('approved_at', todayStart.toISOString())
+    ]);
+
+    if (listError) return res.status(500).json({ error: listError.message });
+
+    const totalPendingAmount = (pendingStats || []).reduce((sum, d) => sum + Number(d.amount), 0);
+    const totalPendingCount = (pendingStats || []).length;
+
+    const approvedTodayAmount = (approvedTodayStats || []).reduce((sum, d) => sum + Number(d.amount), 0);
+    const approvedTodayCount = (approvedTodayStats || []).length;
+
+    res.json({
+      deposits: depositsData || [],
+      stats: {
+        total_pending_amount: totalPendingAmount,
+        total_pending_count: totalPendingCount,
+        approved_today_amount: approvedTodayAmount,
+        approved_today_count: approvedTodayCount
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch deposits' });
   }
@@ -208,10 +393,51 @@ router.post('/deposits/:id/reject', requireRole('super_admin', 'admin', 'finance
 // ═══════════════════════════════════════════
 router.get('/withdrawals', async (req, res) => {
   try {
-    const status = req.query.status || 'pending';
-    const { data, error } = await supabaseAdmin.from('withdrawal_requests').select('*, profiles(full_name, client_id, email)').eq('status', status).order('created_at', { ascending: false }).limit(50);
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ withdrawals: data || [] });
+    const status = req.query.status;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    let query = supabaseAdmin.from('withdrawal_requests')
+      .select('*, profiles(full_name, client_id, email, wallets(balance))')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
+    }
+
+    const [
+      { data: withdrawalsData, error: listError },
+      { data: pendingStats, error: pendingError },
+      { data: flaggedStats, error: flaggedError },
+      { data: approvedTodayStats, error: approvedError }
+    ] = await Promise.all([
+      query,
+      supabaseAdmin.from('withdrawal_requests').select('amount').eq('status', 'pending'),
+      supabaseAdmin.from('withdrawal_requests').select('amount').eq('status', 'flagged'),
+      supabaseAdmin.from('withdrawal_requests').select('amount').eq('status', 'approved').gte('approved_at', todayStart.toISOString())
+    ]);
+
+    if (listError) return res.status(500).json({ error: listError.message });
+
+    const totalPendingAmount = (pendingStats || []).reduce((sum, w) => sum + Number(w.amount), 0);
+    const totalPendingCount = (pendingStats || []).length;
+
+    const totalFlaggedCount = (flaggedStats || []).length;
+
+    const approvedTodayAmount = (approvedTodayStats || []).reduce((sum, w) => sum + Number(w.amount), 0);
+    const approvedTodayCount = (approvedTodayStats || []).length;
+
+    res.json({
+      withdrawals: withdrawalsData || [],
+      stats: {
+        total_pending_amount: totalPendingAmount,
+        total_pending_count: totalPendingCount,
+        total_flagged_count: totalFlaggedCount,
+        approved_today_amount: approvedTodayAmount,
+        approved_today_count: approvedTodayCount
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch withdrawals' });
   }
@@ -266,13 +492,42 @@ router.post('/withdrawals/:id/reject', requireRole('super_admin', 'admin', 'fina
 // ═══════════════════════════════════════════
 router.get('/wallet-transactions', async (req, res) => {
   try {
-    const { data, error } = await supabaseAdmin.from('wallet_transactions')
+    const userId = req.query.user_id;
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    let txQuery = supabaseAdmin.from('wallet_transactions')
       .select('*, profiles(client_id, full_name, email)')
       .order('created_at', { ascending: false })
-      .limit(100);
-      
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ transactions: data || [] });
+      .limit(200);
+    
+    if (userId) txQuery = txQuery.eq('user_id', userId);
+
+    const [
+      { data: txs, error: txsErr },
+      { data: balanceData },
+      { data: pendingWds },
+      { data: recentDeps }
+    ] = await Promise.all([
+      txQuery,
+      userId ? Promise.resolve({ data: [] }) : supabaseAdmin.from('wallets').select('balance'),
+      userId ? Promise.resolve({ data: [] }) : supabaseAdmin.from('withdrawal_requests').select('amount').eq('status', 'pending'),
+      userId ? Promise.resolve({ data: [] }) : supabaseAdmin.from('deposit_requests').select('amount').eq('status', 'approved').gte('approved_at', oneDayAgo.toISOString())
+    ]);
+
+    if (txsErr) return res.status(500).json({ error: txsErr.message });
+
+    const totalSystemBalance = (balanceData || []).reduce((sum, w) => sum + Number(w.balance), 0);
+    const pendingWithdrawalsAmount = (pendingWds || []).reduce((sum, w) => sum + Number(w.amount), 0);
+    const recentDepositsAmount = (recentDeps || []).reduce((sum, d) => sum + Number(d.amount), 0);
+
+    res.json({
+      transactions: txs || [],
+      stats: {
+        total_system_balance: totalSystemBalance,
+        pending_withdrawals_amount: pendingWithdrawalsAmount,
+        recent_deposits_amount: recentDepositsAmount
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch transactions' });
   }
@@ -448,17 +703,190 @@ router.post('/global-square-off', requireRole('super_admin'), async (req, res) =
 // ═══════════════════════════════════════════
 router.get('/orders', async (req, res) => {
   try {
-    const status = req.query.status || 'open';
-    const { data, error } = await supabaseAdmin.from('orders')
+    const status = req.query.status;
+    const userId = req.query.user_id;
+    
+    let query = supabaseAdmin.from('orders')
       .select('*, profiles(client_id, full_name)')
-      .eq('status', status)
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(200);
+    
+    if (status) query = query.eq('status', status);
+    if (userId) query = query.eq('user_id', userId);
       
+    const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
     res.json({ orders: data || [] });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
+
+// Modify a pending order (Admin Override)
+router.put('/orders/:id', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { price, quantity, note } = req.body;
+    if (!price || !quantity) return res.status(400).json({ error: 'price and quantity are required' });
+    if (!note) return res.status(400).json({ error: 'Audit note is required for admin overrides' });
+
+    // Get order details
+    const { data: order, error: fetchErr } = await supabaseAdmin
+      .from('orders')
+      .select('*, instruments(*)')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchErr || !order) return res.status(404).json({ error: 'Order not found' });
+    if (order.status !== 'open') return res.status(400).json({ error: 'Only pending open orders can be modified' });
+
+    const instrument = order.instruments;
+    if (!instrument) return res.status(404).json({ error: 'Instrument details not found' });
+
+    // Calculate new margin required
+    const orderValue = quantity * price;
+    const { getClientRestrictions } = require('../core/risk/clientRestrictions');
+    const restrictions = await getClientRestrictions(order.user_id);
+    const multiplier = (restrictions && restrictions.leverage_multiplier) ? parseFloat(restrictions.leverage_multiplier) : 1.0;
+    const newMarginRequired = (orderValue * (instrument.margin_required / 100)) / (multiplier || 1.0);
+    const oldMarginBlocked = parseFloat(order.margin_blocked || 0);
+    const marginDiff = newMarginRequired - oldMarginBlocked;
+
+    // Adjust blocked margin
+    if (marginDiff > 0) {
+      const { error: blockErr } = await supabaseAdmin.rpc('block_margin', {
+        p_user_id: order.user_id,
+        p_margin_amount: marginDiff,
+      });
+      if (blockErr) return res.status(400).json({ error: 'Insufficient client margin for modification: ' + blockErr.message });
+    } else if (marginDiff < 0) {
+      await supabaseAdmin.rpc('release_margin', {
+        p_user_id: order.user_id,
+        p_amount: Math.abs(marginDiff),
+      }).catch(e => console.warn('Margin release failed in admin modify:', e.message));
+    }
+
+    // Update order record
+    const updateData = {
+      quantity,
+      margin_required: newMarginRequired,
+      margin_blocked: newMarginRequired,
+      updated_at: new Date().toISOString()
+    };
+
+    if (order.order_type === 'limit') {
+      updateData.price = price;
+    } else if (order.order_type === 'stop_loss') {
+      updateData.trigger_price = price;
+    }
+
+    const { data: updatedOrder, error: updateErr } = await supabaseAdmin
+      .from('orders')
+      .update(updateData)
+      .eq('id', order.id)
+      .select()
+      .single();
+
+    if (updateErr) {
+      // Revert margin block if update failed
+      if (marginDiff > 0) {
+        await supabaseAdmin.rpc('release_margin', {
+          p_user_id: order.user_id,
+          p_amount: marginDiff,
+        }).catch(e => console.warn('Rollback margin release failed:', e.message));
+      }
+      return res.status(500).json({ error: 'Failed to update order database record' });
+    }
+
+    // Log to Audit Trail
+    await supabaseAdmin.from('audit_logs').insert({
+      admin_id: req.admin.id,
+      action: 'admin_modify_order',
+      target_type: 'order',
+      target_id: order.id,
+      description: `Modified order ${order.id}. Old Blocked: ₹${oldMarginBlocked}, New Blocked: ₹${newMarginRequired}. Note: ${note}`,
+      ip_address: req.ip
+    });
+
+    // Invalidate Cache
+    try {
+      const cache = require('../core/cache');
+      cache.delete(`wallet:${order.user_id}`);
+    } catch (e) {}
+
+    // Reload execution engine mapping
+    try {
+      const { syncLimitOrders } = require('../ws/executionEngine');
+      await syncLimitOrders();
+    } catch (e) {}
+
+    res.json({ message: 'Order modified successfully by admin', order: updatedOrder });
+  } catch (err) {
+    console.error('Admin modify order error:', err);
+    res.status(500).json({ error: 'Failed to modify order' });
+  }
+});
+
+// Force Cancel a pending order (Admin Override)
+router.post('/orders/:id/cancel', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { note } = req.body;
+    if (!note) return res.status(400).json({ error: 'Audit note is required for admin order cancellation' });
+
+    const { data: order, error: fetchErr } = await supabaseAdmin
+      .from('orders')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchErr || !order) return res.status(404).json({ error: 'Order not found' });
+    if (order.status !== 'open') return res.status(400).json({ error: 'Order is not in open pending state' });
+
+    // Cancel order
+    const { error: cancelErr } = await supabaseAdmin
+      .from('orders')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancel_reason: note || 'Cancelled by Administrator'
+      })
+      .eq('id', order.id);
+
+    if (cancelErr) return res.status(500).json({ error: 'Failed to update order status' });
+
+    // Release margin
+    if (parseFloat(order.margin_blocked) > 0) {
+      await supabaseAdmin.rpc('release_margin', {
+        p_user_id: order.user_id,
+        p_amount: parseFloat(order.margin_blocked)
+      }).catch(e => console.warn('Failed to release margin during admin cancel:', e.message));
+    }
+
+    // Audit Log
+    await supabaseAdmin.from('audit_logs').insert({
+      admin_id: req.admin.id,
+      action: 'admin_cancel_order',
+      target_type: 'order',
+      target_id: order.id,
+      description: `Force-cancelled order ${order.id}. Released ₹${order.margin_blocked} margin. Note: ${note}`,
+      ip_address: req.ip
+    });
+
+    // Invalidate Cache
+    try {
+      const cache = require('../core/cache');
+      cache.delete(`wallet:${order.user_id}`);
+    } catch (e) {}
+
+    // Reload execution engine
+    try {
+      const { syncLimitOrders } = require('../ws/executionEngine');
+      await syncLimitOrders();
+    } catch (e) {}
+
+    res.json({ message: 'Order cancelled successfully by admin' });
+  } catch (err) {
+    console.error('Admin cancel order error:', err);
+    res.status(500).json({ error: 'Failed to cancel order' });
   }
 });
 
@@ -467,15 +895,208 @@ router.get('/orders', async (req, res) => {
 // ═══════════════════════════════════════════
 router.get('/trades', async (req, res) => {
   try {
-    const { data, error } = await supabaseAdmin.from('trades')
-      .select('*, profiles(client_id, full_name)')
+    const userId = req.query.user_id;
+    let query = supabaseAdmin.from('trades')
+      .select('*, profiles(client_id, full_name), instruments(segment)')
       .order('closed_at', { ascending: false, nullsFirst: false })
-      .limit(100);
+      .limit(200);
+    
+    if (userId) query = query.eq('user_id', userId);
       
+    const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
     res.json({ trades: data || [] });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch trades' });
+  }
+});
+
+// Modify closed trade execution details (Admin Override)
+router.put('/trades/:id', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { entry_price, exit_price, quantity, note } = req.body;
+    if (entry_price === undefined || exit_price === undefined || !quantity) {
+      return res.status(400).json({ error: 'entry_price, exit_price, and quantity are required' });
+    }
+    if (!note) return res.status(400).json({ error: 'Audit note is required for trade modification' });
+
+    const { data: trade, error: tradeErr } = await supabaseAdmin
+      .from('trades')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (tradeErr || !trade) return res.status(404).json({ error: 'Trade record not found' });
+
+    const oldNetPnl = parseFloat(trade.net_pnl || 0);
+
+    // Calculate new Gross and Net PNL
+    const qtyNum = parseFloat(quantity);
+    const entNum = parseFloat(entry_price);
+    const extNum = parseFloat(exit_price);
+    const isLong = trade.side === 'buy' || trade.side === 'long';
+
+    const grossPnl = isLong 
+      ? (extNum - entNum) * qtyNum 
+      : (entNum - extNum) * qtyNum;
+
+    const charges = parseFloat(trade.charges || 0);
+    const netPnl = grossPnl - charges;
+
+    const pnlDiff = netPnl - oldNetPnl;
+
+    // Adjust user wallet balance by the PNL difference
+    const { data: wallet, error: walletErr } = await supabaseAdmin
+      .from('wallets')
+      .select('balance')
+      .eq('user_id', trade.user_id)
+      .single();
+
+    if (walletErr || !wallet) return res.status(404).json({ error: 'User wallet not found' });
+
+    const newBalance = parseFloat(wallet.balance) + pnlDiff;
+
+    // Update user wallet balance
+    const { error: walletUpdateErr } = await supabaseAdmin
+      .from('wallets')
+      .update({ balance: newBalance })
+      .eq('user_id', trade.user_id);
+
+    if (walletUpdateErr) return res.status(500).json({ error: 'Failed to adjust user wallet balance' });
+
+    // Update trade record
+    const { data: updatedTrade, error: updateErr } = await supabaseAdmin
+      .from('trades')
+      .update({
+        entry_price: entNum,
+        exit_price: extNum,
+        quantity: qtyNum,
+        gross_pnl: grossPnl,
+        net_pnl: netPnl,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', trade.id)
+      .select()
+      .single();
+
+    if (updateErr) {
+      // Revert wallet change if trade update failed
+      await supabaseAdmin.from('wallets').update({ balance: wallet.balance }).eq('user_id', trade.user_id).catch(console.error);
+      return res.status(500).json({ error: 'Failed to update trade record' });
+    }
+
+    // Insert wallet transaction record representing correction
+    await supabaseAdmin.from('wallet_transactions').insert({
+      user_id: trade.user_id,
+      type: pnlDiff >= 0 ? 'deposit' : 'withdrawal',
+      amount: pnlDiff,
+      balance_after: newBalance,
+      reference_type: 'adjustment',
+      description: `Trade Correction for TRD-${trade.id.slice(0, 8)}. P&L Variance: ₹${pnlDiff.toFixed(2)}. Note: ${note}`,
+      admin_id: req.admin.id
+    });
+
+    // Invalidate Cache
+    try {
+      const cache = require('../core/cache');
+      cache.delete(`wallet:${trade.user_id}`);
+    } catch (e) {}
+
+    // Audit Log
+    await supabaseAdmin.from('audit_logs').insert({
+      admin_id: req.admin.id,
+      action: 'admin_modify_trade',
+      target_type: 'trade',
+      target_id: trade.id,
+      description: `Modified trade ${trade.id}. Old Net PNL: ₹${oldNetPnl.toFixed(2)}, New Net PNL: ₹${netPnl.toFixed(2)}. Wallet Adjusted by: ₹${pnlDiff.toFixed(2)}. Note: ${note}`,
+      ip_address: req.ip
+    });
+
+    res.json({ message: 'Trade updated successfully', trade: updatedTrade });
+  } catch (err) {
+    console.error('Admin modify trade error:', err);
+    res.status(500).json({ error: 'Failed to modify trade record' });
+  }
+});
+
+// Delete/Ghost closed trade (Admin Override)
+router.delete('/trades/:id', requireRole('super_admin'), async (req, res) => {
+  try {
+    const { note } = req.body;
+    if (!note) return res.status(400).json({ error: 'Audit note is required for deleting a trade record' });
+
+    const { data: trade, error: tradeErr } = await supabaseAdmin
+      .from('trades')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (tradeErr || !trade) return res.status(404).json({ error: 'Trade record not found' });
+
+    const oldNetPnl = parseFloat(trade.net_pnl || 0);
+
+    // Revert user wallet balance by subtracting the net P&L credited
+    const { data: wallet, error: walletErr } = await supabaseAdmin
+      .from('wallets')
+      .select('balance')
+      .eq('user_id', trade.user_id)
+      .single();
+
+    if (walletErr || !wallet) return res.status(404).json({ error: 'User wallet not found' });
+
+    const newBalance = parseFloat(wallet.balance) - oldNetPnl;
+
+    // Update user wallet balance
+    const { error: walletUpdateErr } = await supabaseAdmin
+      .from('wallets')
+      .update({ balance: newBalance })
+      .eq('user_id', trade.user_id);
+
+    if (walletUpdateErr) return res.status(500).json({ error: 'Failed to reverse PNL from user wallet balance' });
+
+    // Delete trade record
+    const { error: deleteErr } = await supabaseAdmin
+      .from('trades')
+      .delete()
+      .eq('id', trade.id);
+
+    if (deleteErr) {
+      // Revert wallet change if deletion failed
+      await supabaseAdmin.from('wallets').update({ balance: wallet.balance }).eq('user_id', trade.user_id).catch(console.error);
+      return res.status(500).json({ error: 'Failed to delete trade record' });
+    }
+
+    // Insert wallet transaction record representing correction
+    await supabaseAdmin.from('wallet_transactions').insert({
+      user_id: trade.user_id,
+      type: -oldNetPnl >= 0 ? 'deposit' : 'withdrawal',
+      amount: -oldNetPnl,
+      balance_after: newBalance,
+      reference_type: 'adjustment',
+      description: `Ghost Trade Reversal for TRD-${trade.id.slice(0, 8)}. P&L Reversed: ₹${(-oldNetPnl).toFixed(2)}. Note: ${note}`,
+      admin_id: req.admin.id
+    });
+
+    // Invalidate Cache
+    try {
+      const cache = require('../core/cache');
+      cache.delete(`wallet:${trade.user_id}`);
+    } catch (e) {}
+
+    // Audit Log
+    await supabaseAdmin.from('audit_logs').insert({
+      admin_id: req.admin.id,
+      action: 'admin_delete_trade',
+      target_type: 'trade',
+      target_id: trade.id,
+      description: `Ghosted (deleted) trade record ${trade.id}. Reversed P&L of ₹${oldNetPnl.toFixed(2)} from user wallet. Note: ${note}`,
+      ip_address: req.ip
+    });
+
+    res.json({ message: 'Trade record deleted and PNL reversed successfully' });
+  } catch (err) {
+    console.error('Admin delete trade error:', err);
+    res.status(500).json({ error: 'Failed to delete trade record' });
   }
 });
 
@@ -799,6 +1420,7 @@ router.get('/risk-management', async (req, res) => {
       if (!userExposures[pos.user_id]) {
         const wallet = wallets.find(w => w.user_id === pos.user_id) || { balance: 0, used_margin: 0 };
         userExposures[pos.user_id] = {
+          userId: pos.user_id,
           client: pos.profiles?.client_id || 'Unknown',
           name: pos.profiles?.full_name || 'Unknown',
           exposure: 0,
@@ -854,16 +1476,18 @@ router.get('/risk-management', async (req, res) => {
     
     const { data: alerts } = await supabaseAdmin.from('system_alerts')
       .select('*, profiles(client_id)')
+      .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(10);
       
     const riskAlerts = (alerts || []).map(a => ({
       id: a.id,
-      type: a.title || 'Risk Alert',
+      type: a.type || 'Risk Alert',
       client: a.profiles?.client_id || 'SYSTEM',
-      message: a.message,
+      userId: a.user_id,
+      message: a.description || '',
       time: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      severity: a.type === 'critical' ? 'critical' : a.type === 'warning' ? 'high' : 'medium'
+      severity: (a.severity || 'medium').toLowerCase()
     }));
 
     // Fetch realtime symbol exposure from Redis
@@ -922,6 +1546,17 @@ router.get('/risk-management', async (req, res) => {
     res.json({ exposureData, segmentExposure, riskAlerts, symbolExposure: symbolExposureData, killSwitchActive });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch risk management data' });
+  }
+});
+
+router.post('/risk/margin-check', requireRole('super_admin', 'admin', 'risk_manager'), async (req, res) => {
+  try {
+    const { calculateMTM } = require('../core/pnl/mtmCalculator');
+    await calculateMTM();
+    res.json({ message: 'Global margin check and MTM calculation completed successfully.' });
+  } catch (err) {
+    console.error('Manual MTM execution failed:', err);
+    res.status(500).json({ error: 'Manual margin check failed: ' + err.message });
   }
 });
 
@@ -1343,21 +1978,7 @@ router.get('/pnl-statement', async (req, res) => {
   }
 });
 
-// ═══════════════════════════════════════════
-// WALLET TRANSACTIONS
-// ═══════════════════════════════════════════
-router.get('/wallet-transactions', async (req, res) => {
-  try {
-    const { data: ledger } = await supabaseAdmin.from('wallet_ledger')
-      .select('*, profiles(client_id, full_name)')
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    res.json({ transactions: ledger || [] });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch wallet transactions' });
-  }
-});
+// (Duplicate wallet-transactions endpoint removed — handled at lines 450-462)
 
 // ═══════════════════════════════════════════
 // MARGIN CALLS
@@ -1984,8 +2605,27 @@ router.post('/crm/:module', requireRole('super_admin', 'admin'), async (req, res
     if (tableName !== 'admin_users') {
       payload.created_by = req.admin.id;
     }
+
+    // Resolve user_id if client-restrictions module is posted
+    if (mod === 'client-restrictions') {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('client_id', payload.client_id)
+        .single();
+      if (profile) {
+        payload.user_id = profile.id;
+      }
+    }
+
     const { data, error } = await supabaseAdmin.from(tableName).insert(payload).select().single();
     if (error) throw error;
+
+    // Invalidate Redis restrictions cache
+    if (mod === 'client-restrictions' && data) {
+      const { invalidateRestrictionsCache } = require('../core/risk/clientRestrictions');
+      await invalidateRestrictionsCache(data.user_id, data.client_id);
+    }
     
     await supabaseAdmin.from('audit_logs').insert({ 
       admin_id: req.admin.id, action: `create_${tableName}`, target_type: tableName, 
@@ -2004,8 +2644,26 @@ router.put('/crm/:module/:id', requireRole('super_admin', 'admin'), async (req, 
   
   const tableName = mod.replace(/-/g, '_');
   try {
+    // Resolve user_id if client-restrictions module is updated and client_id is provided
+    if (mod === 'client-restrictions' && req.body.client_id) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('client_id', req.body.client_id)
+        .single();
+      if (profile) {
+        req.body.user_id = profile.id;
+      }
+    }
+
     const { data, error } = await supabaseAdmin.from(tableName).update(req.body).eq('id', req.params.id).select().single();
     if (error) throw error;
+
+    // Invalidate Redis restrictions cache
+    if (mod === 'client-restrictions' && data) {
+      const { invalidateRestrictionsCache } = require('../core/risk/clientRestrictions');
+      await invalidateRestrictionsCache(data.user_id, data.client_id);
+    }
     
     await supabaseAdmin.from('audit_logs').insert({ 
       admin_id: req.admin.id, action: `update_${tableName}`, target_type: tableName, target_id: req.params.id,
@@ -2024,6 +2682,21 @@ router.delete('/crm/:module/:id', requireRole('super_admin'), async (req, res) =
   
   const tableName = mod.replace(/-/g, '_');
   try {
+    // Fetch user_id/client_id before delete to invalidate cache
+    if (mod === 'client-restrictions') {
+      try {
+        const { data: record } = await supabaseAdmin
+          .from('client_restrictions')
+          .select('user_id, client_id')
+          .eq('id', req.params.id)
+          .single();
+        if (record) {
+          const { invalidateRestrictionsCache } = require('../core/risk/clientRestrictions');
+          await invalidateRestrictionsCache(record.user_id, record.client_id);
+        }
+      } catch (e) {}
+    }
+
     const { error } = await supabaseAdmin.from(tableName).delete().eq('id', req.params.id);
     if (error) throw error;
     

@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { supabaseAdmin } = require('../config/supabase');
 const { authenticateUser } = require('../middleware/auth');
 const { enqueueOrder } = require('../core/queues/orderQueue');
-const { validateOrder } = require('../core/risk/validator');
+const { validateOrder, recordOrderPlaced } = require('../core/risk/validator');
 const { v4: uuidv4 } = require('uuid');
 const rateLimit = require('express-rate-limit');
 
@@ -24,13 +24,18 @@ router.use(authenticateUser);
  */
 router.post('/', tradeLimiter, async (req, res) => {
   try {
-    const { symbol, side, order_type, quantity, price, trigger_price, stop_loss, take_profit } = req.body;
+    const { symbol, side, order_type, quantity, price, trigger_price, stop_loss, take_profit, is_bracket } = req.body;
     const userId = req.user.id;
     const profile = req.user.profile;
 
     // ── Validations ──
     if (!symbol || !side || !order_type || !quantity) {
       return res.status(400).json({ error: 'symbol, side, order_type, and quantity are required' });
+    }
+
+    // Bracket order requires BOTH stop_loss and take_profit
+    if (is_bracket && (!stop_loss || !take_profit)) {
+      return res.status(400).json({ error: 'Bracket orders require both Stop Loss and Target price.' });
     }
 
     // Feed health is checked passively — orders always proceed
@@ -47,6 +52,7 @@ router.post('/', tradeLimiter, async (req, res) => {
       symbol: (symbol || '').toUpperCase(),
       side,
       quantity,
+      price: order_type === 'limit' ? price : null,
     });
     if (!riskCheck.allowed) {
       return res.status(403).json({ error: riskCheck.reason });
@@ -147,7 +153,10 @@ router.post('/', tradeLimiter, async (req, res) => {
 
     // ── Margin calculation & Atomic Block ──
     const orderValue = quantity * executionPrice;
-    const marginRequired = orderValue * (instrument.margin_required / 100);
+    const { getClientRestrictions } = require('../core/risk/clientRestrictions');
+    const restrictions = await getClientRestrictions(userId);
+    const multiplier = (restrictions && restrictions.leverage_multiplier) ? parseFloat(restrictions.leverage_multiplier) : 1.0;
+    const marginRequired = (orderValue * (instrument.margin_required / 100)) / (multiplier || 1.0);
 
     // Limit orders block margin before queueing; market orders handle it inside executeMarketOrderSync
     if (order_type !== 'market') {
@@ -206,16 +215,21 @@ router.post('/', tradeLimiter, async (req, res) => {
         executionDelay: 0,
         stopLoss: stop_loss || null,
         takeProfit: take_profit || null,
+        isBracketOrder: is_bracket === true,
         bidPrice,
         askPrice,
       });
 
+      // Record order against user's daily count AFTER successful execution
+      await recordOrderPlaced(userId).catch(() => {});
+
       return res.status(200).json({
-        message: 'Order executed successfully',
+        message: is_bracket ? 'Bracket order executed successfully' : 'Order executed successfully',
         order: execResult.order,
         position: execResult.position,
         newBalance: execResult.newBalance,
-        status: 'filled'
+        status: 'filled',
+        is_bracket: is_bracket === true,
       });
     }
 
@@ -244,16 +258,21 @@ router.post('/', tradeLimiter, async (req, res) => {
       executionDelay,
       stopLoss: stop_loss || null,
       takeProfit: take_profit || null,
+      isBracketOrder: is_bracket === true,
       bidPrice,
       askPrice,
     }, { priority });
 
+    // Record order against user's daily count AFTER successful enqueue
+    await recordOrderPlaced(userId).catch(() => {});
+
     // Return immediately for queued orders — the worker will process and notify via Socket.IO
     return res.status(202).json({
-      message: 'Order accepted for execution',
+      message: is_bracket ? 'Bracket order accepted for execution' : 'Order accepted for execution',
       jobId: job.id,
       idempotencyKey,
       status: 'queued',
+      is_bracket: is_bracket === true,
       estimatedExecution: {
         price: executionPrice,
         spread: spreadAmount,
@@ -337,7 +356,7 @@ router.delete('/:id', tradeLimiter, async (req, res) => {
  */
 router.put('/:id', tradeLimiter, async (req, res) => {
   try {
-    const { quantity, price } = req.body;
+    const { quantity, price, stop_loss, take_profit } = req.body;
     const userId = req.user.id;
     const orderId = req.params.id;
 
@@ -363,13 +382,43 @@ router.put('/:id', tradeLimiter, async (req, res) => {
       return res.status(404).json({ error: 'Instrument not found' });
     }
 
-    // 2. Calculate new margin required
+    // 2. Validate Stop Loss and Target if this is a bracket order
+    const updateData = {
+      quantity,
+      updated_at: new Date().toISOString()
+    };
+
+    if (order.is_bracket_order) {
+      const finalSl = stop_loss !== undefined ? (stop_loss === '' || stop_loss === null ? null : parseFloat(stop_loss)) : order.stop_loss;
+      const finalTgt = take_profit !== undefined ? (take_profit === '' || take_profit === null ? null : parseFloat(take_profit)) : order.take_profit;
+
+      if (!finalSl || !finalTgt) {
+        return res.status(400).json({ error: 'Both Stop Loss and Target are required for Bracket Orders.' });
+      }
+
+      const side = (order.side || '').toLowerCase();
+      if (side === 'buy') {
+        if (finalSl >= price) return res.status(400).json({ error: 'Stop Loss must be below limit price for BUY.' });
+        if (finalTgt <= price) return res.status(400).json({ error: 'Target must be above limit price for BUY.' });
+      } else {
+        if (finalSl <= price) return res.status(400).json({ error: 'Stop Loss must be above limit price for SELL.' });
+        if (finalTgt >= price) return res.status(400).json({ error: 'Target must be below limit price for SELL.' });
+      }
+
+      updateData.stop_loss = finalSl;
+      updateData.take_profit = finalTgt;
+    }
+
+    // 3. Calculate new margin required
     const orderValue = quantity * price;
-    const newMarginRequired = orderValue * (instrument.margin_required / 100);
+    const { getClientRestrictions } = require('../core/risk/clientRestrictions');
+    const restrictions = await getClientRestrictions(userId);
+    const multiplier = (restrictions && restrictions.leverage_multiplier) ? parseFloat(restrictions.leverage_multiplier) : 1.0;
+    const newMarginRequired = (orderValue * (instrument.margin_required / 100)) / (multiplier || 1.0);
     const oldMarginBlocked = parseFloat(order.margin_blocked || 0);
     const marginDiff = newMarginRequired - oldMarginBlocked;
 
-    // 3. Adjust blocked margin
+    // 4. Adjust blocked margin
     if (marginDiff > 0) {
       // Need to block more margin
       const { error: blockErr } = await supabaseAdmin.rpc('block_margin', {
@@ -392,13 +441,9 @@ router.put('/:id', tradeLimiter, async (req, res) => {
       }).catch(e => console.warn('Margin release failed during modify:', e.message));
     }
 
-    // 4. Update order record in Supabase
-    const updateData = {
-      quantity,
-      margin_required: newMarginRequired,
-      margin_blocked: newMarginRequired,
-      updated_at: new Date().toISOString()
-    };
+    // 5. Update order record in Supabase
+    updateData.margin_required = newMarginRequired;
+    updateData.margin_blocked = newMarginRequired;
 
     if (order.order_type === 'limit') {
       updateData.price = price;

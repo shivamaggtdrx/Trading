@@ -21,11 +21,15 @@ async function executeMarketOrderSync(data) {
     executionDelay,
     stopLoss,
     takeProfit,
+    isBracketOrder,
     bidPrice,
     askPrice,
   } = data;
 
-  const leverage = 100 / (instrument.margin_required || 10);
+  const { getClientRestrictions } = require('./risk/clientRestrictions');
+  const restrictions = await getClientRestrictions(userId);
+  const multiplier = (restrictions && restrictions.leverage_multiplier) ? parseFloat(restrictions.leverage_multiplier) : 1.0;
+  const leverage = (100 / (instrument.margin_required || 10)) * multiplier;
   const commission = spreadAmount * quantity * 0.01;
 
   let orderRecord = null;
@@ -98,6 +102,7 @@ async function executeMarketOrderSync(data) {
       margin_blocked: marginRequired,
       status: 'filled',
       filled_at: new Date().toISOString(),
+      is_bracket_order: isBracketOrder === true,
     };
 
     const { data: order, error: orderErr } = await supabaseAdmin
@@ -132,6 +137,7 @@ async function executeMarketOrderSync(data) {
       stop_loss: stopLoss || null,
       take_profit: takeProfit || null,
       routing: 'b_book',
+      is_bracket_order: isBracketOrder === true,
     };
 
     const { data: position, error: posErr } = await supabaseAdmin

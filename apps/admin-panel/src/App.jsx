@@ -22,6 +22,7 @@ import EODSettlement from './pages/EODSettlement';
 import AdminUsers from './pages/AdminUsers';
 import HouseBook from './pages/HouseBook';
 import ClientRestrictions from './pages/ClientRestrictions';
+import TradingLimits from './pages/TradingLimits';
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
@@ -57,6 +58,7 @@ function App() {
             <Route path="settings" element={<Settings />} />
             <Route path="logs" element={<Logs />} />
             <Route path="risk" element={<RiskManagement />} />
+            <Route path="trading-limits" element={<TradingLimits />} />
             <Route path="client-restrictions" element={<ClientRestrictions />} />
             <Route path="kyc" element={<KYCManagement />} />
             <Route path="withdrawals" element={<WithdrawalApprovals />} />

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, TrendingUp, TrendingDown, AlertTriangle, Users, BarChart3, Eye, Ban, RefreshCw, ChevronDown } from 'lucide-react';
 import { adminApi } from '../services/adminApi';
 
 export default function RiskManagement() {
+  const navigate = useNavigate();
   const [selectedRiskFilter, setSelectedRiskFilter] = useState('all');
   const [showForceClose, setShowForceClose] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -13,6 +15,8 @@ export default function RiskManagement() {
   const [riskAlerts, setRiskAlerts] = useState([]);
   const [killSwitchActive, setKillSwitchActive] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [forceReason, setForceReason] = useState('Admin forced liquidation');
+  const [marginCheckLoading, setMarginCheckLoading] = useState(false);
 
   const fetchRiskData = async () => {
     try {
@@ -27,6 +31,45 @@ export default function RiskManagement() {
       console.error('Failed to fetch risk data', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForceMarginCheck = async () => {
+    try {
+      setMarginCheckLoading(true);
+      const res = await adminApi.forceMarginCheck();
+      alert(res.message || 'Margin check completed.');
+      fetchRiskData();
+    } catch (err) {
+      alert('Failed to force margin check: ' + (err.message || err));
+    } finally {
+      setMarginCheckLoading(false);
+    }
+  };
+
+  const handleForceLiquidate = async () => {
+    if (!forceReason.trim()) {
+      alert('Please enter a reason for liquidation.');
+      return;
+    }
+    try {
+      await adminApi.forceSquareOff(selectedClient.userId, forceReason);
+      alert(`Forced square-off requested for client ${selectedClient.client}`);
+      setShowForceClose(false);
+      setForceReason('Admin forced liquidation');
+      fetchRiskData();
+    } catch (err) {
+      alert('Failed to liquidate positions: ' + (err.message || err));
+    }
+  };
+
+  const handleResolveAlert = async (alertId) => {
+    try {
+      await adminApi.resolveAlert(alertId);
+      alert('Alert resolved successfully.');
+      fetchRiskData();
+    } catch (err) {
+      alert('Failed to resolve alert: ' + (err.message || err));
     }
   };
 
@@ -77,9 +120,13 @@ export default function RiskManagement() {
           <p className="text-sm text-gray-500 mt-1">Real-time exposure monitoring, margin alerts, and position risk controls.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 h-10 px-4 py-2">
+          <button 
+            onClick={handleForceMarginCheck} 
+            disabled={marginCheckLoading}
+            className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 h-10 px-4 py-2 disabled:opacity-50"
+          >
             <AlertTriangle className="h-4 w-4 mr-2" />
-            Force Margin Check
+            {marginCheckLoading ? 'Checking...' : 'Force Margin Check'}
           </button>
           <button onClick={async () => {
              const action = killSwitchActive ? 'ENABLE' : 'FREEZE';
@@ -208,8 +255,19 @@ export default function RiskManagement() {
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => console.log('Action triggered')} className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded hover:bg-blue-100 border border-blue-200">View</button>
-                  <button onClick={() => console.log('Action triggered')} className="px-2 py-1 bg-red-50 text-red-700 text-[10px] font-bold rounded hover:bg-red-100 border border-red-200">Action</button>
+                  <button 
+                    disabled={!alert.userId}
+                    onClick={() => navigate(`/users/${alert.userId}`)} 
+                    className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded hover:bg-blue-100 border border-blue-200 disabled:opacity-50"
+                  >
+                    View User
+                  </button>
+                  <button 
+                    onClick={() => handleResolveAlert(alert.id)} 
+                    className="px-2 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded hover:bg-green-100 border border-green-200"
+                  >
+                    Resolve
+                  </button>
                 </div>
               </div>
             ))}
@@ -276,7 +334,11 @@ export default function RiskManagement() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-1">
-                      <button onClick={() => console.log('Action triggered')} className="p-1.5 rounded hover:bg-blue-50 text-blue-600 transition-colors" title="View Details">
+                      <button 
+                        onClick={() => navigate(`/users/${row.userId}`)} 
+                        className="p-1.5 rounded hover:bg-blue-50 text-blue-600 transition-colors" 
+                        title="View Details"
+                      >
                         <Eye className="h-3.5 w-3.5" />
                       </button>
                       <button className="p-1.5 rounded hover:bg-red-50 text-red-500 transition-colors" title="Force Liquidate"
@@ -336,66 +398,7 @@ export default function RiskManagement() {
         </div>
       </div>
 
-      {/* Position Limit Rules */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">Position Limit Rules</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-            <h3 className="text-sm font-bold text-gray-900 mb-3">Per-Client Limits</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1">Max Open Positions</label>
-                <input type="number" defaultValue={50} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-medium" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1">Max Exposure (₹)</label>
-                <input type="number" defaultValue={10000000} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-medium" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1">Max Daily Loss (₹)</label>
-                <input type="number" defaultValue={500000} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-medium" />
-              </div>
-            </div>
-          </div>
-          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-            <h3 className="text-sm font-bold text-gray-900 mb-3">Per-Instrument Limits</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1">Max Qty per Order</label>
-                <input type="number" defaultValue={5000} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-medium" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1">Max Client Concentration (%)</label>
-                <input type="number" defaultValue={80} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-medium" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1">Circuit Breaker Trigger (%)</label>
-                <input type="number" defaultValue={10} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-medium" />
-              </div>
-            </div>
-          </div>
-          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-            <h3 className="text-sm font-bold text-gray-900 mb-3">Auto-Actions</h3>
-            <div className="space-y-3">
-              {[
-                { label: 'Auto-liquidate at stop-out', defaultChecked: true },
-                { label: 'Block new orders at 90% margin', defaultChecked: true },
-                { label: 'Send margin call email at 80%', defaultChecked: true },
-                { label: 'Alert admin at 85% margin', defaultChecked: true },
-                { label: 'Daily loss limit auto-block', defaultChecked: false },
-              ].map(item => (
-                <div key={item.label} className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-700">{item.label}</span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" defaultChecked={item.defaultChecked} className="sr-only peer" />
-                    <div className="w-8 h-4.5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+
 
       {/* Force Close Modal */}
       {showForceClose && selectedClient && (
@@ -412,13 +415,19 @@ export default function RiskManagement() {
                 <strong> Margin Usage:</strong> {selectedClient.usage}%
               </p>
             </div>
-            <div className="mb-4">
+             <div className="mb-4">
               <label className="block text-xs font-bold text-gray-700 mb-1">Reason (Required)</label>
-              <textarea rows={2} placeholder="Enter reason for force liquidation..." className="w-full border border-gray-300 rounded p-2 text-sm focus:ring-red-500" />
+              <textarea 
+                rows={2} 
+                value={forceReason}
+                onChange={(e) => setForceReason(e.target.value)}
+                placeholder="Enter reason for force liquidation..." 
+                className="w-full border border-gray-300 rounded p-2 text-sm focus:ring-red-500 text-gray-800" 
+              />
             </div>
             <div className="flex gap-3">
               <button onClick={() => setShowForceClose(false)} className="flex-1 py-2 rounded-lg border border-gray-300 text-sm font-bold text-gray-700 hover:bg-gray-50">Cancel</button>
-              <button onClick={() => setShowForceClose(false)} className="flex-1 py-2 rounded-lg bg-red-600 text-sm font-bold text-white hover:bg-red-700 shadow-sm">Force Liquidate</button>
+              <button onClick={handleForceLiquidate} className="flex-1 py-2 rounded-lg bg-red-600 text-sm font-bold text-white hover:bg-red-700 shadow-sm">Force Liquidate</button>
             </div>
           </div>
         </div>

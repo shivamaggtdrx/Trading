@@ -190,6 +190,11 @@ async function evaluateTick(tick) {
 
 /**
  * Square off a position (Queue to BullMQ worker)
+ * 
+ * For bracket orders: when one leg (SL or TGT) fires, the opposite leg
+ * is neutralised by clearing it on the position record. This prevents the
+ * position (which is already being closed) from triggering the other leg
+ * on the next tick — a critical safety guard against double-fills.
  */
 async function executeSquareOff(position, exitPrice, triggerType) {
   console.log(`⚡ Auto-Squareoff Triggered: ${position.symbol} ${triggerType} at ${exitPrice}`);
@@ -201,15 +206,32 @@ async function executeSquareOff(position, exitPrice, triggerType) {
     const idx = symPositions.findIndex(p => p.id === position.id);
     if (idx !== -1) symPositions.splice(idx, 1);
   }
+
+  // Bracket order: clear the opposite leg in DB to prevent ghost triggers.
+  // If SL fired → clear TGT. If TGT fired → clear SL.
+  if (position.is_bracket_order) {
+    const clearField = triggerType === 'STOP_LOSS' ? { take_profit: null } : { stop_loss: null };
+    supabaseAdmin
+      .from('positions')
+      .update(clearField)
+      .eq('id', position.id)
+      .then(() => {
+        console.log(`🔗 Bracket leg cleared on position ${position.id} after ${triggerType}`);
+      })
+      .catch(err => {
+        console.warn(`[ExecutionEngine] Failed to clear bracket opposite leg:`, err.message);
+      });
+  }
   
   try {
     const { orderQueue } = require('../core/queues/orderQueue');
     await orderQueue.add('execute_sl_tp', {
       positionId: position.id,
       exitPrice: exitPrice,
-      triggerType: triggerType
+      triggerType: triggerType,
+      isBracketOrder: position.is_bracket_order === true,
     });
-    console.log(`⏱️ Position ${position.id} queued for SL/TP squareoff`);
+    console.log(`⏱️ Position ${position.id} queued for ${position.is_bracket_order ? 'bracket ' : ''}SL/TP squareoff`);
   } catch (err) {
     console.error('Squareoff queueing failed:', err);
     // Add back to memory and rebuild indexes if queueing fails

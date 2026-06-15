@@ -54,7 +54,7 @@ export default function AdminLogin() {
             <ShieldCheck className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">
-            Trade<span className="text-blue-400">X</span>
+            Stocks <span className="text-blue-400">Lab</span>
           </h1>
           <p className="text-blue-300/70 text-sm mt-1 font-medium">Management Console</p>
         </div>
@@ -118,7 +118,7 @@ export default function AdminLogin() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@tradex.com"
+                  placeholder="admin@stockslab.com"
                   className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-blue-300/30 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
                   disabled={isLockedOut}
                   autoComplete="email"
@@ -193,17 +193,17 @@ export default function AdminLogin() {
           <div className="space-y-2 text-xs">
             <div className="flex items-center gap-2">
               <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300/60 font-medium">Admin</span>
-              <span className="text-blue-200/30">admin@tradex.com</span>
+              <span className="text-blue-200/30">admin@stockslab.com</span>
               <span className="text-blue-200/30 font-mono">admin123</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300/60 font-medium">Finance</span>
-              <span className="text-blue-200/30">finance@tradex.com</span>
+              <span className="text-blue-200/30">finance@stockslab.com</span>
               <span className="text-blue-200/30 font-mono">finance123</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300/60 font-medium">Support</span>
-              <span className="text-blue-200/30">support@tradex.com</span>
+              <span className="text-blue-200/30">support@stockslab.com</span>
               <span className="text-blue-200/30 font-mono">support123</span>
             </div>
           </div>

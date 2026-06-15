@@ -11,6 +11,7 @@ export default function KYCManagement() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchKYC();
@@ -54,6 +55,32 @@ export default function KYCManagement() {
     }
   };
 
+  const handleExport = () => {
+    if (filtered.length === 0) return alert('No KYC records to export.');
+    const headers = ['KYC ID', 'Client Name', 'Client ID', 'Email', 'Document Type', 'Document Number', 'Submitted Date', 'Status'];
+    const rows = filtered.map(kyc => [
+      kyc.id || '',
+      kyc.profiles?.full_name || '',
+      kyc.profiles?.client_id || '',
+      kyc.profiles?.email || '',
+      kyc.document_type || '',
+      kyc.document_number || '',
+      new Date(kyc.created_at).toLocaleDateString(),
+      kyc.status || 'pending'
+    ]);
+    
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(','), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n');
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `kyc_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const stats = {
     pending: kycQueue.filter(k => k.status === 'pending').length,
     approved: kycQueue.filter(k => k.status === 'verified').length,
@@ -61,7 +88,19 @@ export default function KYCManagement() {
     total: kycQueue.length,
   };
 
-  const filtered = activeTab === 'all' ? kycQueue : kycQueue.filter(k => k.status === activeTab);
+  const filtered = kycQueue.filter(k => {
+    if (activeTab !== 'all' && k.status !== activeTab) return false;
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      const name = k.profiles?.full_name?.toLowerCase() || '';
+      const email = k.profiles?.email?.toLowerCase() || '';
+      const clientId = k.profiles?.client_id?.toLowerCase() || '';
+      const docType = k.document_type?.toLowerCase() || '';
+      const kycId = k.id?.toLowerCase() || '';
+      return name.includes(term) || email.includes(term) || clientId.includes(term) || docType.includes(term) || kycId.includes(term);
+    }
+    return true;
+  });
 
   const openDetail = (kyc) => {
     setSelectedKyc(kyc);
@@ -81,7 +120,7 @@ export default function KYCManagement() {
           <h1 className="text-2xl font-bold text-gray-900">KYC Verification</h1>
           <p className="text-sm text-gray-500 mt-1">Review and approve client identity documents and compliance checks.</p>
         </div>
-        <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
+        <button onClick={handleExport} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
           <Download className="h-4 w-4 mr-2" />
           Export KYC Report
         </button>
@@ -127,7 +166,13 @@ export default function KYCManagement() {
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-gray-400" />
             </div>
-            <input type="text" placeholder="Search by name, ID, or email..." className="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 bg-white" />
+            <input 
+              type="text" 
+              placeholder="Search by name, ID, or email..." 
+              className="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 bg-white" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
 

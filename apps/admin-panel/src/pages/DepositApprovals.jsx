@@ -199,12 +199,22 @@ export default function DepositApprovals() {
   const [loading, setLoading] = useState(true);
   const [rejectReason, setRejectReason] = useState('UTR not found / Invalid');
   const [rejectNotes, setRejectNotes] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [stats, setStats] = useState({
+    total_pending_amount: 0,
+    total_pending_count: 0,
+    approved_today_amount: 0,
+    approved_today_count: 0
+  });
 
   const fetchDeposits = async () => {
     setLoading(true);
     try {
       const data = await adminApi.getDeposits(activeTab === 'all' ? '' : activeTab);
       setDeposits(data.deposits || []);
+      if (data.stats) {
+        setStats(data.stats);
+      }
     } catch (err) {
       console.error('Failed to fetch deposits', err);
     } finally {
@@ -263,7 +273,14 @@ export default function DepositApprovals() {
     }
   };
 
-  const filtered = deposits;
+  const filtered = deposits.filter(dep => {
+    const term = searchQuery.toLowerCase();
+    return (
+      (dep.utr_number || '').toLowerCase().includes(term) ||
+      (dep.profiles?.full_name || '').toLowerCase().includes(term) ||
+      (dep.profiles?.client_id || '').toLowerCase().includes(term)
+    );
+  });
 
   const statusConfig = {
     pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
@@ -282,21 +299,24 @@ export default function DepositApprovals() {
           <p className="text-sm text-gray-500 mt-1">Verify bank transfers, match UTR numbers, and approve incoming funds.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => console.log('Action triggered')} className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 py-2">
+          <button 
+            onClick={() => activeTab === 'configure' ? fetchPaymentMethods() : fetchDeposits()} 
+            className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 py-2 hover:border-gray-400 transition-colors shadow-sm"
+          >
             <RefreshCw className="h-4 w-4 mr-2" />
-            Sync Bank API
+            Refresh
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className={`p-5 rounded-lg border shadow-sm ${totalPending > 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-200'}`}>
+        <div className={`p-5 rounded-lg border shadow-sm ${stats.total_pending_amount > 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-200'}`}>
           <div className="text-xs font-bold text-gray-500 uppercase mb-1">Pending Deposits</div>
-          <div className="text-xl font-black text-yellow-700">₹{totalPending.toLocaleString('en-IN')}</div>
+          <div className="text-xl font-black text-yellow-700">₹{stats.total_pending_amount.toLocaleString('en-IN')}</div>
         </div>
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
           <div className="text-xs font-bold text-gray-500 uppercase mb-1">Approved Today</div>
-          <div className="text-xl font-black text-green-600">₹25,000</div>
+          <div className="text-xl font-black text-green-600">₹{stats.approved_today_amount.toLocaleString('en-IN')}</div>
         </div>
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
           <div className="text-xs font-bold text-gray-500 uppercase mb-1">Processing Time</div>
@@ -325,7 +345,13 @@ export default function DepositApprovals() {
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-4 w-4 text-gray-400" />
               </div>
-              <input type="text" placeholder="Search by UTR or Client..." className="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 bg-white" />
+              <input 
+                type="text" 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search by UTR or Client..." 
+                className="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-800" 
+              />
             </div>
           )}
         </div>

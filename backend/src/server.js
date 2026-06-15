@@ -32,6 +32,7 @@ const { initPriceEngine } = require('./ws/priceEngine');
 
 // ── Import Cron Jobs ──
 require('./core/cron/referralCron');
+require('./core/cron/marketHoursCron');
 
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy (Render, Cloudflare, etc.) for rate limiting

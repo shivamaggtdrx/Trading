@@ -48,6 +48,7 @@ const navigation = [
   // ── Admin-Only: Risk & Trading ──
   { name: 'Dealing Desk', href: '/dealing-desk', icon: Layers, dept: 'admin' },
   { name: 'Risk Management', href: '/risk', icon: ShieldAlert, dept: 'admin' },
+  { name: 'Trading Limits', href: '/trading-limits', icon: ShieldAlert, dept: 'admin' },
   { name: 'Square-Off Panel', href: '/square-off', icon: AlertTriangle, dept: 'admin' },
   { name: 'House Book', href: '/house-book', icon: Landmark, dept: 'admin' },
 
@@ -139,7 +140,7 @@ export default function AdminLayout() {
       )}>
         <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
           <span className="text-lg font-bold text-gray-900 tracking-tight">
-            Trade<span className={deptCfg.activeText}>X</span>
+            Stocks <span className={deptCfg.activeText}>Lab</span>
           </span>
           <span className={`text-xs font-bold px-2 py-1 rounded-full bg-gradient-to-r ${deptCfg.accentFrom} ${deptCfg.accentTo} text-white`}>
             {deptCfg.label}

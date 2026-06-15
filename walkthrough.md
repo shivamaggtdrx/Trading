@@ -48,9 +48,52 @@ I have completed the manual deposit system and fixed the category segment browse
 - **Bug**: The code had a reference to an undeclared/unpassed variable `fmtPrice` inside `InstrumentRow` props assignment (`fmtPrice={fmtPrice}`). This threw a runtime `ReferenceError` when expanding any category folder (Stocks, Indices, Forex, etc.) or when typing in search, causing the React render tree to crash and render a blank page.
 - **Fix**: Removed the unused and undeclared `fmtPrice` prop. `InstrumentRow` now correctly formats prices using the statically imported `formatPrice` helper.
 
+## 8. Market Hours & Holiday Calendar Enforcement
+- **Segment Timings Matrix**: Created `marketHours.js` utility specifying timezone-aware market session timing ranges (in IST) for NSE (`nse_equity`, `fo_futures` Monday-Friday 09:15 - 15:30), MCX (Monday-Friday 09:00 - 23:30), Forex/Global Indices (weekday 24h), US Equities (Monday-Friday 09:30 - 16:00 America/New_York time), and Crypto (24/7).
+- **Holiday Calendar Check**: Integrated checks with the `market_holidays` database table to automatically block placements on official exchange holidays for NSE and MCX.
+- **Hot-Path Pre-Trade Check**: Leveraged the local cache memory singleton inside `validator.js` to perform segment validation instantly with zero database queries when the cache is warm.
+
+## 9. EOD Auto-Cut (Intraday Position Auto-Squareoff) Cron
+- **Self-Healing Cron Scheduler**: Implemented a minutely background job in `marketHoursCron.js` that evaluates all active open positions in the database.
+- **Graceful Liquidation**: If any open position is found outside its allowed trading hours (or when a market closes), the cron automatically triggers `close_position_v2` to realize P&L, release margin, debit wallet fees, log the audit history, emit Socket.IO updates to update client dashboards in real-time, and dispatch PWA push notifications to the user.
+
+## 10. Bracket Order Multi-Leg Modification
+- **API Extension**: Updated `PUT /api/orders/:id` in `orders.js` to accept and validate modifying the Stop Loss and Target price parameters of pending limit bracket orders, preventing invalid parameters (such as setting an SL above entry for a buy) on edit.
+- **Frontend Enhancements**: Modified `ModifyOrderForm` in `Orders.jsx` to dynamically render custom Stop Loss and Target input boxes when editing a pending bracket order, complete with client-side verification.
+
+## 17. Trades & Orders Integration
+- **Backend Admin Overrides (`admin.js`)**:
+  - Implemented order modification (dynamic leverage margin recalculation, database block/release updates, wallet cache invalidation, and execution engine sync) and cancellation handlers.
+  - Implemented trade modification (gross/net P&L delta calculations, User wallet balance corrections, manual ledger journal postings, and audit logging) and deletion/ghosting handlers.
+- **Frontend Master Trades Ledger (`Trades.jsx`)**:
+  - Refactored the UI column rendering to align with completed round-trip fields: Entry Price, Exit Price, Qty, and Net PNL (dynamically highlighted in green or red depending on gains/losses).
+  - Wired live state hooks to search (`searchTerm`), market segment selection (`marketFilter`), and closed date (`dateFilter`) for instantaneous client-side filtering.
+  - Hooked up Modify and Delete (Ghost) confirm modal forms to request mandatory audit reasons and invoke corresponding backend override endpoints.
+  - Built a native CSV report exporter using the browser `Blob` object for memory safety and encoding compatibility under high volumes.
+
 ---
 
 ## 🧪 Verification Plan
+
+### Build Verification
+All packages compiled successfully:
+- **`trader-app`**: Compiled with 0 errors via `npm run build`.
+- **`admin-panel`**: Compiled successfully with 0 errors via `npm run build`.
+- **`backend`**: Node check syntax checks (`node --check`) passed successfully on all source codes, route files, and execution scripts.
+
+## 18. Market Control Integration
+- **Database Table Setup & Seeding (`market_control`)**:
+  - Identified that the `market_control` table was missing in database migrations. Created `public.market_control` containing columns `id`, `segment`, `trading_status`, `start_time`, `end_time`, and `manual_halt`, and granted permissions to `service_role`.
+  - Pre-seeded the table with standard session hours for dabba trading segments (`nse_equity`, `bse_equity`, `fo_futures`, `fo_options`, `mcx`, `forex`, `crypto`).
+  - Pre-seeded the `market_holidays` table with exchange holidays and registered the `exchange` parameter.
+- **Backend Enforcement (`marketHours.js`)**:
+  - Connected `checkMarketHours` validator check directly to the `market_control` database table.
+  - Placed immediate validation blocks: If a segment's `trading_status` is updated to `'closed'` or `'halted'` (or if `manual_halt` is active), order placements are blocked with descriptive warning reasons before being sent to queues.
+- **Frontend Panel Overhauls (`MarketControl.jsx`)**:
+  - **Trading Sessions**: Wired list items to dynamic database timings. Toggling session status runs atomic updates, and editing session timings saves directly to `start_time` and `end_time` parameters in the database.
+  - **Circuit Breakers / Instrument Controls**: Replaced static placeholders with live database instruments configuration via `getInstruments()`. Built search filtering and modal update actions to adjust circuits, margins, leverage, and trading access.
+  - **Upcoming Holidays**: Replaced placeholders with real `market_holidays` list. Wired up "+ Declare Holiday" form modal and "Remove Holiday" deletion triggers.
+  - **Emergency Controls**: Connected the header "Halt All Markets" toggle directly to the active `global_kill_switch` setting, with a prominent red emergency banner displayed whenever halted.
 
 ### 1. Manual Validation Checklist
 1. **Instrument Browser Expansion**: Login to Trader app → click Watchlist edit/add icon (+) → select any segment category folder (e.g. NSE India Stocks, Global Indices) → verify it expands cleanly showing instrument listings without crashing.

@@ -15,7 +15,9 @@ const statusConfig = {
 function ModifyOrderForm({ order, onClose }) {
   const { modifyOrder, updatePositionSlTgt, positions } = useTradeStore();
   const [qty, setQty] = useState(String(order.quantity));
-  const [price, setPrice] = useState(String(order.price));
+  const [price, setPrice] = useState(String(order.price || order.trigger_price || ''));
+  const [stopLoss, setStopLoss] = useState(order.is_bracket_order ? String(order.stop_loss || '') : '');
+  const [takeProfit, setTakeProfit] = useState(order.is_bracket_order ? String(order.take_profit || '') : '');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -46,7 +48,28 @@ function ModifyOrderForm({ order, onClose }) {
         if (isNaN(newQty) || newQty <= 0) throw new Error('Please enter a valid quantity');
         if (isNaN(newPrice) || newPrice <= 0) throw new Error('Please enter a valid price');
 
-        const res = await modifyOrder(order.id, { quantity: newQty, price: newPrice });
+        const payload = { quantity: newQty, price: newPrice };
+
+        if (order.is_bracket_order) {
+          const slVal = Number(stopLoss);
+          const tgtVal = Number(takeProfit);
+          if (isNaN(slVal) || slVal <= 0) throw new Error('Please enter a valid Stop Loss price');
+          if (isNaN(tgtVal) || tgtVal <= 0) throw new Error('Please enter a valid Target price');
+
+          const side = (order.side || '').toLowerCase();
+          if (side === 'buy') {
+            if (slVal >= newPrice) throw new Error('Stop Loss must be below limit price for BUY.');
+            if (tgtVal <= newPrice) throw new Error('Target must be above limit price for BUY.');
+          } else {
+            if (slVal <= newPrice) throw new Error('Stop Loss must be above limit price for SELL.');
+            if (tgtVal >= newPrice) throw new Error('Target must be below limit price for SELL.');
+          }
+
+          payload.stop_loss = slVal;
+          payload.take_profit = tgtVal;
+        }
+
+        const res = await modifyOrder(order.id, payload);
         if (!res.success) throw new Error(res.error || 'Failed to modify order');
       }
       onClose();
@@ -71,7 +94,9 @@ function ModifyOrderForm({ order, onClose }) {
         </div>
         <div className="flex justify-between text-xs border-b border-border/10 pb-2">
           <span className="text-text-muted">Type</span>
-          <span className="font-bold text-text-primary capitalize">{order.type}</span>
+          <span className="font-bold text-text-primary capitalize">
+            {order.is_bracket_order ? 'Bracket Order' : order.type}
+          </span>
         </div>
 
         {/* Quantity Field (only editable for real orders) */}
@@ -90,7 +115,7 @@ function ModifyOrderForm({ order, onClose }) {
         {/* Price Field */}
         <div className="space-y-1">
           <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">
-            {order.type.includes('LOSS') || order.type.includes('SL') ? 'Trigger Price' : 'Limit Price'}
+            {order.type?.includes('LOSS') || order.type?.includes('SL') ? 'Trigger Price' : 'Limit Price'}
           </label>
           <input
             type="number"
@@ -102,6 +127,36 @@ function ModifyOrderForm({ order, onClose }) {
             className="w-full bg-surface-2 border border-border/40 rounded-xl px-3 py-2 text-sm font-bold text-text-primary focus:outline-none focus:border-primary/50"
           />
         </div>
+
+        {/* Bracket Fields */}
+        {order.is_bracket_order && (
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/10">
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">Stop Loss</label>
+              <input
+                type="number"
+                step="any"
+                value={stopLoss}
+                onChange={(e) => setStopLoss(e.target.value)}
+                disabled={loading}
+                required
+                className="w-full bg-surface-2 border border-border/40 rounded-xl px-3 py-2 text-sm font-bold text-text-primary focus:outline-none focus:border-primary/50"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">Target</label>
+              <input
+                type="number"
+                step="any"
+                value={takeProfit}
+                onChange={(e) => setTakeProfit(e.target.value)}
+                disabled={loading}
+                required
+                className="w-full bg-surface-2 border border-border/40 rounded-xl px-3 py-2 text-sm font-bold text-text-primary focus:outline-none focus:border-primary/50"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2">

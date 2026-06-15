@@ -1,14 +1,22 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Minus, Search, ArrowUpRight, ArrowDownRight, ShieldCheck, Loader2 } from 'lucide-react';
 import { adminApi } from '../services/adminApi';
 
 export default function Wallets() {
+  const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('add');
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({ user_id: '', amount: '', note: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [stats, setStats] = useState({
+    total_system_balance: 0,
+    pending_withdrawals_amount: 0,
+    recent_deposits_amount: 0
+  });
 
   useEffect(() => {
     fetchTransactions();
@@ -19,12 +27,25 @@ export default function Wallets() {
       setLoading(true);
       const data = await adminApi.getWalletTransactions();
       setTransactions(data.transactions || []);
+      if (data.stats) {
+        setStats(data.stats);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
+
+  const filteredTransactions = transactions.filter(tx => {
+    const term = searchQuery.toLowerCase();
+    return (
+      (tx.id || '').toLowerCase().includes(term) ||
+      (tx.user_id || '').toLowerCase().includes(term) ||
+      (tx.profiles?.client_id || '').toLowerCase().includes(term) ||
+      (tx.profiles?.full_name || '').toLowerCase().includes(term)
+    );
+  });
 
   const handleAdjust = async () => {
     if (!formData.user_id || !formData.amount || !formData.note) {
@@ -68,12 +89,12 @@ export default function Wallets() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
           <h3 className="text-sm font-medium text-gray-500 mb-1">Total System Balance</h3>
-          <div className="text-3xl font-bold text-gray-900">₹12,40,29,415.50</div>
+          <div className="text-3xl font-bold text-gray-900">₹{stats.total_system_balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
         </div>
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm relative overflow-hidden">
           <div className="relative z-10">
             <h3 className="text-sm font-medium text-gray-500 mb-1">Pending Withdrawals</h3>
-            <div className="text-3xl font-bold text-gray-900">₹45,29,100.00</div>
+            <div className="text-3xl font-bold text-gray-900">₹{stats.pending_withdrawals_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
             <div className="text-sm text-yellow-600 mt-1 font-medium flex items-center">
               <ShieldCheck className="h-4 w-4 mr-1" /> Requires Approval
             </div>
@@ -81,7 +102,7 @@ export default function Wallets() {
         </div>
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
           <h3 className="text-sm font-medium text-gray-500 mb-1">24h Deposits</h3>
-          <div className="text-3xl font-bold text-gray-900">₹1,84,00,000.00</div>
+          <div className="text-3xl font-bold text-gray-900">₹{stats.recent_deposits_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
         </div>
       </div>
 
@@ -94,8 +115,10 @@ export default function Wallets() {
             </div>
             <input
               type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search TX ID or User..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm text-gray-800"
             />
           </div>
         </div>
@@ -117,10 +140,13 @@ export default function Wallets() {
             <tbody className="divide-y divide-gray-200 bg-white">
               {loading ? (
                 <tr><td colSpan="8" className="px-6 py-8 text-center text-gray-500">Loading transactions...</td></tr>
-              ) : transactions.length > 0 ? transactions.map((tx) => (
+              ) : filteredTransactions.length > 0 ? filteredTransactions.map((tx) => (
                 <tr key={tx.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 font-medium text-gray-900 text-xs">{tx.id}</td>
-                  <td className="px-6 py-4 text-blue-600 hover:underline cursor-pointer font-medium">
+                  <td 
+                    onClick={() => navigate(`/users/${tx.user_id}`)}
+                    className="px-6 py-4 text-blue-600 hover:underline cursor-pointer font-medium"
+                  >
                     {tx.profiles?.client_id || tx.user_id}
                   </td>
                   <td className="px-6 py-4">

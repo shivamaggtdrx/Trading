@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════
-// TradeX Admin Panel — API Service Layer
+// Stocks Lab Admin Panel — API Service Layer
 // Connects to Express backend at localhost:4000
 // ══════════════════════════════════════════════════════════════
 
@@ -79,6 +79,15 @@ export const adminApi = {
     request(`/admin/users?page=${page}&limit=${limit}${search ? `&search=${search}` : ''}`),
   getUser: (id) => request(`/admin/users/${id}`),
   updateUserStatus: (id, status) => request(`/admin/users/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+  getUserTradingLimits: (id) => request(`/admin/users/${id}/trading-limits`),
+  setUserTradingLimits: (id, data) => request(`/admin/users/${id}/trading-limits`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteUserTradingLimits: (id) => request(`/admin/users/${id}/trading-limits`, { method: 'DELETE' }),
+  getUserOrders: (userId, status = '') => request(`/admin/orders?user_id=${userId}${status ? `&status=${status}` : ''}`),
+  getUserTrades: (userId) => request(`/admin/trades?user_id=${userId}`),
+  getUserWalletLedger: (clientId) => request(`/admin/ledger/${clientId}`),
+  getUserWalletTransactions: (userId) => request(`/admin/wallet-transactions?user_id=${userId}`),
+  resetUserPassword: (userId) => request(`/admin/users/${userId}/reset-password`, { method: 'POST' }),
+  revokeUserSessions: (userId) => request(`/admin/users/${userId}/revoke-sessions`, { method: 'POST' }),
 
   // ── Wallets & Transactions ──
   getWalletTransactions: () => request('/admin/wallet-transactions'),
@@ -98,7 +107,11 @@ export const adminApi = {
 
   // ── Orders & Trades ──
   getOrders: (status = 'open') => request(`/admin/orders?status=${status}`),
+  modifyAdminOrder: (id, price, quantity, note) => request(`/admin/orders/${id}`, { method: 'PUT', body: JSON.stringify({ price, quantity, note }) }),
+  cancelAdminOrder: (id, note) => request(`/admin/orders/${id}/cancel`, { method: 'POST', body: JSON.stringify({ note }) }),
   getTrades: () => request('/admin/trades'),
+  modifyTrade: (id, data) => request(`/admin/trades/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTrade: (id, note) => request(`/admin/trades/${id}`, { method: 'DELETE', body: JSON.stringify({ note }) }),
 
   // ── Force Actions ──
   forceSquareOff: (userId, reason) => request(`/admin/force-square-off/${userId}`, { method: 'POST', body: JSON.stringify({ reason }) }),
@@ -137,6 +150,7 @@ export const adminApi = {
   getRiskManagement: () => request('/admin/risk-management'),
   toggleSymbol: (symbol, disable) => request(`/admin/risk-management/symbols/${symbol}/toggle`, { method: 'POST', body: JSON.stringify({ disable }) }),
   toggleKillSwitch: (activate) => request('/admin/risk-management/kill-switch', { method: 'POST', body: JSON.stringify({ activate }) }),
+  forceMarginCheck: () => request('/admin/risk/margin-check', { method: 'POST' }),
 
   // ── Exposure Heatmap ──
   getExposureHeatmap: () => request('/admin/exposure-heatmap'),

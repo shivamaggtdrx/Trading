@@ -6,9 +6,9 @@
 -- 1. DEFAULT ADMIN USER (password: admin123)
 -- ══════════════════════════════════════════════════════════════
 INSERT INTO admin_users (email, password_hash, name, role, department, avatar) VALUES
-  ('admin@tradex.com', '$2a$10$VQDrdG3GQkLCKxPLOhg8p.K7H7S7Xz2kGkHfQh9tKJQB4vN8KlQdi', 'Shivam', 'super_admin', 'admin', 'S'),
-  ('finance@tradex.com', '$2a$10$VQDrdG3GQkLCKxPLOhg8p.K7H7S7Xz2kGkHfQh9tKJQB4vN8KlQdi', 'Priya Finance', 'admin', 'finance', 'P'),
-  ('support@tradex.com', '$2a$10$VQDrdG3GQkLCKxPLOhg8p.K7H7S7Xz2kGkHfQh9tKJQB4vN8KlQdi', 'Rahul Support', 'operator', 'customer_service', 'R')
+  ('admin@stockslab.com', '$2a$10$VQDrdG3GQkLCKxPLOhg8p.K7H7S7Xz2kGkHfQh9tKJQB4vN8KlQdi', 'Shivam', 'super_admin', 'admin', 'S'),
+  ('finance@stockslab.com', '$2a$10$VQDrdG3GQkLCKxPLOhg8p.K7H7S7Xz2kGkHfQh9tKJQB4vN8KlQdi', 'Priya Finance', 'admin', 'finance', 'P'),
+  ('support@stockslab.com', '$2a$10$VQDrdG3GQkLCKxPLOhg8p.K7H7S7Xz2kGkHfQh9tKJQB4vN8KlQdi', 'Rahul Support', 'operator', 'customer_service', 'R')
 ON CONFLICT (email) DO NOTHING;
 
 -- ══════════════════════════════════════════════════════════════

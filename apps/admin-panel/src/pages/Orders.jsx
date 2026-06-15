@@ -8,6 +8,10 @@ export default function Orders() {
   const [confirmAction, setConfirmAction] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editQty, setEditQty] = useState('');
+  const [auditNote, setAuditNote] = useState('');
 
   useEffect(() => {
     fetchOrders();
@@ -25,10 +29,46 @@ export default function Orders() {
     }
   };
 
-  const confirm = (action, orderId) => {
-    setConfirmAction({ action, orderId });
+  const confirm = (action, order) => {
+    setConfirmAction({ action, orderId: order.id, order });
+    setEditPrice(order.price || order.target_price || 0);
+    setEditQty(order.quantity || order.amount || 0);
+    setAuditNote('');
     setShowConfirm(true);
   };
+
+  const handleExecuteAction = async () => {
+    if (!auditNote) return alert('Mandatory audit note is required');
+    const { action, orderId } = confirmAction;
+    try {
+      if (action === 'Modify') {
+        const p = parseFloat(editPrice);
+        const q = parseFloat(editQty);
+        if (isNaN(p) || p <= 0 || isNaN(q) || q <= 0) {
+          return alert('Invalid price or quantity');
+        }
+        await adminApi.modifyAdminOrder(orderId, p, q, auditNote);
+        alert('Order modified successfully by admin');
+      } else if (action === 'Cancel') {
+        await adminApi.cancelAdminOrder(orderId, auditNote);
+        alert('Order cancelled successfully by admin');
+      }
+      setShowConfirm(false);
+      setAuditNote('');
+      fetchOrders();
+    } catch (err) {
+      alert(err.message || 'Action failed');
+    }
+  };
+
+  const filteredOrders = orders.filter(order => {
+    const term = searchTerm.toLowerCase();
+    const orderId = order.id?.toLowerCase() || '';
+    const userId = order.user_id?.toLowerCase() || '';
+    const clientId = order.profiles?.client_id?.toLowerCase() || '';
+    const symbol = order.symbol?.toLowerCase() || '';
+    return orderId.includes(term) || userId.includes(term) || clientId.includes(term) || symbol.includes(term);
+  });
 
   return (
     <div className="space-y-6">
@@ -62,6 +102,8 @@ export default function Orders() {
               type="text"
               placeholder="Search Orders or Users..."
               className="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </div>
@@ -85,7 +127,7 @@ export default function Orders() {
                 <tr>
                   <td colSpan="8" className="px-6 py-8 text-center text-gray-500">Loading...</td>
                 </tr>
-              ) : orders.length > 0 ? orders.map((order) => (
+              ) : filteredOrders.length > 0 ? filteredOrders.map((order) => (
                 <tr key={order.id} className="hover:bg-blue-50/50 group">
                   <td className="px-4 py-2 font-medium text-gray-900 text-xs">{order.id}</td>
                   <td className="px-4 py-2 text-blue-600 hover:underline cursor-pointer text-xs font-medium">
@@ -109,13 +151,13 @@ export default function Orders() {
                     {order.status === 'open' ? (
                       <div className="flex items-center justify-end gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
                         <button 
-                          onClick={() => confirm('Modify', order.id)}
+                          onClick={() => confirm('Modify', order)}
                           className="p-1 text-blue-600 hover:bg-blue-100 rounded transition-colors" title="Modify Order"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button 
-                          onClick={() => confirm('Cancel', order.id)}
+                          onClick={() => confirm('Cancel', order)}
                           className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors" title="Force Cancel"
                         >
                           <XCircle className="h-4 w-4" />
@@ -153,21 +195,40 @@ export default function Orders() {
               <div className="space-y-3 mb-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">New Target Price (INR)</label>
-                  <input type="number" className="w-full border border-gray-300 rounded p-1.5 text-sm" defaultValue={150} />
+                  <input 
+                    type="number" 
+                    className="w-full border border-gray-300 rounded p-1.5 text-sm" 
+                    value={editPrice}
+                    onChange={(e) => setEditPrice(e.target.value)}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">New Amount</label>
-                  <input type="number" className="w-full border border-gray-300 rounded p-1.5 text-sm" defaultValue={500} />
+                  <input 
+                    type="number" 
+                    className="w-full border border-gray-300 rounded p-1.5 text-sm" 
+                    value={editQty}
+                    onChange={(e) => setEditQty(e.target.value)}
+                  />
                 </div>
               </div>
             )}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Audit Note</label>
-              <input type="text" className="w-full border border-gray-300 rounded p-1.5 text-sm" placeholder="Reason for intervention..." />
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Audit Note (Required)</label>
+              <input 
+                type="text" 
+                className="w-full border border-gray-300 rounded p-1.5 text-sm" 
+                placeholder="Reason for intervention..." 
+                value={auditNote}
+                onChange={(e) => setAuditNote(e.target.value)}
+              />
             </div>
             <div className="flex justify-end gap-3 mt-6">
               <button onClick={() => setShowConfirm(false)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-              <button onClick={() => setShowConfirm(false)} className={`px-4 py-2 text-white rounded-md text-sm font-medium ${confirmAction.action === 'Modify' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'}`}>
+              <button 
+                onClick={handleExecuteAction} 
+                className={`px-4 py-2 text-white rounded-md text-sm font-medium ${confirmAction.action === 'Modify' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'}`}
+              >
                 Execute {confirmAction.action}
               </button>
             </div>

@@ -43,7 +43,7 @@ export default function Dashboard() {
     },
     { 
       name: 'Total Users', 
-      value: dashboardData?.total_users?.toString() || '0', 
+      value: dashboardData?.total_clients?.toString() || '0', 
       icon: Users, 
       change: 'Registered', 
       changeType: 'positive' 
@@ -193,7 +193,7 @@ export default function Dashboard() {
             <div className="flex justify-end gap-3 mt-6">
               <button onClick={() => setShowKillSwitch(false)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-bold text-gray-700 hover:bg-gray-100">Cancel</button>
               <button onClick={handleKillSwitch} className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-md text-sm font-black shadow-lg">
-                EXECUTE SQAURE OFF
+                EXECUTE SQUARE OFF
               </button>
             </div>
           </div>

@@ -66,15 +66,21 @@ export default function ClientRestrictions() {
       setSaving(true);
       const payload = {
         client_id: searchQuery,
-        ...restrictions
+        login: restrictions.login,
+        trading: restrictions.trading,
+        withdrawals: restrictions.withdrawals,
+        options: restrictions.options,
+        mcx: restrictions.mcx,
+        leverage_multiplier: parseFloat(restrictions.leverage_multiplier || 1.0),
+        max_order_value: parseInt(restrictions.max_order_value || 500000)
       };
       
       if (currentId) {
         await adminApi.updateCrmModule('client-restrictions', currentId, payload);
         alert('Config updated successfully!');
       } else {
-        const res = await adminApi.createCrmModule('client-restrictions', payload);
-        setCurrentId(res.data?.id);
+        const res = await adminApi.updateCrmModule('client-restrictions', 'new', payload);
+        setCurrentId(res.data?.id || null);
         alert('Config created successfully!');
       }
       await fetchRestrictions();
