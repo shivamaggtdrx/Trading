@@ -32,6 +32,7 @@ class FinnhubFeed extends EventEmitter {
     this.pollTimeout = null;
     this.pollSymbols = []; // Symbols that need REST polling instead of WebSocket
     this.wsSymbols = [];   // Symbols successfully subscribed via WebSocket
+    this.isRateLimited = false;
 
     this.stats = {
       ticksReceived: 0,
@@ -101,6 +102,9 @@ class FinnhubFeed extends EventEmitter {
       feedLogger.error(`[FINNHUB WS] Error: ${err.message}`);
       this.stats.errorsEncountered++;
       this.stats.lastError = err.message;
+      if (err.message && err.message.includes('429')) {
+        this.isRateLimited = true;
+      }
     });
   }
 
@@ -201,25 +205,30 @@ class FinnhubFeed extends EventEmitter {
     const allFinnhubSymbols = getAllFinnhubSymbols()
       .filter(s => !s.endsWith('.NS') && !s.endsWith('.BO') && !s.startsWith('^NSE') && s !== '^NSEI' && s !== '^NSEBANK');
 
-    // Poll interval: 3 seconds
-    const POLL_INTERVAL_MS = 3000;
-    // Max symbols per poll cycle (rate limit: ~60 calls/min on free tier => 3 per 3 seconds = 60/min)
-    const BATCH_SIZE = 3;
+    // Poll interval: 6 seconds (to stay well below 60 req/min rate limit)
+    const POLL_INTERVAL_MS = 6000;
+    const BATCH_SIZE = 2;
     let batchIndex = 0;
 
     const pollCycle = async () => {
       if (this.status === 'STOPPED') return; // Stop loop cleanly
 
       try {
-        // Get current batch of symbols to poll
-        if (allFinnhubSymbols.length === 0) {
+        // Dynamically select symbols to poll:
+        // - If WS is connected, only poll symbols not covered by WS (this.pollSymbols)
+        // - If WS is disconnected, poll all symbols as fallback
+        const symbolsToPoll = (this.status === 'CONNECTED' && this.pollSymbols.length > 0)
+          ? this.pollSymbols 
+          : allFinnhubSymbols;
+
+        if (symbolsToPoll.length === 0) {
           this.pollTimeout = setTimeout(pollCycle, POLL_INTERVAL_MS);
           return;
         }
 
         const start = batchIndex * BATCH_SIZE;
-        const batch = allFinnhubSymbols.slice(start, start + BATCH_SIZE);
-        batchIndex = (start + BATCH_SIZE >= allFinnhubSymbols.length) ? 0 : batchIndex + 1;
+        const batch = symbolsToPoll.slice(start, start + BATCH_SIZE);
+        batchIndex = (start + BATCH_SIZE >= symbolsToPoll.length) ? 0 : batchIndex + 1;
 
         // Fetch quotes in parallel
         const promises = batch.map(fhSymbol => this._fetchQuote(fhSymbol));
@@ -230,12 +239,12 @@ class FinnhubFeed extends EventEmitter {
       }
 
       // Self-schedule next cycle (sequential, no overlap)
-      if (this.status !== 'STOPPED') {
+      if (this.status !== 'STOPPED' && !this.isRateLimited) {
         this.pollTimeout = setTimeout(pollCycle, POLL_INTERVAL_MS);
       }
     };
 
-    feedLogger.info(`[FINNHUB REST] Polling started — ${allFinnhubSymbols.length} symbols, batch size ${BATCH_SIZE}, every ${POLL_INTERVAL_MS}ms`);
+    feedLogger.info(`[FINNHUB REST] Polling started — ${allFinnhubSymbols.length} total symbols, batch size ${BATCH_SIZE}, every ${POLL_INTERVAL_MS}ms`);
     pollCycle();
   }
 
@@ -286,7 +295,13 @@ class FinnhubFeed extends EventEmitter {
     } catch (err) {
       // Rate limit or network error — silently skip
       if (err.response && err.response.status === 429) {
-        feedLogger.warn(`[FINNHUB REST] Rate limited. Slowing down...`);
+        feedLogger.warn(`[FINNHUB REST] Rate limited. Suspending REST polling for 60s...`);
+        this.isRateLimited = true;
+        if (this.pollTimeout) clearTimeout(this.pollTimeout);
+        this.pollTimeout = setTimeout(() => {
+          this.isRateLimited = false;
+          this._startRestPolling();
+        }, 60000);
       }
     }
   }
@@ -319,7 +334,13 @@ class FinnhubFeed extends EventEmitter {
     }
 
     this.reconnectAttempts++;
-    const delay = Math.min(Math.pow(2, this.reconnectAttempts) * 1000 + Math.random() * 1000, 30000);
+    let delay = Math.min(Math.pow(2, this.reconnectAttempts) * 1000 + Math.random() * 1000, 30000);
+
+    if (this.isRateLimited) {
+      delay = 60000; // Force a full 60s cooldown
+      this.isRateLimited = false; // Reset flag
+      feedLogger.warn(`[FINNHUB WS] Rate limited. Suspending reconnection for 60s to cool down...`);
+    }
 
     feedLogger.info(`[FINNHUB WS] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
