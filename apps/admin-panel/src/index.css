@@ -2,6 +2,57 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-gray-50 text-gray-900 transition-colors duration-200;
   }
+}
+
+html.dark body {
+  background-color: #030712 !important; /* bg-gray-950 */
+  color: #f3f4f6 !important;
+}
+
+/* Dark mode semantic overrides for common layouts */
+.dark .bg-white {
+  background-color: #111827 !important; /* bg-gray-900 */
+}
+.dark .bg-gray-50 {
+  background-color: #030712 !important; /* bg-gray-950 */
+}
+.dark .bg-gray-100 {
+  background-color: #1f2937 !important; /* bg-gray-800 */
+}
+.dark .border-gray-200, .dark .border-gray-300, .dark .border-gray-100 {
+  border-color: #374151 !important; /* border-gray-700 */
+}
+.dark .text-gray-900, .dark .text-gray-850 {
+  color: #f3f4f6 !important; /* text-gray-100 */
+}
+.dark .text-gray-700, .dark .text-gray-800 {
+  color: #d1d5db !important; /* text-gray-300 */
+}
+.dark .text-gray-500, .dark .text-gray-600 {
+  color: #9ca3af !important; /* text-gray-400 */
+}
+.dark .text-gray-400 {
+  color: #6b7280 !important; /* text-gray-500 */
+}
+
+/* Department Active Sidebar Overrides in Dark Mode */
+.dark .bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+.dark .text-blue-700 {
+  color: #60a5fa !important;
+}
+.dark .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+}
+.dark .text-emerald-700 {
+  color: #34d399 !important;
+}
+.dark .bg-purple-50 {
+  background-color: rgba(167, 139, 250, 0.15) !important;
+}
+.dark .text-purple-700 {
+  color: #a78bfa !important;
 }

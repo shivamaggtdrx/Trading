@@ -520,6 +520,18 @@ async function initPriceEngine() {
   if (process.env.SHOONYA_USER_ID && process.env.SHOONYA_TOTP_SECRET) {
     feedLogger.info(`[PRICE ENGINE] 🇮🇳 Attempting to start Shoonya Real-Time Feed...`);
     shoonyaFeed.on('tick', handleTick);
+    
+    // Broadcast status to Socket.IO clients on status change
+    shoonyaFeed.on('status', (newStatus) => {
+      feedLogger.info(`[PRICE ENGINE] Shoonya Feed status change: ${newStatus}`);
+      try {
+        const io = getIO();
+        if (io) {
+          io.of('/market').emit('MARKET:FEED_STATUS', getFeedStatus());
+        }
+      } catch (err) {}
+    });
+
     isShoonyaStarted = await shoonyaFeed.start();
     if (isShoonyaStarted) {
       await shoonyaFeed.subscribe([...shoonyaSymbols, ...indianIndices]);
@@ -586,6 +598,54 @@ async function initPriceEngine() {
         feedLogger.warn('[WATCHDOG] Attempting Finnhub reconnect...');
         finnhubFeed.stop();
         finnhubFeed.start(finnhubApiKey);
+      }
+    }
+
+    // Shoonya specific watchdog
+    if (process.env.SHOONYA_USER_ID && process.env.SHOONYA_TOTP_SECRET) {
+      if (shoonyaFeed.status === 'CONNECTED') {
+        const now = Date.now();
+        const lastShoonyaTick = shoonyaFeed.stats.lastTickTime;
+        const shoonyaTickAge = lastShoonyaTick ? (now - lastShoonyaTick) : (now - lastLiveTickTime);
+
+        if (shoonyaTickAge > 60000) {
+          const { checkMarketHours } = require('../core/risk/marketHours');
+          checkMarketHours('nse_equity').then((hoursCheck) => {
+            if (hoursCheck.open) {
+              feedLogger.warn(`[WATCHDOG] Shoonya Feed has not sent ticks in ${Math.round(shoonyaTickAge / 1000)}s during active market hours. Triggering reconnect...`);
+              if (shoonyaFeed.ws) {
+                shoonyaFeed.ws.close();
+              }
+            }
+          }).catch((err) => {
+            feedLogger.error(`[WATCHDOG] Shoonya check market hours failed: ${err.message}`);
+          });
+        }
+      } else if (shoonyaFeed.status === 'ERROR' || shoonyaFeed.status === 'DISCONNECTED') {
+        // Auto-reconnect if offline during market hours
+        const { checkMarketHours } = require('../core/risk/marketHours');
+        checkMarketHours('nse_equity').then((hoursCheck) => {
+          if (hoursCheck.open) {
+            feedLogger.info(`[WATCHDOG] Shoonya is offline (${shoonyaFeed.status}) during active market hours. Attempting daily auto-connect...`);
+            shoonyaFeed.status = 'CONNECTING';
+            shoonyaFeed.start().then((success) => {
+              if (success) {
+                feedLogger.info('[WATCHDOG] Shoonya Feed successfully started and connected.');
+                if (nseFeed && typeof nseFeed.stop === 'function') {
+                  feedLogger.info('[WATCHDOG] Stopping Yahoo Finance fallback feed since Shoonya is active.');
+                  nseFeed.stop();
+                }
+              } else {
+                feedLogger.warn('[WATCHDOG] Shoonya Feed start attempt failed. Will retry in next watchdog cycle.');
+              }
+            }).catch((err) => {
+              feedLogger.error(`[WATCHDOG] Shoonya Feed start failed: ${err.message}`);
+              shoonyaFeed.status = 'ERROR';
+            });
+          }
+        }).catch((err) => {
+          feedLogger.error(`[WATCHDOG] Shoonya market hours check failed: ${err.message}`);
+        });
       }
     }
   }, 30000);

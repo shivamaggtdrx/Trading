@@ -9,10 +9,26 @@ import {
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 const api = {
-  get: (path) => fetch(`${API_BASE}/api/admin${path}`, { credentials: 'include' }).then(r => r.json()),
-  put: (path, body) => fetch(`${API_BASE}/api/admin${path}`, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
-  post: (path, body) => fetch(`${API_BASE}/api/admin${path}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
+  get: (path) => {
+    const token = localStorage.getItem('admin_token');
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return fetch(`${API_BASE}/api/admin${path}`, { credentials: 'include', headers }).then(r => r.json());
+  },
+  put: (path, body) => {
+    const token = localStorage.getItem('admin_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return fetch(`${API_BASE}/api/admin${path}`, { method: 'PUT', credentials: 'include', headers, body: JSON.stringify(body) }).then(r => r.json());
+  },
+  post: (path, body) => {
+    const token = localStorage.getItem('admin_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return fetch(`${API_BASE}/api/admin${path}`, { method: 'POST', credentials: 'include', headers, body: JSON.stringify(body) }).then(r => r.json());
+  },
 };
+
 
 const PLATFORM_ICONS = { youtube: Play, instagram: Camera, twitter: Globe, telegram: Send, website: Globe, other: Globe };
 const STATUS_COLORS = { active: 'bg-emerald-100 text-emerald-700', paused: 'bg-amber-100 text-amber-700', banned: 'bg-red-100 text-red-700' };
@@ -137,11 +153,8 @@ function SettingsTab({ onRefresh }) {
           </div>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-          <ConfigInput label="Signup Bonus → Referrer" value={config.signup_bonus_referrer} onChange={v => setConfig(c => ({ ...c, signup_bonus_referrer: v }))} prefix="₹" step="1" />
-          <ConfigInput label="Signup Bonus → New User" value={config.signup_bonus_referee} onChange={v => setConfig(c => ({ ...c, signup_bonus_referee: v }))} prefix="₹" step="1" />
+          <ConfigInput label="Referral 1st Deposit Commission" value={config.referral_deposit_commission_pct} onChange={v => setConfig(c => ({ ...c, referral_deposit_commission_pct: v }))} suffix="%" />
           <ConfigInput label="Bonus Turnover Multiplier" value={config.bonus_turnover_multiplier} onChange={v => setConfig(c => ({ ...c, bonus_turnover_multiplier: v }))} suffix="x" step="0.5" />
-          <ConfigInput label="Referral Deposit Commission" value={config.referral_deposit_commission_pct} onChange={v => setConfig(c => ({ ...c, referral_deposit_commission_pct: v }))} suffix="%" />
-          <ConfigInput label="Referral Trade Commission" value={config.referral_trade_commission_pct} onChange={v => setConfig(c => ({ ...c, referral_trade_commission_pct: v }))} suffix="%" />
           <ConfigInput label="Affiliate Default Deposit %" value={config.affiliate_default_deposit_pct} onChange={v => setConfig(c => ({ ...c, affiliate_default_deposit_pct: v }))} suffix="%" />
           <ConfigInput label="Affiliate Default Trade %" value={config.affiliate_default_trade_pct} onChange={v => setConfig(c => ({ ...c, affiliate_default_trade_pct: v }))} suffix="%" />
         </div>
@@ -164,7 +177,7 @@ function SettingsTab({ onRefresh }) {
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
-              {['Tier', 'Min Refs', 'Max Refs', 'Deposit %', 'Trade %', 'Active', 'Actions'].map(h => (
+              {['Tier', 'Min Refs', 'Max Refs', 'Deposit %', 'Active', 'Actions'].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{h}</th>
               ))}
             </tr>
@@ -178,7 +191,6 @@ function SettingsTab({ onRefresh }) {
                     <td className="px-4 py-3"><input type="number" value={editingTier.min_referrals} onChange={e => setEditingTier(t => ({ ...t, min_referrals: e.target.value }))} className="w-16 border border-gray-300 rounded px-2 py-1 text-sm" /></td>
                     <td className="px-4 py-3"><input type="number" value={editingTier.max_referrals || ''} onChange={e => setEditingTier(t => ({ ...t, max_referrals: e.target.value || null }))} className="w-16 border border-gray-300 rounded px-2 py-1 text-sm" placeholder="∞" /></td>
                     <td className="px-4 py-3"><input type="number" step="0.01" value={editingTier.deposit_commission_pct} onChange={e => setEditingTier(t => ({ ...t, deposit_commission_pct: e.target.value }))} className="w-16 border border-gray-300 rounded px-2 py-1 text-sm" /></td>
-                    <td className="px-4 py-3"><input type="number" step="0.01" value={editingTier.trade_commission_pct} onChange={e => setEditingTier(t => ({ ...t, trade_commission_pct: e.target.value }))} className="w-16 border border-gray-300 rounded px-2 py-1 text-sm" /></td>
                     <td className="px-4 py-3"><input type="checkbox" checked={editingTier.is_active} onChange={e => setEditingTier(t => ({ ...t, is_active: e.target.checked }))} /></td>
                     <td className="px-4 py-3 flex gap-2">
                       <button onClick={() => saveTier(editingTier)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Save</button>
@@ -191,7 +203,6 @@ function SettingsTab({ onRefresh }) {
                     <td className="px-4 py-3 text-gray-600">{tier.min_referrals}</td>
                     <td className="px-4 py-3 text-gray-600">{tier.max_referrals ?? '∞'}</td>
                     <td className="px-4 py-3"><span className="font-bold text-indigo-600">{tier.deposit_commission_pct}%</span></td>
-                    <td className="px-4 py-3"><span className="font-bold text-emerald-600">{tier.trade_commission_pct}%</span></td>
                     <td className="px-4 py-3">{tier.is_active ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <XCircle className="w-4 h-4 text-gray-400" />}</td>
                     <td className="px-4 py-3"><button onClick={() => setEditingTier({ ...tier })} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"><Edit3 className="w-3 h-3" />Edit</button></td>
                   </>
@@ -213,6 +224,7 @@ function AffiliatesTab() {
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ name:'', email:'', phone:'', platform:'youtube', channel_url:'', subscriber_count:'', affiliate_code:'', deposit_commission_pct:'3', trade_commission_pct:'0.5', notes:'' });
+  const [editForm, setEditForm] = useState({ name:'', email:'', phone:'', platform:'youtube', channel_url:'', subscriber_count:'', deposit_commission_pct:'3', trade_commission_pct:'0.5', tier_id:'', notes:'' });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [tiers, setTiers] = useState([]);
@@ -233,6 +245,21 @@ function AffiliatesTab() {
     setSaving(false);
     if (r.affiliate) { setShowCreate(false); setForm({ name:'', email:'', phone:'', platform:'youtube', channel_url:'', subscriber_count:'', affiliate_code:'', deposit_commission_pct:'3', trade_commission_pct:'0.5', notes:'' }); load(); setMsg('Affiliate created!'); }
     else setMsg(r.error || 'Failed');
+    setTimeout(() => setMsg(''), 3000);
+  };
+
+  const handleUpdate = async () => {
+    setSaving(true);
+    const r = await api.put(`/affiliates/${editingId}`, editForm);
+    setSaving(false);
+    if (r.affiliate) {
+      setEditingId(null);
+      setEditForm({ name:'', email:'', phone:'', platform:'youtube', channel_url:'', subscriber_count:'', deposit_commission_pct:'3', trade_commission_pct:'0.5', tier_id:'', notes:'' });
+      load();
+      setMsg('Affiliate updated!');
+    } else {
+      setMsg(r.error || 'Failed to update');
+    }
     setTimeout(() => setMsg(''), 3000);
   };
 
@@ -326,6 +353,72 @@ function AffiliatesTab() {
         </div>
       )}
 
+      {/* Edit Modal */}
+      {editingId && editForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-gray-900">Edit Affiliate Details</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[['Full Name', 'name', 'text'], ['Email', 'email', 'email'], ['Phone', 'phone', 'text'], ['Channel URL', 'channel_url', 'text']].map(([label, key, type]) => (
+                <div key={key} className={key === 'channel_url' ? 'col-span-2' : ''}>
+                  <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">{label}</label>
+                  <input type={type} value={editForm[key]} onChange={e => setEditForm(f => ({ ...f, [key]: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+                </div>
+              ))}
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Platform</label>
+                <select value={editForm.platform} onChange={e => setEditForm(f => ({ ...f, platform: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                  {['youtube','instagram','twitter','telegram','website','other'].map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Subscribers</label>
+                <input type="number" value={editForm.subscriber_count} onChange={e => setEditForm(f => ({ ...f, subscriber_count: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Affiliate Code (Read-Only)</label>
+                <input type="text" value={affiliates.find(a => a.id === editingId)?.affiliate_code || ''} readOnly disabled
+                  className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm font-mono text-gray-500 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Tier</label>
+                <select value={editForm.tier_id || ''} onChange={e => setEditForm(f => ({ ...f, tier_id: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                  <option value="">Select tier</option>
+                  {tiers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Deposit Commission %</label>
+                <input type="number" step="0.1" value={editForm.deposit_commission_pct} onChange={e => setEditForm(f => ({ ...f, deposit_commission_pct: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Trade Commission %</label>
+                <input type="number" step="0.1" value={editForm.trade_commission_pct} onChange={e => setEditForm(f => ({ ...f, trade_commission_pct: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Internal Notes</label>
+                <textarea rows={2} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 resize-none" />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => { setEditingId(null); setEditForm(null); }} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+              <button onClick={handleUpdate} disabled={saving || !editForm.name || !editForm.email}
+                className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Affiliates Table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {loading ? (
@@ -364,7 +457,21 @@ function AffiliatesTab() {
                           {aff.status === 'active'
                             ? <button onClick={() => handleStatusChange(aff.id, 'paused')} className="text-xs text-amber-600 hover:text-amber-800 font-semibold">Pause</button>
                             : <button onClick={() => handleStatusChange(aff.id, 'active')} className="text-xs text-emerald-600 hover:text-emerald-800 font-semibold">Activate</button>}
-                          <button onClick={() => setEditingId(aff.id)} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold">Edit</button>
+                          <button onClick={() => {
+                            setEditingId(aff.id);
+                            setEditForm({
+                              name: aff.name || '',
+                              email: aff.email || '',
+                              phone: aff.phone || '',
+                              platform: aff.platform || 'youtube',
+                              channel_url: aff.channel_url || '',
+                              subscriber_count: aff.subscriber_count || '0',
+                              deposit_commission_pct: aff.deposit_commission_pct || '3',
+                              trade_commission_pct: aff.trade_commission_pct || '0.5',
+                              tier_id: aff.tier_id || '',
+                              notes: aff.notes || ''
+                            });
+                          }} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold">Edit</button>
                         </div>
                       </td>
                     </tr>

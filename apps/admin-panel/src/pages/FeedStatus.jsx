@@ -1,0 +1,408 @@
+import { useState, useEffect } from 'react';
+import { Radio, RefreshCw, CheckCircle2, AlertTriangle, Wifi, WifiOff, Activity, ShieldAlert, Cpu } from 'lucide-react';
+import { adminApi } from '../services/adminApi';
+
+export default function FeedStatus() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchStatus = async (isManual = false) => {
+    try {
+      if (isManual) setRefreshing(true);
+      setError(null);
+      const res = await adminApi.getFeedStatus();
+      if (res && res.success) {
+        setData(res.status);
+      } else {
+        throw new Error('Invalid response structure');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to load live feed status');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+    // Poll status every 3 seconds
+    const interval = setInterval(() => fetchStatus(), 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleResetShoonya = async () => {
+    const confirmReset = window.confirm(
+      'Are you sure you want to reset the Shoonya connection circuit breaker?\nThis will clear the connection attempt limit and trigger an immediate reconnect.'
+    );
+    if (!confirmReset) return;
+
+    try {
+      setResetting(true);
+      const res = await adminApi.resetShoonyaFeed();
+      if (res && res.success) {
+        alert('Shoonya feed reset successfully! Triggered WebSocket reconnection.');
+        fetchStatus();
+      } else {
+        throw new Error(res.error || 'Failed to reset Shoonya feed');
+      }
+    } catch (err) {
+      alert(`Error resetting Shoonya feed: ${err.message}`);
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const formatAge = (ms) => {
+    if (ms === null || ms === undefined || isNaN(ms)) return 'N/A';
+    if (ms > 864000000) return 'Never';
+    const sec = Math.floor(ms / 1000);
+    if (sec < 0) return '0s ago';
+    if (sec < 60) return `${sec}s ago`;
+    const min = Math.floor(sec / 60);
+    return `${min}m ${sec % 60}s ago`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500 gap-2">
+        <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+        <p className="font-medium text-sm">Loading live tick feeds status...</p>
+      </div>
+    );
+  }
+
+  // Determine market-type active status and current providers
+  const isShoonyaActive = data?.shoonya?.status === 'CONNECTED';
+  const isNseActive = data?.nse?.status === 'CONNECTED';
+  
+  // 1. Indian Equities & Futures: Shoonya (Primary), Yahoo Finance (Fallback)
+  const indianFeedActive = isShoonyaActive ? 'Shoonya (Primary)' : (isNseActive ? 'Yahoo Finance (Fallback)' : 'None (No Feed)');
+  const indianFeedStatus = isShoonyaActive ? 'primary' : (isNseActive ? 'fallback' : 'offline');
+
+  // 2. US Stocks & Forex: Finnhub WS / Polling
+  const usFeedActive = data?.finnhub?.wsStatus === 'CONNECTED' ? 'Finnhub WS (Primary)' : (data?.finnhub?.pollSymbolCount > 0 ? 'Finnhub REST (Fallback)' : 'None');
+  const usFeedStatus = data?.finnhub?.wsStatus === 'CONNECTED' ? 'primary' : (data?.finnhub?.pollSymbolCount > 0 ? 'fallback' : 'offline');
+
+  // 3. Crypto: Binance WS
+  const cryptoFeedActive = data?.binance?.status === 'CONNECTED' ? 'Binance WS (Primary)' : 'None';
+  const cryptoFeedStatus = data?.binance?.status === 'CONNECTED' ? 'primary' : 'offline';
+
+  // 4. Global Indices: Finnhub / Yahoo (internal charting fallback)
+  const indicesFeedActive = data?.finnhub?.wsStatus === 'CONNECTED' ? 'Finnhub WS' : 'Yahoo Finance (Chart API)';
+  const indicesFeedStatus = data?.finnhub?.wsStatus === 'CONNECTED' ? 'primary' : 'fallback';
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Radio className="h-6 w-6 text-blue-600 animate-pulse" />
+            Live Tick Feed Status
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Monitor real-time price feeds, fallback statuses, data tick frequency, and control feed circuit breakers.
+          </p>
+        </div>
+        <button
+          onClick={() => fetchStatus(true)}
+          disabled={refreshing}
+          className="inline-flex items-center justify-center rounded-md text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 h-10 px-4 transition-all"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+          Force Refresh
+        </button>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-bold">Error loading live feeds</h4>
+            <p className="text-sm mt-0.5">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Global Health Bar */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
+            <Activity className="h-6 w-6" />
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 uppercase font-semibold">Active Price Streamers</div>
+            <div className="text-2xl font-extrabold text-gray-900 mt-0.5">{data?.totalSymbolsTracked || 0} Symbols</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+            (data?.lastLiveTickAge || 0) < 10000 ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
+          }`}>
+            {(data?.lastLiveTickAge || 0) < 10000 ? <Wifi className="h-6 w-6" /> : <WifiOff className="h-6 w-6" />}
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 uppercase font-semibold">Time Since Last Tick</div>
+            <div className="text-2xl font-extrabold text-gray-900 mt-0.5">{formatAge(data?.lastLiveTickAge)}</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center">
+            <Cpu className="h-6 w-6" />
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 uppercase font-semibold">Primary Feed Status</div>
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className={`w-2.5 h-2.5 rounded-full ${isShoonyaActive ? 'bg-green-500 animate-ping' : 'bg-red-500'}`} />
+              <span className="text-sm font-bold text-gray-900">{isShoonyaActive ? 'Shoonya Live' : 'Fallback Active'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Market Segments Status Board */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <ShieldAlert className="h-5 w-5 text-gray-700" />
+          Active Market Feed Mapping
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Indian Equities & Futures */}
+          <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm space-y-4">
+            <div>
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Indian Stocks & F&O</div>
+              <h4 className="text-lg font-extrabold text-gray-900 mt-0.5">NSE / NFO</h4>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Active Price Provider:</div>
+              <div className="text-sm font-bold text-gray-800 mt-0.5">{indianFeedActive}</div>
+            </div>
+            <div>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide ${
+                indianFeedStatus === 'primary' ? 'bg-green-100 text-green-700' : (indianFeedStatus === 'fallback' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700')
+              }`}>
+                {indianFeedStatus === 'primary' ? 'primary active' : (indianFeedStatus === 'fallback' ? 'fallback active' : 'offline')}
+              </span>
+            </div>
+          </div>
+
+          {/* US Stocks & Forex */}
+          <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm space-y-4">
+            <div>
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">US Equities & Forex</div>
+              <h4 className="text-lg font-extrabold text-gray-900 mt-0.5">US / FX / Currencies</h4>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Active Price Provider:</div>
+              <div className="text-sm font-bold text-gray-800 mt-0.5">{usFeedActive}</div>
+            </div>
+            <div>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide ${
+                usFeedStatus === 'primary' ? 'bg-green-100 text-green-700' : (usFeedStatus === 'fallback' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700')
+              }`}>
+                {usFeedStatus === 'primary' ? 'primary active' : (usFeedStatus === 'fallback' ? 'fallback active' : 'offline')}
+              </span>
+            </div>
+          </div>
+
+          {/* Crypto */}
+          <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm space-y-4">
+            <div>
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Cryptocurrencies</div>
+              <h4 className="text-lg font-extrabold text-gray-900 mt-0.5">Crypto Pairs</h4>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Active Price Provider:</div>
+              <div className="text-sm font-bold text-gray-800 mt-0.5">{cryptoFeedActive}</div>
+            </div>
+            <div>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide ${
+                cryptoFeedStatus === 'primary' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              }`}>
+                {cryptoFeedStatus === 'primary' ? 'primary active' : 'offline'}
+              </span>
+            </div>
+          </div>
+
+          {/* Global Indices */}
+          <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm space-y-4">
+            <div>
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Indices & Benchmarks</div>
+              <h4 className="text-lg font-extrabold text-gray-900 mt-0.5">DJI / NASDAQ / NIFTY</h4>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Active Price Provider:</div>
+              <div className="text-sm font-bold text-gray-800 mt-0.5">{indicesFeedActive}</div>
+            </div>
+            <div>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide ${
+                indicesFeedStatus === 'primary' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+              }`}>
+                {indicesFeedStatus === 'primary' ? 'primary active' : 'fallback active'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Provider Details Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Shoonya Panel */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-6 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-md font-bold text-gray-900">Shoonya (Primary Indian Feed)</h4>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider ${
+                isShoonyaActive ? 'bg-green-100 text-green-800' : (data?.shoonya?.status === 'CONNECTING' ? 'bg-blue-100 text-blue-800 animate-pulse' : 'bg-red-100 text-red-800')
+              }`}>
+                {data?.shoonya?.status || 'UNKNOWN'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-md">
+              <div>
+                <span className="text-gray-500 block">Active Subscriptions</span>
+                <span className="font-bold text-gray-800 text-base">{data?.shoonya?.activeSymbolCount || 0} symbols</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block">Total Ticks Streamed</span>
+                <span className="font-bold text-gray-800 text-base">{(data?.shoonya?.stats?.ticksReceived || 0).toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block">Connection Failures</span>
+                <span className="font-bold text-red-600 text-base">{data?.shoonya?.stats?.errorsEncountered || 0}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block">Last Feed Update</span>
+                <span className="font-bold text-gray-800 text-base">{formatAge(data?.shoonya?.stats?.lastTickTime ? Date.now() - data.shoonya.stats.lastTickTime : null)}</span>
+              </div>
+            </div>
+
+            {data?.shoonya?.stats?.lastError && (
+              <div className="text-xs bg-red-50 border border-red-100 text-red-700 p-2.5 rounded">
+                <strong>Last error:</strong> {data?.shoonya?.stats?.lastError}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-gray-100 pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-xs text-gray-500 max-w-xs">
+              If the feed stops tick streams, the circuit breaker halts reconnections after 10 attempts to avoid flooding. Reset manually here to retry.
+            </div>
+            <button
+              onClick={handleResetShoonya}
+              disabled={resetting}
+              className="w-full sm:w-auto inline-flex items-center justify-center rounded-md text-xs font-extrabold uppercase bg-red-600 text-white hover:bg-red-700 h-9 px-4 select-none shrink-0 transition-colors shadow-sm disabled:opacity-50"
+            >
+              Reset Circuit Breaker
+            </button>
+          </div>
+        </div>
+
+        {/* Finnhub Panel */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-md font-bold text-gray-900">Finnhub (US Stocks, Forex & Indices)</h4>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider ${
+              data?.finnhub?.wsStatus === 'CONNECTED' ? 'bg-green-100 text-green-800' : (data?.finnhub?.wsStatus === 'CONNECTING' ? 'bg-blue-100 text-blue-800 animate-pulse' : 'bg-red-100 text-red-800')
+            }`}>
+              {data?.finnhub?.wsStatus || 'DISABLED'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-md">
+            <div>
+              <span className="text-gray-500 block">WS Subscribed</span>
+              <span className="font-bold text-gray-800 text-base">{data?.finnhub?.subscribedCount || 0} symbols</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block">REST Polled</span>
+              <span className="font-bold text-gray-800 text-base">{data?.finnhub?.pollSymbolCount || 0} symbols</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block">WebSocket Ticks</span>
+              <span className="font-bold text-gray-800 text-base">{(data?.finnhub?.stats?.wsTicksReceived || 0).toLocaleString()}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block">REST Quote Ticks</span>
+              <span className="font-bold text-gray-800 text-base">{(data?.finnhub?.stats?.pollTicksReceived || 0).toLocaleString()}</span>
+            </div>
+          </div>
+
+          {data?.finnhub?.stats?.lastError && (
+            <div className="text-xs bg-red-50 border border-red-100 text-red-700 p-2.5 rounded">
+              <strong>Last error:</strong> {data?.finnhub?.stats?.lastError}
+            </div>
+          )}
+        </div>
+
+        {/* Yahoo Finance Panel */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-md font-bold text-gray-900">Yahoo Finance (Delayed Fallback Feed)</h4>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider ${
+              data?.nse?.status === 'CONNECTED' ? 'bg-green-100 text-green-800 animate-pulse' : 'bg-gray-100 text-gray-800'
+            }`}>
+              {data?.nse?.status === 'CONNECTED' ? 'POLLING' : 'STANDBY'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-md">
+            <div>
+              <span className="text-gray-500 block">Active Polling List</span>
+              <span className="font-bold text-gray-800 text-base">{data?.nse?.activeSymbolsCount || 0} symbols</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block">Ticks Received</span>
+              <span className="font-bold text-gray-800 text-base">{(data?.nse?.stats?.ticksReceived || 0).toLocaleString()}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block">API Errors</span>
+              <span className="font-bold text-red-600 text-base">{data?.nse?.stats?.errorsEncountered || 0}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block">Last Tick Timestamp</span>
+              <span className="font-bold text-gray-800 text-base">{formatAge(data?.nse?.stats?.lastTickTime ? Date.now() - data.nse.stats.lastTickTime : null)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Binance Panel */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-md font-bold text-gray-900">Binance (Crypto Feed)</h4>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider ${
+              data?.binance?.status === 'CONNECTED' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}>
+              {data?.binance?.status || 'DISCONNECTED'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-md">
+            <div>
+              <span className="text-gray-500 block">Ticks Received</span>
+              <span className="font-bold text-gray-800 text-base">{(data?.binance?.stats?.ticksReceived || 0).toLocaleString()}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block">Stream Errors</span>
+              <span className="font-bold text-red-600 text-base">{data?.binance?.stats?.errorsEncountered || 0}</span>
+            </div>
+            <div className="col-span-2">
+              <span className="text-gray-500 block">Last Tick Streamed</span>
+              <span className="font-bold text-gray-800 text-base">{formatAge(data?.binance?.stats?.lastTickTime ? Date.now() - data.binance.stats.lastTickTime : null)}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}

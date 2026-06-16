@@ -11,16 +11,16 @@ const ws = require('ws');
 const axios = require('axios');
 const EventEmitter = require('events');
 const { feedLogger } = require('../core/monitoring/logger');
-const redisClient = require('../redis/client');
+const { redisClient } = require('../redis/client');
 
 // Endpoints
 const REST_URL = 'https://api.shoonya.com/NorenWClientTP';
-const WS_URL = 'wss://api.shoonya.com/NorenWSTap/';
+const WS_URL = 'wss://api.shoonya.com/NorenWSTP/';
 
 class ShoonyaFeed extends EventEmitter {
   constructor() {
     super();
-    this.status = 'DISCONNECTED';
+    this._status = 'DISCONNECTED';
     this.ws = null;
     this.sessionToken = null;
     this.userId = null;
@@ -54,6 +54,18 @@ class ShoonyaFeed extends EventEmitter {
       lastError: null,
       reconnections: 0
     };
+  }
+
+  get status() {
+    return this._status;
+  }
+
+  set status(val) {
+    const old = this._status;
+    this._status = val;
+    if (old !== val) {
+      this.emit('status', val);
+    }
   }
 
   /**
@@ -514,6 +526,16 @@ class ShoonyaFeed extends EventEmitter {
       } catch (e) {}
       this.ws = null;
     }
+  }
+
+  /**
+   * Reset the circuit breaker (reconnection limits) and force-reconnect
+   */
+  resetCircuitBreaker() {
+    feedLogger.info('[SHOONYA] Circuit breaker reset manually. Reconnecting...');
+    this.reconnectAttempts = 0;
+    this._connectWebSocket();
+    return true;
   }
 
   stop() {

@@ -94,30 +94,7 @@ router.post('/signup', async (req, res) => {
       return res.status(500).json({ error: 'Failed to create profile: ' + profileError.message });
     }
 
-    // 4. Create signup bonus event (ONLY if referral code used — no code = no bonus)
-    if (codeType === 'referral' && referredBy) {
-      try {
-        const { data: config } = await supabaseAdmin
-          .from('referral_reward_config')
-          .select('signup_bonus_referrer, signup_bonus_referee, bonus_turnover_multiplier, referral_program_active')
-          .eq('id', 1)
-          .single();
-        if (config && config.referral_program_active && (config.signup_bonus_referrer > 0 || config.signup_bonus_referee > 0)) {
-          await supabaseAdmin.from('referral_bonus_events').insert({
-            referrer_id: referredBy,
-            referee_id: profile.id,
-            referral_code: referral_code.trim().toUpperCase(),
-            bonus_referrer_amount: config.signup_bonus_referrer || 0,
-            bonus_referee_amount: config.signup_bonus_referee || 0,
-            turnover_required: (config.signup_bonus_referrer || 0) * (config.bonus_turnover_multiplier || 5),
-            status: 'pending',
-          });
-        }
-      } catch (bonusErr) {
-        console.error('[Signup Bonus] Failed to create bonus event:', bonusErr.message);
-        // Non-fatal — user created successfully
-      }
-    }
+    // 4. Signup bonus event disabled (rewards are now strictly percentage-based on first deposit)
 
     // 5. Sign in to get session
     const { data: session, error: signInError } = await supabasePublic.auth.signInWithPassword({

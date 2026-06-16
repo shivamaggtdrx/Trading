@@ -25,6 +25,7 @@ import ClientRestrictions from './pages/ClientRestrictions';
 import TradingLimits from './pages/TradingLimits';
 import AffiliateManagement from './pages/AffiliateManagement';
 import AffiliatePayout from './pages/AffiliatePayout';
+import FeedStatus from './pages/FeedStatus';
 
 import OfflineBanner from './components/pwa/OfflineBanner';
 import PWAInstallPrompt from './components/pwa/PWAInstallPrompt';
@@ -64,6 +65,7 @@ function App() {
             <Route path="trades" element={<Trades />} />
             <Route path="orders" element={<Orders />} />
             <Route path="instruments" element={<Instruments />} />
+            <Route path="feed-status" element={<FeedStatus />} />
             <Route path="settings" element={<Settings />} />
             <Route path="logs" element={<Logs />} />
             <Route path="risk" element={<RiskManagement />} />

@@ -185,4 +185,8 @@ export const adminApi = {
 
   // ── Referrals ──
   getReferralStats: () => request('/admin/referrals/stats'),
+
+  // ── Live Feed Status & Control ──
+  getFeedStatus: () => request('/admin/feed-status'),
+  resetShoonyaFeed: () => request('/admin/feed/shoonya/reset', { method: 'POST' }),
 };

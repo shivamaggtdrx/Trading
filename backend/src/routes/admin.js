@@ -401,46 +401,39 @@ async function _handleDepositCommissionHooks(userId, depositId, depositAmount) {
     .eq('user_id', userId).eq('status', 'approved').neq('id', depositId);
   const isFirstDeposit = (prevCount || 0) === 0;
 
-  // ── 1. REFERRAL SIGNUP BONUS (first deposit only) ──
+  // ── 1. REFERRAL FIRST DEPOSIT COMMISSION (first deposit only, percentage-based) ──
   if (isFirstDeposit && config.referral_program_active && profile.referred_by) {
-    const { data: bonusEvent } = await supabaseAdmin
-      .from('referral_bonus_events').select('id').eq('referee_id', userId).eq('status', 'pending').maybeSingle();
-    if (bonusEvent) {
-      await supabaseAdmin.rpc('credit_referral_bonus', { p_event_id: bonusEvent.id, p_deposit_id: depositId });
-      console.log(`[Referral] Signup bonus credited → referee ${userId}`);
-    }
-  }
-
-  // ── 2. REFERRAL DEPOSIT COMMISSION (to referrer bonus_balance) ──
-  if (profile.referred_by && config.referral_program_active && parseFloat(config.referral_deposit_commission_pct) > 0) {
+    const referrerId = profile.referred_by;
     const { count: refCount } = await supabaseAdmin
-      .from('profiles').select('*', { count: 'exact', head: true }).eq('referred_by', profile.referred_by);
+      .from('profiles').select('*', { count: 'exact', head: true }).eq('referred_by', referrerId);
     const { data: tiers } = await supabaseAdmin
       .from('referral_tiers').select('*').eq('is_active', true).order('sort_order');
     const activeTier = (tiers || []).find(t => (refCount || 0) >= t.min_referrals && (t.max_referrals == null || (refCount || 0) < t.max_referrals));
-    const commPct = parseFloat(activeTier?.deposit_commission_pct ?? config.referral_deposit_commission_pct);
+    const commPct = parseFloat(activeTier?.deposit_commission_pct ?? config.referral_deposit_commission_pct ?? 0);
     const commAmount = Math.round((depositAmount * commPct / 100) * 100) / 100;
     if (commAmount > 0) {
-      const { data: rWallet } = await supabaseAdmin.from('wallets').select('balance, bonus_balance, bonus_turnover_required').eq('user_id', profile.referred_by).single();
+      const { data: rWallet } = await supabaseAdmin.from('wallets').select('balance, bonus_balance, bonus_turnover_required').eq('user_id', referrerId).single();
       if (rWallet) {
         const newBonus = parseFloat(rWallet.bonus_balance || 0) + commAmount;
         const newTurnover = parseFloat(rWallet.bonus_turnover_required || 0) + (commAmount * parseFloat(config.bonus_turnover_multiplier || 5));
-        await supabaseAdmin.from('wallets').update({ bonus_balance: newBonus, bonus_turnover_required: newTurnover }).eq('user_id', profile.referred_by);
+        await supabaseAdmin.from('wallets').update({ bonus_balance: newBonus, bonus_turnover_required: newTurnover }).eq('user_id', referrerId);
         await supabaseAdmin.from('wallet_transactions').insert({
-          user_id: profile.referred_by, type: 'bonus', amount: commAmount,
+          user_id: referrerId, type: 'bonus', amount: commAmount,
           balance_after: rWallet.balance, reference_id: depositId,
           reference_type: 'referral_deposit_commission',
-          description: `Referral deposit commission (${commPct}% of ₹${depositAmount} deposit)`,
+          description: `Referral 1st deposit commission (${commPct}% of ₹${depositAmount} deposit)`,
         });
-        // Log in referral_commissions for tracking
         const today = new Date().toISOString().split('T')[0];
         await supabaseAdmin.from('referral_commissions').upsert({
-          referrer_id: profile.referred_by, referee_id: userId, date: today,
+          referrer_id: referrerId, referee_id: userId, date: today,
           trade_volume: depositAmount, amount_earned: commAmount, status: 'paid', paid_at: new Date().toISOString(),
         }, { onConflict: 'referrer_id,referee_id,date', ignoreDuplicates: false });
+        console.log(`[Referral] First deposit commission of ₹${commAmount} credited to referrer ${referrerId}`);
       }
     }
   }
+
+  // ── 2. REFERRAL DEPOSIT COMMISSION (Disabled: normal referrals only get the one-time first deposit bonus) ──
 
   // ── 3. AFFILIATE DEPOSIT COMMISSION ──
   if (profile.affiliate_id && config.affiliate_program_active) {
@@ -3416,6 +3409,40 @@ router.post('/affiliate-payouts/:id/reject', requireRole('super_admin', 'admin')
     await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'reject_affiliate_payout', target_type: 'affiliate', target_id: payout.affiliate_id, description: `Rejected payout: ${reason}`, ip_address: req.ip });
     res.json({ message: 'Payout rejected, commissions restored to pending' });
   } catch (err) { res.status(500).json({ error: 'Failed to reject payout' }); }
+});
+
+// ── Get Feed Status ──
+router.get('/feed-status', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { getFeedStatus } = require('../ws/priceEngine');
+    const status = getFeedStatus();
+    res.json({ success: true, status });
+  } catch (err) {
+    res.status(500).json({ error: `Failed to retrieve feed status: ${err.message}` });
+  }
+});
+
+// ── Reset Shoonya Feed Circuit Breaker ──
+router.post('/feed/shoonya/reset', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { shoonyaFeed } = require('../services/shoonyaFeed');
+    if (shoonyaFeed && typeof shoonyaFeed.resetCircuitBreaker === 'function') {
+      const success = shoonyaFeed.resetCircuitBreaker();
+      if (success) {
+        await supabaseAdmin.from('audit_logs').insert({
+          admin_id: req.admin.id,
+          action: 'reset_shoonya_feed',
+          target_type: 'system',
+          description: 'Manually reset Shoonya Feed circuit breaker and triggered reconnect.',
+          ip_address: req.ip
+        });
+        return res.json({ success: true, message: 'Shoonya feed circuit breaker reset and reconnection triggered.' });
+      }
+    }
+    res.status(400).json({ error: 'Shoonya feed is not active or cannot be reset.' });
+  } catch (err) {
+    res.status(500).json({ error: `Failed to reset Shoonya feed: ${err.message}` });
+  }
 });
 
 module.exports = router;

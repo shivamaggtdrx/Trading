@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   Home, Layers, CandlestickChart, ClipboardList, User, LogOut,
   Moon, Sun, Wallet, FileText, Headphones, Settings,
@@ -33,6 +33,7 @@ export default function AppLayout() {
   const toasts = useTradeStore((s) => s.toasts || []);
   const removeToast = useTradeStore((s) => s.removeToast);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -218,14 +219,36 @@ export default function AppLayout() {
         {/* Main Content Area — hidden on desktop when watchlist is expanded */}
         {!isWatchlistExpanded && (
           <main className="flex-1 overflow-y-auto w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface">
-            <Outlet />
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="w-full h-full"
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
           </main>
         )}
 
         {/* Mobile always gets Outlet even if expanded (sidebar hidden on mobile) */}
         {isWatchlistExpanded && (
           <main className="flex-1 overflow-y-auto w-full max-w-lg pb-16 bg-surface lg:hidden">
-            <Outlet />
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="w-full h-full"
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
           </main>
         )}
       </div>

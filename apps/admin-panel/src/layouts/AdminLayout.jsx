@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -27,7 +27,10 @@ import {
   Menu,
   X,
   Share2,
-  Banknote
+  Banknote,
+  Radio,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -71,6 +74,7 @@ const navigation = [
 
   // ── Admin-Only: System Controls ──
   { name: 'Instruments', href: '/instruments', icon: Activity, dept: 'admin' },
+  { name: 'Live Feed Status', href: '/feed-status', icon: Radio, dept: 'admin' },
   { name: 'Market Control', href: '/market-control', icon: Clock, dept: 'admin' },
   { name: 'Referral & Affiliates', href: '/affiliates', icon: Share2, dept: 'admin' },
   { name: 'Affiliate Payouts', href: '/affiliate-payouts', icon: Banknote, dept: ['admin', 'finance'] },
@@ -111,6 +115,36 @@ export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('admin_theme');
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      setIsDark(true);
+    } else if (savedTheme === 'light') {
+      document.documentElement.classList.remove('dark');
+      setIsDark(false);
+    } else {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (prefersDark) {
+        document.documentElement.classList.add('dark');
+        setIsDark(true);
+      }
+    }
+  }, []);
+
+  const toggleDarkMode = () => {
+    if (isDark) {
+      document.documentElement.classList.remove('dark');
+      setIsDark(false);
+      localStorage.setItem('admin_theme', 'light');
+    } else {
+      document.documentElement.classList.add('dark');
+      setIsDark(true);
+      localStorage.setItem('admin_theme', 'dark');
+    }
+  };
 
   const dept = user?.department || 'admin';
   const deptCfg = DEPT_CONFIG[dept] || DEPT_CONFIG.admin;
@@ -244,6 +278,15 @@ export default function AdminLayout() {
               </div>
               
               <div className="flex items-center gap-2 sm:gap-3">
+                {/* Theme Toggle */}
+                <button
+                  onClick={toggleDarkMode}
+                  className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                  title="Toggle Theme"
+                >
+                  {isDark ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5" />}
+                </button>
+
                 <div className="text-right hidden sm:block">
                   <div className="text-sm font-medium text-gray-900">{user?.name || 'Admin'}</div>
                   <div className="text-xs text-gray-500">{user?.role || 'Unknown'}</div>
