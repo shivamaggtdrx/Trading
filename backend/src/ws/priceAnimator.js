@@ -28,8 +28,8 @@ const ANIMATION_INTERVAL_MS = 250;     // ~4 updates per second (natural, not fa
 const MICRO_VARIATION_PCT = 0.00008;   // ±0.008% max variation from anchor
 const SPREAD_VARIATION_PCT = 0.00004;  // Bid/ask spread micro-variation
 
-// Only animate these exchanges — Finnhub (US/Forex) included to ensure smooth price movement
-const ANIMATABLE_EXCHANGES = new Set(['NSE', 'NSE_INDEX', 'CRYPTO', 'BINANCE', 'MCX', 'US', 'FOREX']);
+// Only animate these exchanges — Finnhub (US/Forex/Indices) included to ensure smooth price movement
+const ANIMATABLE_EXCHANGES = new Set(['NSE', 'NSE_INDEX', 'CRYPTO', 'BINANCE', 'MCX', 'US', 'FOREX', 'INDEX']);
 
 // ── State ──
 const anchorPrices = new Map();   // symbol → { price, bid, ask, high, low, open, prev_close, change, changePct, volume, exchange, timestamp }
