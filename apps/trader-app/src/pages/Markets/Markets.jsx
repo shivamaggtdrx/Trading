@@ -208,7 +208,7 @@ export default function Markets() {
 
   return (
     <div className="flex flex-col h-full bg-surface min-h-screen" {...containerProps}>
-      <PullIndicator isRefreshing={isRefreshing} pullProgress={pullProgress} />
+      <PullIndicator isRefreshing={isRefreshing} progress={pullProgress} />
       {/* ── Top Ticker Bar ── */}
       <div className="flex items-center justify-between px-3 py-2 bg-surface-2 border-b border-border lg:hidden">
         <div className="flex items-center gap-1">

@@ -79,22 +79,23 @@ export function usePullToRefresh(onRefresh, { threshold = 80, enabled = true } =
 /**
  * PullIndicator — the spinning/loading indicator shown during pull
  */
-export function PullIndicator({ progress, isRefreshing }) {
-  if (progress === 0 && !isRefreshing) return null;
+export function PullIndicator({ progress, pullProgress, isRefreshing }) {
+  const actualProgress = progress !== undefined ? progress : (pullProgress !== undefined ? pullProgress : 0);
+  if (actualProgress === 0 && !isRefreshing) return null;
 
   return (
     <div
       className="absolute top-0 left-0 right-0 flex items-center justify-center pointer-events-none z-10"
       style={{
         height: 48,
-        transform: `translateY(${isRefreshing ? 0 : (progress - 1) * 48}px)`,
+        transform: `translateY(${isRefreshing ? 0 : (actualProgress - 1) * 48}px)`,
         transition: isRefreshing ? 'none' : 'transform 0.3s ease',
       }}
     >
       <div
         className={`w-7 h-7 rounded-full border-2 border-gray-300 border-t-[#f06428] ${isRefreshing ? 'animate-spin' : ''}`}
         style={{
-          transform: isRefreshing ? undefined : `rotate(${progress * 360}deg)`,
+          transform: isRefreshing ? undefined : `rotate(${actualProgress * 360}deg)`,
         }}
       />
     </div>
