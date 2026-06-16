@@ -25,6 +25,7 @@ const depositRoutes = require('./routes/deposits');
 const withdrawalRoutes = require('./routes/withdrawals');
 const bankAccountRoutes = require('./routes/bankAccounts');
 const adminRoutes = require('./routes/admin');
+const referralRoutes = require('./routes/referral');
 
 // ── Import WebSocket ──
 const { initSocketServer } = require('./ws/socketServer');
@@ -201,6 +202,7 @@ app.use('/api/deposits', depositRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
 app.use('/api/bank-accounts', bankAccountRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/referral', referralRoutes);
 
 // Optional fallback route for testing Sentry
 app.get('/debug-sentry', function mainHandler(req, res) {

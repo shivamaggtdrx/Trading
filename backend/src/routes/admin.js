@@ -370,12 +370,101 @@ router.post('/deposits/:id/approve', requireRole('super_admin', 'admin', 'financ
       cache.delete(`wallet:${deposit.user_id}`);
     } catch (e) {}
 
+    // ── POST-APPROVAL HOOKS: referral bonus + affiliate/referral commissions ──
+    setImmediate(() => _handleDepositCommissionHooks(deposit.user_id, deposit.id, parseFloat(deposit.amount)).catch(e => console.error('[Commission Hook Error]', e.message)));
+
     res.json({ message: 'Deposit approved and credited', new_balance: newBalance });
   } catch (err) {
     console.error('Deposit approval error:', err);
     res.status(500).json({ error: 'Failed to approve deposit' });
   }
 });
+
+/**
+ * _handleDepositCommissionHooks
+ * Non-blocking hook called after deposit approval:
+ *   1. Credits referral signup bonus on first deposit
+ *   2. Credits referral deposit commission to referrer bonus_balance
+ *   3. Credits affiliate deposit commission to affiliate ledger
+ */
+async function _handleDepositCommissionHooks(userId, depositId, depositAmount) {
+  const { data: config } = await supabaseAdmin.from('referral_reward_config').select('*').eq('id', 1).single();
+  if (!config) return;
+
+  const { data: profile } = await supabaseAdmin
+    .from('profiles').select('referred_by, affiliate_id').eq('id', userId).single();
+  if (!profile) return;
+
+  // Check if this is the user's first deposit
+  const { count: prevCount } = await supabaseAdmin
+    .from('deposit_requests').select('*', { count: 'exact', head: true })
+    .eq('user_id', userId).eq('status', 'approved').neq('id', depositId);
+  const isFirstDeposit = (prevCount || 0) === 0;
+
+  // ── 1. REFERRAL SIGNUP BONUS (first deposit only) ──
+  if (isFirstDeposit && config.referral_program_active && profile.referred_by) {
+    const { data: bonusEvent } = await supabaseAdmin
+      .from('referral_bonus_events').select('id').eq('referee_id', userId).eq('status', 'pending').maybeSingle();
+    if (bonusEvent) {
+      await supabaseAdmin.rpc('credit_referral_bonus', { p_event_id: bonusEvent.id, p_deposit_id: depositId });
+      console.log(`[Referral] Signup bonus credited → referee ${userId}`);
+    }
+  }
+
+  // ── 2. REFERRAL DEPOSIT COMMISSION (to referrer bonus_balance) ──
+  if (profile.referred_by && config.referral_program_active && parseFloat(config.referral_deposit_commission_pct) > 0) {
+    const { count: refCount } = await supabaseAdmin
+      .from('profiles').select('*', { count: 'exact', head: true }).eq('referred_by', profile.referred_by);
+    const { data: tiers } = await supabaseAdmin
+      .from('referral_tiers').select('*').eq('is_active', true).order('sort_order');
+    const activeTier = (tiers || []).find(t => (refCount || 0) >= t.min_referrals && (t.max_referrals == null || (refCount || 0) < t.max_referrals));
+    const commPct = parseFloat(activeTier?.deposit_commission_pct ?? config.referral_deposit_commission_pct);
+    const commAmount = Math.round((depositAmount * commPct / 100) * 100) / 100;
+    if (commAmount > 0) {
+      const { data: rWallet } = await supabaseAdmin.from('wallets').select('balance, bonus_balance, bonus_turnover_required').eq('user_id', profile.referred_by).single();
+      if (rWallet) {
+        const newBonus = parseFloat(rWallet.bonus_balance || 0) + commAmount;
+        const newTurnover = parseFloat(rWallet.bonus_turnover_required || 0) + (commAmount * parseFloat(config.bonus_turnover_multiplier || 5));
+        await supabaseAdmin.from('wallets').update({ bonus_balance: newBonus, bonus_turnover_required: newTurnover }).eq('user_id', profile.referred_by);
+        await supabaseAdmin.from('wallet_transactions').insert({
+          user_id: profile.referred_by, type: 'bonus', amount: commAmount,
+          balance_after: rWallet.balance, reference_id: depositId,
+          reference_type: 'referral_deposit_commission',
+          description: `Referral deposit commission (${commPct}% of ₹${depositAmount} deposit)`,
+        });
+        // Log in referral_commissions for tracking
+        const today = new Date().toISOString().split('T')[0];
+        await supabaseAdmin.from('referral_commissions').upsert({
+          referrer_id: profile.referred_by, referee_id: userId, date: today,
+          trade_volume: depositAmount, amount_earned: commAmount, status: 'paid', paid_at: new Date().toISOString(),
+        }, { onConflict: 'referrer_id,referee_id,date', ignoreDuplicates: false });
+      }
+    }
+  }
+
+  // ── 3. AFFILIATE DEPOSIT COMMISSION ──
+  if (profile.affiliate_id && config.affiliate_program_active) {
+    const { data: aff } = await supabaseAdmin
+      .from('affiliate_accounts').select('id, deposit_commission_pct, status, pending_balance, total_earnings')
+      .eq('id', profile.affiliate_id).single();
+    if (aff && aff.status === 'active') {
+      const commPct = parseFloat(aff.deposit_commission_pct ?? config.affiliate_default_deposit_pct);
+      const commAmount = Math.round((depositAmount * commPct / 100) * 100) / 100;
+      if (commAmount > 0) {
+        await supabaseAdmin.from('affiliate_commissions').insert({
+          affiliate_id: aff.id, referred_user_id: userId, commission_type: 'deposit',
+          source_id: depositId, source_amount: depositAmount,
+          commission_pct: commPct, commission_amount: commAmount, status: 'pending',
+        });
+        await supabaseAdmin.from('affiliate_accounts').update({
+          pending_balance: parseFloat(aff.pending_balance || 0) + commAmount,
+          total_earnings: parseFloat(aff.total_earnings || 0) + commAmount,
+        }).eq('id', aff.id);
+        console.log(`[Affiliate] Commission ₹${commAmount} → affiliate ${aff.id}`);
+      }
+    }
+  }
+}
 
 router.post('/deposits/:id/reject', requireRole('super_admin', 'admin', 'finance'), async (req, res) => {
   try {
@@ -2771,7 +2860,8 @@ router.post('/calculate-brokerage', async (req, res) => {
   const { symbol, qty, price, segment } = req.body;
   // Basic mock calculator logic mimicking real
   const turnover = qty * price;
-  const brokerage = turnover * 0.0003; // 0.03%
+  const brokerage = 0; // Brokerage set to 0
+
   const stt = segment === 'Equity Delivery' ? turnover * 0.001 : turnover * 0.00025;
   const exc = turnover * 0.0000345;
   const gst = (brokerage + exc) * 0.18;
@@ -3054,6 +3144,278 @@ router.put('/payment-methods/:slot', requireRole('super_admin', 'admin'), async 
     console.error('Update payment method error:', err);
     res.status(500).json({ error: 'Failed to update payment method: ' + err.message });
   }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════
+// REFERRAL & AFFILIATE SYSTEM — ADMIN ROUTES
+// ═══════════════════════════════════════════════════════════════════
+
+// ── Referral Config ──
+router.get('/referrals/config', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin.from('referral_reward_config').select('*').eq('id', 1).single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ config: data });
+  } catch (err) { res.status(500).json({ error: 'Failed to fetch referral config' }); }
+});
+
+router.put('/referrals/config', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const allowed = [
+      'signup_bonus_referrer','signup_bonus_referee','bonus_turnover_multiplier',
+      'referral_trade_commission_pct','referral_deposit_commission_pct',
+      'affiliate_default_deposit_pct','affiliate_default_trade_pct',
+      'referral_program_active','affiliate_program_active','affiliate_payout_cycle'
+    ];
+    const updates = {};
+    for (const key of allowed) { if (req.body[key] !== undefined) updates[key] = req.body[key]; }
+    updates.updated_at = new Date().toISOString();
+    updates.updated_by = req.admin.id;
+    const { data, error } = await supabaseAdmin.from('referral_reward_config').update(updates).eq('id', 1).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'update_referral_config', target_type: 'system', target_id: 'referral_config', description: `Updated referral config: ${JSON.stringify(updates)}`, ip_address: req.ip });
+    res.json({ message: 'Referral config updated', config: data });
+  } catch (err) { res.status(500).json({ error: 'Failed to update config' }); }
+});
+
+// ── Referral Tiers ──
+router.get('/referrals/tiers', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { data } = await supabaseAdmin.from('referral_tiers').select('*').order('sort_order');
+    res.json({ tiers: data || [] });
+  } catch (err) { res.status(500).json({ error: 'Failed to fetch tiers' }); }
+});
+
+router.put('/referrals/tiers/:id', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { name, min_referrals, max_referrals, deposit_commission_pct, trade_commission_pct, signup_bonus_referrer_override, signup_bonus_referee_override, display_color, is_active } = req.body;
+    const { data, error } = await supabaseAdmin.from('referral_tiers').update({ name, min_referrals, max_referrals, deposit_commission_pct, trade_commission_pct, signup_bonus_referrer_override, signup_bonus_referee_override, display_color, is_active }).eq('id', req.params.id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'update_referral_tier', target_type: 'system', target_id: req.params.id, description: `Updated referral tier ${name}`, ip_address: req.ip });
+    res.json({ tier: data });
+  } catch (err) { res.status(500).json({ error: 'Failed to update tier' }); }
+});
+
+// ── Referral Overview Stats ──
+router.get('/referrals/overview', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const [{ count: totalReferrals }, { count: pendingBonus }, { count: creditedBonus }, { data: commissions }, { count: totalAffiliates }, { data: affiliateComms }] = await Promise.all([
+      supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).not('referred_by', 'is', null),
+      supabaseAdmin.from('referral_bonus_events').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabaseAdmin.from('referral_bonus_events').select('*', { count: 'exact', head: true }).eq('status', 'credited'),
+      supabaseAdmin.from('referral_commissions').select('amount_earned'),
+      supabaseAdmin.from('affiliate_accounts').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      supabaseAdmin.from('affiliate_commissions').select('commission_amount, commission_type, status'),
+    ]);
+    const totalRefCommissions = (commissions || []).reduce((s, c) => s + parseFloat(c.amount_earned || 0), 0);
+    const totalAffDeposit = (affiliateComms || []).filter(c => c.commission_type === 'deposit').reduce((s, c) => s + parseFloat(c.commission_amount || 0), 0);
+    const totalAffTrade = (affiliateComms || []).filter(c => c.commission_type === 'trade').reduce((s, c) => s + parseFloat(c.commission_amount || 0), 0);
+    const pendingAffPayout = (affiliateComms || []).filter(c => c.status === 'pending').reduce((s, c) => s + parseFloat(c.commission_amount || 0), 0);
+    res.json({ total_referrals: totalReferrals || 0, pending_bonus_events: pendingBonus || 0, credited_bonus_events: creditedBonus || 0, total_referral_commissions: totalRefCommissions, total_affiliates_active: totalAffiliates || 0, total_affiliate_deposit_commissions: totalAffDeposit, total_affiliate_trade_commissions: totalAffTrade, pending_affiliate_payouts: pendingAffPayout });
+  } catch (err) { res.status(500).json({ error: 'Failed to fetch overview' }); }
+});
+
+// ── Referral Bonus Events Log ──
+router.get('/referrals/bonus-events', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { status, page = 1, limit = 50 } = req.query;
+    const offset = (page - 1) * limit;
+    let q = supabaseAdmin.from('referral_bonus_events').select('*, referrer:profiles!referral_bonus_events_referrer_id_fkey(full_name,client_id), referee:profiles!referral_bonus_events_referee_id_fkey(full_name,client_id)', { count: 'exact' }).order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+    if (status) q = q.eq('status', status);
+    const { data, count, error } = await q;
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ events: data || [], total: count || 0 });
+  } catch (err) { res.status(500).json({ error: 'Failed to fetch bonus events' }); }
+});
+
+// ═══════════════════════════════════════════
+// AFFILIATE ACCOUNT MANAGEMENT
+// ═══════════════════════════════════════════
+
+router.get('/affiliates', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { status, page = 1, limit = 50 } = req.query;
+    const offset = (page - 1) * limit;
+    let q = supabaseAdmin.from('affiliate_accounts').select('*, affiliate_tiers(name, display_color)', { count: 'exact' }).order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+    if (status) q = q.eq('status', status);
+    const { data, count, error } = await q;
+    if (error) return res.status(500).json({ error: error.message });
+    // Enrich with referred user count
+    const enriched = await Promise.all((data || []).map(async (aff) => {
+      const { count: refCount } = await supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).eq('affiliate_id', aff.id);
+      return { ...aff, referred_users_count: refCount || 0 };
+    }));
+    res.json({ affiliates: enriched, total: count || 0 });
+  } catch (err) { res.status(500).json({ error: 'Failed to fetch affiliates' }); }
+});
+
+router.post('/affiliates', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { name, email, phone, platform, channel_url, subscriber_count, affiliate_code, deposit_commission_pct, trade_commission_pct, tier_id, bank_name, bank_account_number, bank_ifsc, upi_id, notes } = req.body;
+    if (!name || !email || !affiliate_code) return res.status(400).json({ error: 'name, email, and affiliate_code are required' });
+    // Check code uniqueness
+    const { data: existing } = await supabaseAdmin.from('affiliate_accounts').select('id').eq('affiliate_code', affiliate_code.toUpperCase()).maybeSingle();
+    if (existing) return res.status(409).json({ error: 'Affiliate code already exists' });
+    const { data, error } = await supabaseAdmin.from('affiliate_accounts').insert({ name, email, phone, platform: platform || 'other', channel_url, subscriber_count: subscriber_count || 0, affiliate_code: affiliate_code.toUpperCase(), deposit_commission_pct: deposit_commission_pct || 3, trade_commission_pct: trade_commission_pct || 0.5, tier_id: tier_id || null, bank_name, bank_account_number, bank_ifsc, upi_id, notes, status: 'active', created_by: req.admin.id }).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'create_affiliate', target_type: 'affiliate', target_id: data.id, description: `Created affiliate ${name} with code ${affiliate_code}`, ip_address: req.ip });
+    res.status(201).json({ affiliate: data });
+  } catch (err) { res.status(500).json({ error: 'Failed to create affiliate' }); }
+});
+
+router.get('/affiliates/:id', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { data: aff, error } = await supabaseAdmin.from('affiliate_accounts').select('*, affiliate_tiers(*)').eq('id', req.params.id).single();
+    if (error || !aff) return res.status(404).json({ error: 'Affiliate not found' });
+    const [{ data: commissions }, { count: refCount }, { data: payouts }] = await Promise.all([
+      supabaseAdmin.from('affiliate_commissions').select('*').eq('affiliate_id', req.params.id).order('created_at', { ascending: false }).limit(100),
+      supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).eq('affiliate_id', req.params.id),
+      supabaseAdmin.from('affiliate_payout_requests').select('*').eq('affiliate_id', req.params.id).order('created_at', { ascending: false }).limit(20),
+    ]);
+    res.json({ affiliate: aff, commissions: commissions || [], referred_users_count: refCount || 0, payouts: payouts || [] });
+  } catch (err) { res.status(500).json({ error: 'Failed to fetch affiliate' }); }
+});
+
+router.put('/affiliates/:id', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { name, email, phone, platform, channel_url, subscriber_count, deposit_commission_pct, trade_commission_pct, tier_id, status, bank_name, bank_account_number, bank_ifsc, upi_id, notes, next_payout_date } = req.body;
+    const updates = {};
+    const fields = { name, email, phone, platform, channel_url, subscriber_count, deposit_commission_pct, trade_commission_pct, tier_id, status, bank_name, bank_account_number, bank_ifsc, upi_id, notes, next_payout_date };
+    for (const [k, v] of Object.entries(fields)) { if (v !== undefined) updates[k] = v; }
+    const { data, error } = await supabaseAdmin.from('affiliate_accounts').update(updates).eq('id', req.params.id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'update_affiliate', target_type: 'affiliate', target_id: req.params.id, description: `Updated affiliate: ${JSON.stringify(updates)}`, ip_address: req.ip });
+    res.json({ affiliate: data });
+  } catch (err) { res.status(500).json({ error: 'Failed to update affiliate' }); }
+});
+
+// ── Affiliate Tiers ──
+router.get('/affiliate-tiers', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { data } = await supabaseAdmin.from('affiliate_tiers').select('*').order('sort_order');
+    res.json({ tiers: data || [] });
+  } catch (err) { res.status(500).json({ error: 'Failed to fetch affiliate tiers' }); }
+});
+
+router.put('/affiliate-tiers/:id', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { name, description, default_deposit_pct, default_trade_pct, min_referred_users, display_color, is_active } = req.body;
+    const { data, error } = await supabaseAdmin.from('affiliate_tiers').update({ name, description, default_deposit_pct, default_trade_pct, min_referred_users, display_color, is_active }).eq('id', req.params.id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ tier: data });
+  } catch (err) { res.status(500).json({ error: 'Failed to update affiliate tier' }); }
+});
+
+// ── Commission Ledger ──
+router.get('/affiliate-commissions', requireRole('super_admin', 'admin', 'finance'), async (req, res) => {
+  try {
+    const { affiliate_id, commission_type, status, page = 1, limit = 100 } = req.query;
+    const offset = (page - 1) * limit;
+    let q = supabaseAdmin.from('affiliate_commissions')
+      .select('*, affiliate_accounts(name, affiliate_code), profiles!affiliate_commissions_referred_user_id_fkey(full_name, client_id)', { count: 'exact' })
+      .order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+    if (affiliate_id) q = q.eq('affiliate_id', affiliate_id);
+    if (commission_type) q = q.eq('commission_type', commission_type);
+    if (status) q = q.eq('status', status);
+    const { data, count, error } = await q;
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ commissions: data || [], total: count || 0 });
+  } catch (err) { res.status(500).json({ error: 'Failed to fetch commissions' }); }
+});
+
+// ═══════════════════════════════════════════
+// AFFILIATE PAYOUT REQUESTS
+// ═══════════════════════════════════════════
+
+router.get('/affiliate-payouts', requireRole('super_admin', 'admin', 'finance'), async (req, res) => {
+  try {
+    const { status, affiliate_id, page = 1, limit = 50 } = req.query;
+    const offset = (page - 1) * limit;
+    let q = supabaseAdmin.from('affiliate_payout_requests')
+      .select('*, affiliate_accounts(name, affiliate_code, email, pending_balance)', { count: 'exact' })
+      .order('requested_at', { ascending: false }).range(offset, offset + limit - 1);
+    if (status) q = q.eq('status', status);
+    if (affiliate_id) q = q.eq('affiliate_id', affiliate_id);
+    const { data, count, error } = await q;
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ payouts: data || [], total: count || 0 });
+  } catch (err) { res.status(500).json({ error: 'Failed to fetch payouts' }); }
+});
+
+router.get('/affiliate-payouts/:id', requireRole('super_admin', 'admin', 'finance'), async (req, res) => {
+  try {
+    const { data: payout } = await supabaseAdmin.from('affiliate_payout_requests').select('*, affiliate_accounts(*)').eq('id', req.params.id).single();
+    if (!payout) return res.status(404).json({ error: 'Payout not found' });
+    const { data: commissions } = await supabaseAdmin.from('affiliate_commissions').select('*').eq('payout_id', req.params.id);
+    res.json({ payout, commissions: commissions || [] });
+  } catch (err) { res.status(500).json({ error: 'Failed to fetch payout detail' }); }
+});
+
+// Admin creates payout request on behalf of affiliate (or affiliate submits via API)
+router.post('/affiliate-payouts', requireRole('super_admin', 'admin', 'finance'), async (req, res) => {
+  try {
+    const { affiliate_id, period_start, period_end } = req.body;
+    if (!affiliate_id || !period_start || !period_end) return res.status(400).json({ error: 'affiliate_id, period_start, period_end required' });
+    // Get pending commissions in that period
+    const { data: pendingComms } = await supabaseAdmin.from('affiliate_commissions')
+      .select('id, commission_amount').eq('affiliate_id', affiliate_id).eq('status', 'pending')
+      .gte('created_at', period_start).lte('created_at', period_end + 'T23:59:59Z');
+    if (!pendingComms || pendingComms.length === 0) return res.status(400).json({ error: 'No pending commissions in this period' });
+    const total = pendingComms.reduce((s, c) => s + parseFloat(c.commission_amount || 0), 0);
+    const { data: payout, error } = await supabaseAdmin.from('affiliate_payout_requests').insert({ affiliate_id, period_start, period_end, total_amount: total, commission_count: pendingComms.length, status: 'pending' }).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    // Mark commissions as included
+    await supabaseAdmin.from('affiliate_commissions').update({ status: 'included_in_payout', payout_id: payout.id }).in('id', pendingComms.map(c => c.id));
+    await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'create_affiliate_payout', target_type: 'affiliate', target_id: affiliate_id, description: `Created payout request for ₹${total} (${pendingComms.length} commissions)`, ip_address: req.ip });
+    res.status(201).json({ payout });
+  } catch (err) { res.status(500).json({ error: 'Failed to create payout request' }); }
+});
+
+router.post('/affiliate-payouts/:id/approve', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { notes } = req.body;
+    const { data: payout } = await supabaseAdmin.from('affiliate_payout_requests').select('*').eq('id', req.params.id).eq('status', 'pending').single();
+    if (!payout) return res.status(404).json({ error: 'Pending payout not found' });
+    await supabaseAdmin.from('affiliate_payout_requests').update({ status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: req.admin.id, notes: notes || null }).eq('id', req.params.id);
+    await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'approve_affiliate_payout', target_type: 'affiliate', target_id: payout.affiliate_id, description: `Approved payout ₹${payout.total_amount}`, ip_address: req.ip });
+    res.json({ message: 'Payout approved' });
+  } catch (err) { res.status(500).json({ error: 'Failed to approve payout' }); }
+});
+
+router.post('/affiliate-payouts/:id/pay', requireRole('super_admin', 'admin', 'finance'), async (req, res) => {
+  try {
+    const { payment_method, payment_reference, payment_date, notes } = req.body;
+    if (!payment_method || !payment_reference) return res.status(400).json({ error: 'payment_method and payment_reference required' });
+    const { data: payout } = await supabaseAdmin.from('affiliate_payout_requests').select('*').eq('id', req.params.id).eq('status', 'approved').single();
+    if (!payout) return res.status(404).json({ error: 'Approved payout not found' });
+    await supabaseAdmin.from('affiliate_payout_requests').update({ status: 'paid', payment_method, payment_reference, payment_date: payment_date || new Date().toISOString().split('T')[0], paid_at: new Date().toISOString(), paid_by: req.admin.id, notes }).eq('id', req.params.id);
+    // Mark commissions as paid
+    await supabaseAdmin.from('affiliate_commissions').update({ status: 'paid' }).eq('payout_id', req.params.id);
+    // Deduct from affiliate pending_balance, add to total_paid
+    const { data: aff } = await supabaseAdmin.from('affiliate_accounts').select('pending_balance, total_paid').eq('id', payout.affiliate_id).single();
+    if (aff) {
+      await supabaseAdmin.from('affiliate_accounts').update({
+        pending_balance: Math.max(0, parseFloat(aff.pending_balance || 0) - parseFloat(payout.total_amount)),
+        total_paid: parseFloat(aff.total_paid || 0) + parseFloat(payout.total_amount),
+      }).eq('id', payout.affiliate_id);
+    }
+    await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'pay_affiliate_payout', target_type: 'affiliate', target_id: payout.affiliate_id, description: `Paid ₹${payout.total_amount} via ${payment_method} (ref: ${payment_reference})`, ip_address: req.ip });
+    res.json({ message: 'Payout marked as paid' });
+  } catch (err) { res.status(500).json({ error: 'Failed to mark payout as paid' }); }
+});
+
+router.post('/affiliate-payouts/:id/reject', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const { data: payout } = await supabaseAdmin.from('affiliate_payout_requests').select('*').eq('id', req.params.id).in('status', ['pending','approved']).single();
+    if (!payout) return res.status(404).json({ error: 'Payout not found' });
+    await supabaseAdmin.from('affiliate_payout_requests').update({ status: 'rejected', reject_reason: reason, reviewed_at: new Date().toISOString(), reviewed_by: req.admin.id }).eq('id', req.params.id);
+    // Revert commissions back to pending
+    await supabaseAdmin.from('affiliate_commissions').update({ status: 'pending', payout_id: null }).eq('payout_id', req.params.id);
+    await supabaseAdmin.from('audit_logs').insert({ admin_id: req.admin.id, action: 'reject_affiliate_payout', target_type: 'affiliate', target_id: payout.affiliate_id, description: `Rejected payout: ${reason}`, ip_address: req.ip });
+    res.json({ message: 'Payout rejected, commissions restored to pending' });
+  } catch (err) { res.status(500).json({ error: 'Failed to reject payout' }); }
 });
 
 module.exports = router;

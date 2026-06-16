@@ -5,7 +5,7 @@ import { useTradeStore } from '../../store/useTradeStore';
 import { cn } from '../../utils/helpers';
 
 export default function Header({ title, showNotification = true, showGreeting = false, compact = false }) {
-  const { user, unreadCount } = useTradeStore();
+  const { user, unreadCount, socketConnected } = useTradeStore();
   const navigate = useNavigate();
 
   const [isDark, setIsDark] = useState(false);
@@ -38,6 +38,23 @@ export default function Header({ title, showNotification = true, showGreeting = 
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Connection Indicator */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/60 dark:bg-white/10 border border-border/30 shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className={cn(
+                "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                socketConnected ? "bg-emerald-500" : "bg-red-500"
+              )}></span>
+              <span className={cn(
+                "relative inline-flex rounded-full h-2 w-2",
+                socketConnected ? "bg-emerald-500" : "bg-red-500"
+              )}></span>
+            </span>
+            <span className="text-[10px] font-extrabold tracking-wider uppercase text-text-secondary hidden min-[360px]:inline select-none">
+              {socketConnected ? 'Live' : 'Offline'}
+            </span>
+          </div>
+
           <button onClick={toggleDarkMode} className="p-2 rounded-xl bg-white/60 dark:bg-white/10 hover:bg-surface dark:hover:bg-white/20 transition-colors touch-active-subtle border border-border/30 text-text-secondary">
             {isDark ? <Sun size={18} strokeWidth={1.8} /> : <Moon size={18} strokeWidth={1.8} />}
           </button>

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import Header from '../../components/layout/Header';
 import { useTradeStore } from '../../store/useTradeStore';
-import { formatCurrency, formatPercent, cn } from '../../utils/helpers';
+import { formatCurrency, formatPercent, cn, getMarketStatus } from '../../utils/helpers';
 
 export default function Home() {
   const { positions, instruments, setSelectedInstrument, user } = useTradeStore();
@@ -16,11 +16,7 @@ export default function Home() {
   const totalOpenPnl = positions.reduce((sum, p) => sum + (p.pnl || 0), 0);
 
   // Market status
-  const now = new Date();
-  const hours = now.getHours();
-  const mins = now.getMinutes();
-  const totalMins = hours * 60 + mins;
-  const isMarketOpen = totalMins >= 555 && totalMins <= 930;
+  const isMarketOpen = getMarketStatus('nse_equity').open;
 
   return (
     <div className="page-enter bg-surface min-h-full pb-20 lg:pb-8">

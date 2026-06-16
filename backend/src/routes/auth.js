@@ -41,15 +41,36 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ error: authError.message });
     }
 
-    // 2. Look up referrer if referral code provided
+    // 2. Resolve the referral/affiliate code (if provided)
     let referredBy = null;
+    let affiliateId = null;
+    let affiliateCodeUsed = null;
+    let codeType = null; // 'referral' | 'affiliate' | null
+
     if (referral_code) {
+      const code = referral_code.trim().toUpperCase();
+      // Check referral code first (user's personal code)
       const { data: referrer } = await supabaseAdmin
         .from('profiles')
         .select('id')
-        .eq('referral_code', referral_code.toUpperCase())
-        .single();
-      if (referrer) referredBy = referrer.id;
+        .eq('referral_code', code)
+        .maybeSingle();
+      if (referrer) {
+        referredBy = referrer.id;
+        codeType = 'referral';
+      } else {
+        // Check affiliate code
+        const { data: affiliate } = await supabaseAdmin
+          .from('affiliate_accounts')
+          .select('id, status')
+          .eq('affiliate_code', code)
+          .maybeSingle();
+        if (affiliate && affiliate.status === 'active') {
+          affiliateId = affiliate.id;
+          affiliateCodeUsed = code;
+          codeType = 'affiliate';
+        }
+      }
     }
 
     // 3. Create profile
@@ -61,6 +82,8 @@ router.post('/signup', async (req, res) => {
         email,
         phone: phone || null,
         referred_by: referredBy,
+        affiliate_id: affiliateId,
+        affiliate_code_used: affiliateCodeUsed,
       })
       .select()
       .single();
@@ -71,7 +94,32 @@ router.post('/signup', async (req, res) => {
       return res.status(500).json({ error: 'Failed to create profile: ' + profileError.message });
     }
 
-    // 4. Sign in to get session
+    // 4. Create signup bonus event (ONLY if referral code used — no code = no bonus)
+    if (codeType === 'referral' && referredBy) {
+      try {
+        const { data: config } = await supabaseAdmin
+          .from('referral_reward_config')
+          .select('signup_bonus_referrer, signup_bonus_referee, bonus_turnover_multiplier, referral_program_active')
+          .eq('id', 1)
+          .single();
+        if (config && config.referral_program_active && (config.signup_bonus_referrer > 0 || config.signup_bonus_referee > 0)) {
+          await supabaseAdmin.from('referral_bonus_events').insert({
+            referrer_id: referredBy,
+            referee_id: profile.id,
+            referral_code: referral_code.trim().toUpperCase(),
+            bonus_referrer_amount: config.signup_bonus_referrer || 0,
+            bonus_referee_amount: config.signup_bonus_referee || 0,
+            turnover_required: (config.signup_bonus_referrer || 0) * (config.bonus_turnover_multiplier || 5),
+            status: 'pending',
+          });
+        }
+      } catch (bonusErr) {
+        console.error('[Signup Bonus] Failed to create bonus event:', bonusErr.message);
+        // Non-fatal — user created successfully
+      }
+    }
+
+    // 5. Sign in to get session
     const { data: session, error: signInError } = await supabasePublic.auth.signInWithPassword({
       email, password,
     });
@@ -96,6 +144,7 @@ router.post('/signup', async (req, res) => {
         refresh_token: session.session.refresh_token,
         expires_at: session.session.expires_at,
       },
+      bonus_pending: codeType === 'referral',
     });
   } catch (err) {
     console.error('Signup error:', err);

@@ -277,7 +277,7 @@ async function validateOrder(orderData) {
     try {
       const { data } = await supabaseAdmin
         .from('instruments')
-        .select('segment, trading_enabled, last_price')
+        .select('*')
         .eq('symbol', symbol.toUpperCase())
         .maybeSingle();
       inst = data;

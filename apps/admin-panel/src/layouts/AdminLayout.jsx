@@ -25,7 +25,9 @@ import {
   ShieldAlert,
   LogOut,
   Menu,
-  X
+  X,
+  Share2,
+  Banknote
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -70,6 +72,8 @@ const navigation = [
   // ── Admin-Only: System Controls ──
   { name: 'Instruments', href: '/instruments', icon: Activity, dept: 'admin' },
   { name: 'Market Control', href: '/market-control', icon: Clock, dept: 'admin' },
+  { name: 'Referral & Affiliates', href: '/affiliates', icon: Share2, dept: 'admin' },
+  { name: 'Affiliate Payouts', href: '/affiliate-payouts', icon: Banknote, dept: ['admin', 'finance'] },
   { name: 'Admin Users', href: '/admin-users', icon: UserCog, dept: 'admin' },
   { name: 'Audit Logs', href: '/logs', icon: FileText, dept: 'admin' },
   { name: 'System Config', href: '/settings', icon: Settings, dept: 'admin' },

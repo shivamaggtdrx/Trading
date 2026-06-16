@@ -23,6 +23,8 @@ import AdminUsers from './pages/AdminUsers';
 import HouseBook from './pages/HouseBook';
 import ClientRestrictions from './pages/ClientRestrictions';
 import TradingLimits from './pages/TradingLimits';
+import AffiliateManagement from './pages/AffiliateManagement';
+import AffiliatePayout from './pages/AffiliatePayout';
 
 import OfflineBanner from './components/pwa/OfflineBanner';
 import PWAInstallPrompt from './components/pwa/PWAInstallPrompt';
@@ -75,6 +77,8 @@ function App() {
             <Route path="eod-settlement" element={<EODSettlement />} />
             <Route path="admin-users" element={<AdminUsers />} />
             <Route path="house-book" element={<HouseBook />} />
+            <Route path="affiliates" element={<AffiliateManagement />} />
+            <Route path="affiliate-payouts" element={<AffiliatePayout />} />
           </Route>
 
           {/* Catch-all */}

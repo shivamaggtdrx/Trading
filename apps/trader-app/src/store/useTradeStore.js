@@ -22,6 +22,8 @@ export const useTradeStore = create((set, get) => {
     notifications: [],
     unreadCount: 0,
     notificationsLoading: false,
+    socketConnected: false,
+    toasts: [],
   });
 
   return {
@@ -73,7 +75,9 @@ export const useTradeStore = create((set, get) => {
     getFilteredHistory: () => usePriceStore.getState().getFilteredHistory(),
     startPriceFeed: () => usePriceStore.getState().startPriceFeed(),
     updateSubscriptions: () => usePriceStore.getState().updateSubscriptions(),
+    setSystemBanner: (banner) => usePriceStore.getState().setSystemBanner(banner),
     dismissBanner: () => usePriceStore.getState().dismissBanner(),
+
 
     logout: async () => {
       if (get()._notificationInterval) clearInterval(get()._notificationInterval);
@@ -102,7 +106,9 @@ export const useTradeStore = create((set, get) => {
         _dataSyncInterval: null,
         _visibilityHandler: null,
         _initializing: false,
-        isLoading: false
+        isLoading: false,
+        socketConnected: false,
+        toasts: []
       });
     },
 
@@ -128,6 +134,20 @@ export const useTradeStore = create((set, get) => {
       unreadCount: state.notifications.filter(n => !n.read && n.id !== id).length,
     })),
 
+    addToast: (toast) => {
+      const id = Math.random().toString(36).substring(2, 9);
+      set((state) => ({
+        toasts: [...state.toasts, { id, ...toast }]
+      }));
+      setTimeout(() => {
+        get().removeToast(id);
+      }, toast.duration || 5000);
+    },
+
+    removeToast: (id) => set((state) => ({
+      toasts: state.toasts.filter(t => t.id !== id)
+    })),
+
     // Realtime event handlers
     handleBroadcast: (data) => {
       usePriceStore.getState().setSystemBanner(data);
@@ -139,12 +159,33 @@ export const useTradeStore = create((set, get) => {
       useOrderStore.getState().fetchOrders();
       useWalletStore.getState().fetchWallet();
       soundEffects.playOrderTriggered();
+
+      const order = data?.order || data;
+      const side = (order?.side || 'BUY').toUpperCase();
+      const symbol = order?.symbol || 'Instrument';
+      const qty = order?.quantity || 0;
+      const price = order?.price || 0;
+      get().addToast({
+        title: `Order Filled`,
+        message: `${side} ${qty} ${symbol} @ ₹${price.toLocaleString('en-IN')}`,
+        type: 'success',
+      });
     },
 
     handlePnlUpdate: (pnlData) => {
       usePriceStore.getState().handlePnlUpdate(pnlData);
       if (pnlData && pnlData.marginCallWarning !== undefined) {
+        const prevWarning = useWalletStore.getState().marginCallWarning;
         useWalletStore.setState({ marginCallWarning: pnlData.marginCallWarning });
+        
+        if (pnlData.marginCallWarning && !prevWarning) {
+          get().addToast({
+            title: `Margin Call Warning!`,
+            message: `Margin level is low (${pnlData.marginCallWarning.marginLevel.toFixed(1)}%). Deposit funds immediately to avoid liquidation.`,
+            type: 'warning',
+            duration: 8000,
+          });
+        }
       }
     },
 
@@ -174,10 +215,13 @@ export const useTradeStore = create((set, get) => {
       const user = authStore.user;
       if (user && user.id) {
         connectUserSocket(user.id, {
+          onConnect: () => set({ socketConnected: true }),
+          onDisconnect: () => set({ socketConnected: false }),
           onOrderFilled: (data) => get().handleOrderFilled(data),
           onPnlUpdate: (data) => get().handlePnlUpdate(data),
           onBroadcast: (data) => get().handleBroadcast(data),
         });
+        set({ socketConnected: true });
       }
       
       if (!get()._notificationInterval) {

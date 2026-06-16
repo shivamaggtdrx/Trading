@@ -143,7 +143,7 @@ async function processMarketOrder(data) {
   // ── Margin is already blocked atomically in the API route ──
 
   // ── Step 4: Deduct commission atomically ──
-  const commission = spreadAmount * quantity * 0.01;
+  const commission = 0; // Brokerage set to 0
   if (commission > 0) {
     const { error: commErr } = await supabaseAdmin.rpc('debit_wallet', {
       p_user_id: userId,
@@ -314,7 +314,7 @@ async function fillLimitOrder(data) {
   }
 
   // ── Step 4: Deduct commission atomically ──
-  const commission = spreadAmount * quantity * 0.01;
+  const commission = 0; // Brokerage set to 0
   if (commission > 0) {
     const { error: commErr } = await supabaseAdmin.rpc('debit_wallet', {
       p_user_id: userId,
@@ -404,8 +404,8 @@ async function executeSlTp(data) {
     grossPnl = (entryPrice - exitPrice) * quantity;
   }
 
-  const charges = (spreadAmount * quantity * 0.01) + (totalSwapFees || 0);
-  const netPnl = grossPnl - charges;
+  const charges = 0; // Brokerage and swap/holding fees set to 0
+  const netPnl = grossPnl;
 
   // 2. Close position atomically via DB RPC
   const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc('close_position_atomic', {
@@ -414,9 +414,9 @@ async function executeSlTp(data) {
     p_exit_price: parseFloat(exitPrice),
     p_gross_pnl: parseFloat(grossPnl),
     p_net_pnl: parseFloat(netPnl),
-    p_charges: parseFloat(charges - (totalSwapFees || 0)),
-    p_spread_revenue: parseFloat(spreadAmount * quantity * 0.01),
-    p_swap_revenue: parseFloat(totalSwapFees || 0),
+    p_charges: 0,
+    p_spread_revenue: 0,
+    p_swap_revenue: 0,
     p_close_reason: triggerType.toLowerCase()
   });
 

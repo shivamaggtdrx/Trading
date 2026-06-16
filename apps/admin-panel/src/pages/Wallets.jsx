@@ -153,13 +153,15 @@ export default function Wallets() {
                     <div className="flex items-center capitalize text-gray-700 text-xs font-medium">
                       {tx.type === 'deposit' ? <ArrowDownRight className="h-4 w-4 mr-1 text-green-500" /> : 
                        tx.type === 'withdrawal' ? <ArrowUpRight className="h-4 w-4 mr-1 text-red-500" /> : 
-                       <Plus className="h-4 w-4 mr-1 text-blue-500" />}
-                      {tx.type}
+                       tx.type === 'trade_pnl' ? (
+                         tx.amount >= 0 ? <ArrowDownRight className="h-4 w-4 mr-1 text-green-500" /> : <ArrowUpRight className="h-4 w-4 mr-1 text-red-500" />
+                       ) : <Plus className="h-4 w-4 mr-1 text-blue-500" />}
+                      {tx.type === 'trade_pnl' ? 'Trade P&L' : tx.type}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right font-medium">
-                    <span className={tx.type === 'deposit' || tx.type === 'adjustment' ? 'text-green-600' : 'text-gray-900'}>
-                      {tx.type === 'deposit' ? '+' : tx.type === 'withdrawal' ? '-' : ''}₹{Math.abs(tx.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    <span className={tx.type === 'deposit' || tx.type === 'adjustment' || (tx.type === 'trade_pnl' && tx.amount >= 0) ? 'text-green-600 font-semibold' : ((tx.type === 'withdrawal' || (tx.type === 'trade_pnl' && tx.amount < 0)) ? 'text-red-500 font-semibold' : 'text-gray-900')}>
+                      {tx.type === 'deposit' || (tx.type === 'trade_pnl' && tx.amount >= 0) ? '+' : tx.type === 'withdrawal' || (tx.type === 'trade_pnl' && tx.amount < 0) ? '-' : ''}₹{Math.abs(tx.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </span>
                   </td>
                   <td className="px-6 py-4">

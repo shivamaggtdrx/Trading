@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Clock, CheckCircle2, XCircle, X, Calendar, ClipboardList, Zap, Edit3 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
@@ -170,9 +170,13 @@ function ModifyOrderForm({ order, onClose }) {
 }
 
 export default function Orders() {
-  const { activeOrderTab, setActiveOrderTab, getFilteredOrders, cancelOrder, orders, fetchOrders, positions, updatePositionSlTgt } = useTradeStore();
+  const { activeOrderTab, setActiveOrderTab, getFilteredOrders, cancelOrder, orders, fetchOrders, positions, updatePositionSlTgt, tradeHistory, fetchHistory } = useTradeStore();
   const [cancellingOrder, setCancellingOrder] = useState(null);
   const [modifyingOrder, setModifyingOrder] = useState(null);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
 
   // Synthesize virtual SL/TGT orders from open positions
   const virtualOrders = [];
@@ -214,6 +218,8 @@ export default function Orders() {
   if (activeOrderTab === 'open') {
     filteredOrders = [...dbOrders, ...virtualOrders];
     filteredOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  } else if (activeOrderTab === 'trades') {
+    filteredOrders = tradeHistory;
   }
 
   const openCount = orders.filter((o) => o.status === 'pending').length + virtualOrders.length;
@@ -224,7 +230,7 @@ export default function Orders() {
 
   const { containerProps, isRefreshing, pullProgress } = usePullToRefresh(async () => {
     const fetchPositions = useTradeStore.getState().fetchPositions;
-    await Promise.all([fetchOrders(), fetchWallet(), fetchPositions()]);
+    await Promise.all([fetchOrders(), fetchWallet(), fetchPositions(), fetchHistory()]);
   });
 
   const handleCancelOrder = () => {
@@ -256,21 +262,26 @@ export default function Orders() {
       </div>
 
       <div className="px-4 pb-20">
-        <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="grid grid-cols-4 gap-1.5 mb-3">
           <button onClick={() => setActiveOrderTab('open')}
-            className={cn('bg-surface-2 rounded-xl border p-3 text-left transition-all', activeOrderTab === 'open' ? 'border-amber-500/40' : 'border-border')}>
-            <div className="flex items-center gap-1.5 mb-1"><div className="w-1.5 h-1.5 rounded-full bg-amber-500" /><p className="text-[10px] text-text-muted font-bold uppercase">Open</p></div>
-            <p className={cn('text-xl font-bold tabular-nums', openCount > 0 ? 'text-amber-400' : 'text-text-muted')}>{openCount}</p>
+            className={cn('bg-surface-2 rounded-xl border p-2 text-left transition-all', activeOrderTab === 'open' ? 'border-amber-500/40' : 'border-border')}>
+            <div className="flex items-center gap-1.5 mb-1"><div className="w-1.5 h-1.5 rounded-full bg-amber-500" /><p className="text-[9px] text-text-muted font-bold uppercase">Open</p></div>
+            <p className={cn('text-lg font-bold tabular-nums', openCount > 0 ? 'text-amber-400' : 'text-text-muted')}>{openCount}</p>
           </button>
           <button onClick={() => setActiveOrderTab('filled')}
-            className={cn('bg-surface-2 rounded-xl border p-3 text-left transition-all', activeOrderTab === 'filled' ? 'border-emerald-500/40' : 'border-border')}>
-            <div className="flex items-center gap-1.5 mb-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /><p className="text-[10px] text-text-muted font-bold uppercase">Filled</p></div>
-            <p className="text-xl font-bold text-text-muted tabular-nums">{filledCount}</p>
+            className={cn('bg-surface-2 rounded-xl border p-2 text-left transition-all', activeOrderTab === 'filled' ? 'border-emerald-500/40' : 'border-border')}>
+            <div className="flex items-center gap-1.5 mb-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /><p className="text-[9px] text-text-muted font-bold uppercase">Filled</p></div>
+            <p className="text-lg font-bold text-text-muted tabular-nums">{filledCount}</p>
           </button>
           <button onClick={() => setActiveOrderTab('cancelled')}
-            className={cn('bg-surface-2 rounded-xl border p-3 text-left transition-all', activeOrderTab === 'cancelled' ? 'border-border' : 'border-border')}>
-            <div className="flex items-center gap-1.5 mb-1"><div className="w-1.5 h-1.5 rounded-full bg-gray-500" /><p className="text-[10px] text-text-muted font-bold uppercase">Cancelled</p></div>
-            <p className="text-xl font-bold text-text-muted tabular-nums">{cancelledCount}</p>
+            className={cn('bg-surface-2 rounded-xl border p-2 text-left transition-all', activeOrderTab === 'cancelled' ? 'border-border' : 'border-border')}>
+            <div className="flex items-center gap-1.5 mb-1"><div className="w-1.5 h-1.5 rounded-full bg-gray-500" /><p className="text-[9px] text-text-muted font-bold uppercase">Cancelled</p></div>
+            <p className="text-lg font-bold text-text-muted tabular-nums">{cancelledCount}</p>
+          </button>
+          <button onClick={() => setActiveOrderTab('trades')}
+            className={cn('bg-surface-2 rounded-xl border p-2 text-left transition-all', activeOrderTab === 'trades' ? 'border-blue-500/40' : 'border-border')}>
+            <div className="flex items-center gap-1.5 mb-1"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /><p className="text-[9px] text-text-muted font-bold uppercase">Trades</p></div>
+            <p className={cn('text-lg font-bold tabular-nums', tradeHistory.length > 0 ? 'text-blue-400' : 'text-text-muted')}>{tradeHistory.length}</p>
           </button>
         </div>
 
@@ -278,6 +289,35 @@ export default function Orders() {
           {filteredOrders.length > 0 ? (
             <div className="space-y-2">
               {filteredOrders.map((order) => {
+                if (activeOrderTab === 'trades') {
+                  const trade = order;
+                  const isProfit = trade.pnl >= 0;
+                  return (
+                    <div key={trade.id} className="bg-surface-2 rounded-xl border border-border p-3.5 overflow-hidden">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className={cn('text-[11px] font-bold px-1.5 py-0.5 rounded',
+                            trade.type === 'BUY' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400')}>{trade.type}</span>
+                          <p className="text-sm font-bold text-text-primary">{trade.symbol}</p>
+                          <span className="text-[10px] text-text-muted font-medium px-1.5 py-0.5 bg-surface rounded">REALIZED</span>
+                        </div>
+                        <div className={cn('text-sm font-extrabold tabular-nums', isProfit ? 'text-emerald-400' : 'text-red-400')}>
+                          {isProfit ? '+' : ''}{formatCurrency(trade.pnl)}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div><p className="text-[10px] text-text-muted font-medium uppercase">Qty</p><p className="text-xs font-bold text-text-secondary tabular-nums">{trade.quantity}</p></div>
+                          <div><p className="text-[10px] text-text-muted font-medium uppercase">Entry</p><p className="text-xs font-bold text-text-secondary tabular-nums">{formatPrice(trade.entryPrice)}</p></div>
+                          <div><p className="text-[10px] text-text-muted font-medium uppercase">Exit</p><p className="text-xs font-bold text-text-primary tabular-nums">{formatPrice(trade.exitPrice)}</p></div>
+                          <div><p className="text-[10px] text-text-muted font-medium uppercase">Value</p><p className="text-xs font-bold text-text-secondary tabular-nums">{formatCurrency(trade.exitPrice * trade.quantity)}</p></div>
+                        </div>
+                        <p className="text-[11px] text-text-muted flex items-center gap-1"><Calendar size={8} />{fmtTime(trade.closed_at || trade.closedAt)}</p>
+                      </div>
+                    </div>
+                  );
+                }
+
                 const config = statusConfig[order.status];
                 const StatusIcon = config.icon;
                 const isOpen = order.status === 'pending';
@@ -331,8 +371,16 @@ export default function Orders() {
           ) : (
             <div className="py-16 text-center">
               <ClipboardList size={32} className="mx-auto text-text-muted/30 mb-3" />
-              <p className="text-sm font-semibold text-text-muted">No {activeOrderTab === 'open' ? 'open' : activeOrderTab === 'filled' ? 'filled' : 'cancelled'} orders</p>
-              <p className="text-xs text-text-muted/60 mt-1">{activeOrderTab === 'open' ? 'Place orders from Charts' : 'History appears here'}</p>
+              <p className="text-sm font-semibold text-text-muted">
+                No {activeOrderTab === 'open' ? 'open' : activeOrderTab === 'filled' ? 'filled' : activeOrderTab === 'cancelled' ? 'cancelled' : 'closed'} {activeOrderTab === 'trades' ? 'trades' : 'orders'}
+              </p>
+              <p className="text-xs text-text-muted/60 mt-1">
+                {activeOrderTab === 'open' 
+                  ? 'Place orders from Charts' 
+                  : activeOrderTab === 'trades'
+                    ? 'Realized profit/loss history will appear here'
+                    : 'History appears here'}
+              </p>
             </div>
           )}
         </div>

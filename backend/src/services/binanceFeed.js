@@ -254,7 +254,9 @@ class BinanceFeed extends EventEmitter {
 
     if (this.ws) {
       try {
-        this.ws.removeAllListeners(); // Prevent close event triggering reconnect
+        this.ws.removeAllListeners('close');
+        this.ws.removeAllListeners('message');
+        this.ws.on('error', () => {}); // Catch errors during termination to prevent crashes
         this.ws.terminate();
       } catch (e) {}
       this.ws = null;

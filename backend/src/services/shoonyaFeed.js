@@ -506,8 +506,10 @@ class ShoonyaFeed extends EventEmitter {
 
   _cleanupWebSocket() {
     if (this.ws) {
-      this.ws.removeAllListeners();
       try {
+        this.ws.removeAllListeners('close');
+        this.ws.removeAllListeners('message');
+        this.ws.on('error', () => {}); // Catch errors during termination to prevent crashes
         this.ws.terminate();
       } catch (e) {}
       this.ws = null;

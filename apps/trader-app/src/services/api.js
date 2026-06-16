@@ -436,16 +436,21 @@ let userSocket = null;
 let _onOrderFilled = null;
 let _onPnlUpdate = null;
 let _onBroadcast = null;
+let _onConnect = null;
+let _onDisconnect = null;
 
 /**
  * Connect to the /user namespace for private realtime events.
  * Call this after login with the user's ID.
  */
-export function connectUserSocket(userId, { onOrderFilled, onPnlUpdate, onBroadcast } = {}) {
+export function connectUserSocket(userId, { onOrderFilled, onPnlUpdate, onBroadcast, onConnect, onDisconnect } = {}) {
   if (userSocket && userSocket.connected) {
     _onOrderFilled = onOrderFilled;
     _onPnlUpdate = onPnlUpdate;
     _onBroadcast = onBroadcast;
+    _onConnect = onConnect;
+    _onDisconnect = onDisconnect;
+    if (onConnect) onConnect();
     return;
   }
 
@@ -457,13 +462,17 @@ export function connectUserSocket(userId, { onOrderFilled, onPnlUpdate, onBroadc
   _onOrderFilled = onOrderFilled;
   _onPnlUpdate = onPnlUpdate;
   _onBroadcast = onBroadcast;
+  _onConnect = onConnect;
+  _onDisconnect = onDisconnect;
 
   const API_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:4000';
 
   userSocket = io(`${API_URL}/user`, {
     transports: ['websocket'],
-    auth: {
-      token: getToken()
+    auth: (cb) => {
+      cb({
+        token: getToken()
+      });
     },
     reconnection: true,
     reconnectionAttempts: Infinity,
@@ -475,6 +484,7 @@ export function connectUserSocket(userId, { onOrderFilled, onPnlUpdate, onBroadc
     console.log('🔐 Socket.IO User channel connected');
     // Join private room
     userSocket.emit('USER:JOIN_PRIVATE', userId);
+    if (_onConnect) _onConnect();
   });
 
   // ── Order filled notification from BullMQ worker ──
@@ -496,10 +506,19 @@ export function connectUserSocket(userId, { onOrderFilled, onPnlUpdate, onBroadc
 
   userSocket.on('disconnect', (reason) => {
     console.log('🔐 User channel disconnected:', reason);
+    if (_onDisconnect) _onDisconnect();
   });
 
-  userSocket.on('connect_error', (error) => {
+  userSocket.on('connect_error', async (error) => {
     console.error('Socket.IO User Error:', error);
+    if (error.message && (error.message.includes('Authentication error') || error.message.includes('token'))) {
+      console.log('🔄 Socket.IO Auth error. Attempting to refresh token...');
+      const refreshed = await tryRefreshToken();
+      if (refreshed && userSocket) {
+        console.log('🔄 Token refreshed. Retrying Socket.IO connection...');
+        userSocket.connect();
+      }
+    }
   });
 }
 
@@ -511,6 +530,8 @@ export function disconnectUserSocket() {
   _onOrderFilled = null;
   _onPnlUpdate = null;
   _onBroadcast = null;
+  _onConnect = null;
+  _onDisconnect = null;
 }
 
 // ── Auth helpers ──

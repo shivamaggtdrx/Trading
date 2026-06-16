@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Copy, Check, Users, Gift,
-  Star, Loader2,
+  ArrowLeft, Copy, Check, Users, Gift, Star, Loader2,
+  Clock, Share2, MessageCircle, ChevronRight, AlertCircle,
+  TrendingUp, Zap,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -10,37 +11,34 @@ import { useTradeStore } from '../../store/useTradeStore';
 import { formatCurrency, cn } from '../../utils/helpers';
 import { api } from '../../services/api';
 
-const tiers = [
-  { name: 'Bronze', min: 0, max: 5, commission: '10%', color: 'from-amber-600 to-amber-700' },
-  { name: 'Silver', min: 5, max: 15, commission: '15%', color: 'from-slate-400 to-slate-500' },
-  { name: 'Gold', min: 15, max: 50, commission: '20%', color: 'from-yellow-400 to-amber-500' },
-  { name: 'Platinum', min: 50, max: Infinity, commission: '25%', color: 'from-cyan-400 to-blue-500' },
-];
-
 export default function Referral() {
   const navigate = useNavigate();
   const { user } = useTradeStore();
   const [copiedField, setCopiedField] = useState(null);
-  const [referrals, setReferrals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(null);
+  const [bonusHistory, setBonusHistory] = useState(null);
 
   useEffect(() => {
-    const fetchReferrals = async () => {
+    const load = async () => {
       try {
-        const data = await api.getReferrals();
-        setReferrals(data.referrals || []);
+        const [statsData, histData] = await Promise.all([
+          api.get('/api/referral/my-stats').then(r => r.json()).catch(() => null),
+          api.get('/api/referral/bonus-history').then(r => r.json()).catch(() => null),
+        ]);
+        if (statsData && !statsData.error) setStats(statsData);
+        if (histData && !histData.error) setBonusHistory(histData);
       } catch (err) {
-        console.error('Failed to load referrals:', err);
+        console.error('Failed to load referral data:', err);
       } finally {
         setLoading(false);
       }
     };
-    fetchReferrals();
+    load();
   }, []);
 
-  const totalEarned = referrals.reduce((s, r) => s + (r.earned || 0), 0);
-  const activeReferrals = referrals.filter(r => r.status === 'active').length;
-  const currentTier = tiers.find(t => activeReferrals >= t.min && activeReferrals < t.max) || tiers[0];
+  const referralCode = stats?.referral_code || user?.referralCode || user?.referral_code || '';
+  const referralLink = referralCode ? `https://stockslab.com/register?ref=${referralCode}` : '';
 
   const handleCopy = (text, field) => {
     navigator.clipboard?.writeText(text);
@@ -48,8 +46,30 @@ export default function Referral() {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const referralCode = user?.referralCode || user?.referral_code || '';
-  const referralLink = `https://stockslab.com/register?ref=${referralCode}`;
+  const handleShareWhatsApp = () => {
+    const text = `Join me on StocksLab and start trading! Use my referral code *${referralCode}* to get a signup bonus!\n\n${referralLink}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const tiers = stats?.tiers || [];
+  const currentTier = stats?.current_tier;
+  const referrals = stats?.referrals || [];
+  const totalEarned = stats?.stats?.total_earned || 0;
+  const activeReferrals = stats?.stats?.active_referrals || 0;
+  const pendingBonus = stats?.signup_bonus_pending;
+  const creditedBonus = stats?.signup_bonus_credited;
+
+  if (!stats?.referral_program_active && !loading) {
+    return (
+      <div className="page-enter flex flex-col items-center justify-center min-h-screen px-6 text-center">
+        <div className="w-16 h-16 bg-surface-2 rounded-2xl flex items-center justify-center mb-4">
+          <Gift size={28} className="text-text-muted/40" />
+        </div>
+        <h2 className="text-lg font-bold text-text-primary">Referral Program Paused</h2>
+        <p className="text-sm text-text-muted mt-2">The referral program is temporarily paused. Check back soon!</p>
+      </div>
+    );
+  }
 
   return (
     <div className="page-enter">
@@ -59,11 +79,38 @@ export default function Referral() {
           <button onClick={() => navigate(-1)} className="p-1 rounded-lg hover:bg-surface transition-colors touch-active-subtle">
             <ArrowLeft size={18} className="text-text-primary" />
           </button>
-          <h1 className="text-base font-bold text-text-primary">Refer & Earn</h1>
+          <h1 className="text-base font-bold text-text-primary">Refer &amp; Earn</h1>
         </div>
       </header>
 
-      <div className="px-3 space-y-2.5 pb-3 pt-2">
+      <div className="px-3 space-y-2.5 pb-6 pt-2">
+
+        {/* Pending Bonus Banner */}
+        {pendingBonus && (
+          <div className="bg-gradient-to-r from-amber-500/15 to-orange-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center gap-3">
+            <div className="w-9 h-9 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Clock size={18} className="text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-amber-400">Signup Bonus Pending!</p>
+              <p className="text-xs text-amber-400/70 mt-0.5">{pendingBonus.message}</p>
+            </div>
+            <span className="font-extrabold text-amber-400 tabular-nums text-sm" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              +{formatCurrency(pendingBonus.referee_bonus)}
+            </span>
+          </div>
+        )}
+
+        {creditedBonus && (
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 flex items-center gap-3">
+            <Check size={16} className="text-emerald-400 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-emerald-400">Signup Bonus Credited!</p>
+              <p className="text-xs text-emerald-400/70">+{formatCurrency(creditedBonus.referee_bonus)} added to your bonus wallet</p>
+            </div>
+          </div>
+        )}
+
         {/* Hero Card */}
         <Card padding="p-0" className="overflow-hidden">
           <div className="bg-gradient-to-br from-pink-500 via-rose-500 to-orange-500 p-4 text-white relative overflow-hidden">
@@ -72,96 +119,143 @@ export default function Referral() {
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-2">
                 <Gift size={18} />
-                <span className="text-base font-bold text-white/70 uppercase tracking-wider">Your Referral Code</span>
+                <span className="text-base text-white/70 uppercase tracking-wider font-bold">Your Referral Code</span>
               </div>
-              <div className="flex items-center gap-2 mb-3">
-                <p className="text-xl font-extrabold tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                  {referralCode || '—'}
-                </p>
-                {referralCode && (
-                  <button
-                    onClick={() => handleCopy(referralCode, 'code')}
-                    className="p-1.5 bg-white/15 rounded-lg hover:bg-white/25 transition-colors"
-                  >
-                    {copiedField === 'code' ? <Check size={14} /> : <Copy size={14} />}
-                  </button>
+              {loading ? (
+                <div className="h-8 w-32 bg-white/20 rounded-lg animate-pulse mb-3" />
+              ) : (
+                <div className="flex items-center gap-2 mb-3">
+                  <p className="text-xl font-extrabold tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    {referralCode || '—'}
+                  </p>
+                  {referralCode && (
+                    <button onClick={() => handleCopy(referralCode, 'code')}
+                      className="p-1.5 bg-white/15 rounded-lg hover:bg-white/25 transition-colors">
+                      {copiedField === 'code' ? <Check size={14} /> : <Copy size={14} />}
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-3 text-sm">
+                <div>
+                  <p className="text-white/60 text-xs">Deposit comm.</p>
+                  <p className="font-bold">{stats?.config?.deposit_commission_pct ?? '—'}%</p>
+                </div>
+                <div>
+                  <p className="text-white/60 text-xs">Trade comm.</p>
+                  <p className="font-bold">{stats?.config?.trade_commission_pct ?? '—'}%</p>
+                </div>
+                {stats?.config?.turnover_multiplier && (
+                  <div>
+                    <p className="text-white/60 text-xs">Bonus turnover</p>
+                    <p className="font-bold">{stats.config.turnover_multiplier}x</p>
+                  </div>
                 )}
               </div>
-              <p className="text-base text-white/60">
-                Earn up to <span className="font-bold text-white">25% commission</span> on every trade your referrals make
-              </p>
             </div>
           </div>
         </Card>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-1.5">
-          <Card padding="p-2.5">
-            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Total Earned</p>
-            <p className="text-sm font-extrabold text-emerald-600 tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              {formatCurrency(totalEarned)}
-            </p>
-          </Card>
-          <Card padding="p-2.5">
-            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Referrals</p>
-            <p className="text-sm font-extrabold text-text-primary tabular-nums mt-0.5">{activeReferrals} active</p>
-          </Card>
-          <Card padding="p-2.5">
-            <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Tier</p>
-            <p className="text-sm font-extrabold text-primary mt-0.5">{currentTier.name}</p>
-          </Card>
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-3 gap-1.5">
+            {[1,2,3].map(i => <div key={i} className="bg-surface-2 rounded-xl h-16 animate-pulse" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-1.5">
+            <Card padding="p-2.5">
+              <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Earned</p>
+              <p className="text-sm font-extrabold text-emerald-400 tabular-nums mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                {formatCurrency(totalEarned)}
+              </p>
+            </Card>
+            <Card padding="p-2.5">
+              <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Active</p>
+              <p className="text-sm font-extrabold text-text-primary tabular-nums mt-0.5">{activeReferrals}</p>
+            </Card>
+            <Card padding="p-2.5">
+              <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Tier</p>
+              <p className="text-sm font-extrabold mt-0.5" style={{ color: currentTier?.display_color || '#6366F1' }}>
+                {currentTier?.name || '—'}
+              </p>
+            </Card>
+          </div>
+        )}
 
         {/* Share Link */}
         {referralCode && (
           <Card padding="p-3">
-            <p className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5">Share Your Link</p>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 bg-surface rounded-lg px-3 py-2 text-base text-text-secondary font-medium truncate" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5">Share Your Link</p>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex-1 bg-surface rounded-lg px-3 py-2 text-xs text-text-secondary font-medium truncate" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {referralLink}
               </div>
-              <button
-                onClick={() => handleCopy(referralLink, 'link')}
-                className={cn(
-                  'px-3 py-2 rounded-lg text-base font-bold transition-all',
-                  copiedField === 'link' ? 'bg-emerald-500 text-white' : 'bg-primary text-white'
-                )}
-              >
+              <button onClick={() => handleCopy(referralLink, 'link')}
+                className={cn('px-3 py-2 rounded-lg text-xs font-bold transition-all flex-shrink-0', copiedField === 'link' ? 'bg-emerald-500 text-white' : 'bg-primary text-white')}>
                 {copiedField === 'link' ? '✓ Copied' : 'Copy'}
               </button>
             </div>
+            <button onClick={handleShareWhatsApp}
+              className="w-full flex items-center justify-center gap-2 py-2 bg-emerald-600/15 text-emerald-400 rounded-lg text-xs font-bold hover:bg-emerald-600/25 transition-colors">
+              <MessageCircle size={13} />Share on WhatsApp
+            </button>
           </Card>
         )}
 
         {/* Commission Tiers */}
-        <div>
-          <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">Commission Tiers</h3>
-          <div className="grid grid-cols-4 gap-1.5">
-            {tiers.map((tier) => (
-              <Card key={tier.name} padding="p-2" className={cn(
-                'text-center border-2 transition-all',
-                currentTier.name === tier.name ? 'border-primary/30 bg-primary/3' : 'border-transparent'
-              )}>
-                <div className={cn('w-6 h-6 mx-auto rounded-full bg-gradient-to-br flex items-center justify-center mb-1', tier.color)}>
-                  <Star size={10} className="text-white" />
-                </div>
-                <p className="text-sm font-bold text-text-primary">{tier.name}</p>
-                <p className="text-[11px] text-primary font-bold mt-0.5">{tier.commission}</p>
-                <p className="text-[10px] text-text-muted">{tier.min}+ refs</p>
-              </Card>
-            ))}
+        {tiers.length > 0 && (
+          <div>
+            <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">Commission Tiers</h3>
+            <div className={cn('grid gap-1.5', tiers.length <= 4 ? 'grid-cols-4' : 'grid-cols-2')}>
+              {tiers.map((tier) => (
+                <Card key={tier.id} padding="p-2" className={cn('text-center border-2 transition-all', currentTier?.id === tier.id ? 'border-primary/30 bg-primary/5' : 'border-transparent')}>
+                  <div className="w-6 h-6 mx-auto rounded-full flex items-center justify-center mb-1" style={{ background: tier.display_color }}>
+                    <Star size={10} className="text-white" />
+                  </div>
+                  <p className="text-xs font-bold text-text-primary">{tier.name}</p>
+                  <p className="text-[10px] text-primary font-bold mt-0.5">{tier.deposit_commission_pct}%</p>
+                  <p className="text-[9px] text-text-muted">{tier.min_referrals}+ refs</p>
+                </Card>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Bonus History */}
+        {bonusHistory?.as_referrer?.length > 0 && (
+          <div>
+            <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">Bonus History</h3>
+            <Card padding="p-0">
+              <div className="divide-y divide-border/20">
+                {bonusHistory.as_referrer.slice(0, 5).map((e) => (
+                  <div key={e.id} className="px-3 py-2.5 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-text-primary">{e.referee_name}</p>
+                      <p className="text-xs text-text-muted">{new Date(e.created_at).toLocaleDateString('en-IN')}</p>
+                    </div>
+                    <div className="text-right">
+                      {e.bonus_amount > 0 && (
+                        <p className="text-sm font-extrabold text-emerald-400 tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                          +{formatCurrency(e.bonus_amount)}
+                        </p>
+                      )}
+                      <Badge variant={e.status === 'credited' ? 'success' : 'warning'}>{e.status}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* Referred Users */}
         <div>
-          <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
-            Your Referrals ({referrals.length})
+          <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
+            Your Referrals ({stats?.stats?.total_referrals || 0})
           </h3>
           {loading ? (
             <Card className="py-8 text-center">
               <Loader2 size={24} className="animate-spin mx-auto text-text-muted" />
-              <p className="text-sm text-text-muted mt-2">Loading referrals...</p>
             </Card>
           ) : referrals.length > 0 ? (
             <Card padding="p-0">
@@ -169,23 +263,21 @@ export default function Referral() {
                 {referrals.map((ref) => (
                   <div key={ref.id} className="px-3 py-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 bg-gradient-to-br from-slate-200 to-slate-300 rounded-lg flex items-center justify-center text-base font-bold text-slate-600">
-                        {ref.name.charAt(0)}
+                      <div className="w-8 h-8 bg-gradient-to-br from-slate-200 to-slate-300 rounded-lg flex items-center justify-center text-sm font-bold text-slate-600">
+                        {(ref.name || '?').charAt(0)}
                       </div>
                       <div>
-                        <p className="text-base font-bold text-text-primary">{ref.name}</p>
-                        <p className="text-sm text-text-muted">Joined {ref.joined} · {ref.trades} trades</p>
+                        <p className="text-sm font-bold text-text-primary">{ref.name}</p>
+                        <p className="text-xs text-text-muted">Joined {ref.joined} · {ref.trades} trades</p>
                       </div>
                     </div>
                     <div className="text-right">
                       {ref.earned > 0 && (
-                        <p className="text-base font-extrabold text-emerald-600 tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        <p className="text-sm font-extrabold text-emerald-400 tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                           +{formatCurrency(ref.earned)}
                         </p>
                       )}
-                      <Badge variant={ref.status === 'active' ? 'success' : 'warning'}>
-                        {ref.status}
-                      </Badge>
+                      <Badge variant={ref.status === 'active' ? 'success' : 'warning'}>{ref.status}</Badge>
                     </div>
                   </div>
                 ))}
@@ -197,7 +289,7 @@ export default function Referral() {
                 <Users size={22} className="text-text-muted/50" />
               </div>
               <p className="text-sm font-semibold text-text-secondary">No Referrals Yet</p>
-              <p className="text-base text-text-muted mt-0.5">Share your referral code to start earning!</p>
+              <p className="text-xs text-text-muted mt-0.5">Share your code above to start earning!</p>
             </Card>
           )}
         </div>

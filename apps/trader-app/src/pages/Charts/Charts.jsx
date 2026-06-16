@@ -5,7 +5,7 @@ import {
   RefreshCw, AlertCircle, Check, Loader2,
 } from 'lucide-react';
 import { useTradeStore } from '../../store/useTradeStore';
-import { formatCurrency, cn , formatPrice} from '../../utils/helpers';
+import { formatCurrency, cn , formatPrice, getMarketStatus} from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 
 const TIMEFRAMES = [
@@ -31,6 +31,7 @@ export default function Charts() {
   const [productType, setProductType] = useState('overnight');
   const [showSuccess, setShowSuccess] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
+  const [orderError, setOrderError] = useState(null);
 
   // Ensure we're subscribed to the selected instrument's price feed
   useEffect(() => {
@@ -47,6 +48,7 @@ export default function Charts() {
     symbol: 'LOADING', name: '', price: 0, change: 0, changePercent: 0
   };
   const isIndianSegment = ['nse_equity', 'bse_equity', 'fo_futures', 'fo_options', 'mcx'].includes(instrument.segment);
+  const marketStatus = getMarketStatus(instrument?.segment);
   const currSymbol = isIndianSegment ? '₹' : '$';
   const bal = wallet?.availableMargin || wallet?.balance || 0;
   const totalValue = quantity ? (Number(quantity) * instrument.price) : 0;
@@ -56,13 +58,14 @@ export default function Charts() {
   const now = new Date();
   const ltt = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
 
-  const handleOpenBuy = () => { setOrderSide('buy'); setShowOrderForm(true); };
-  const handleOpenSell = () => { setOrderSide('sell'); setShowOrderForm(true); };
+  const handleOpenBuy = () => { setOrderSide('buy'); setOrderError(null); setShowOrderForm(true); };
+  const handleOpenSell = () => { setOrderSide('sell'); setOrderError(null); setShowOrderForm(true); };
 
   const handlePlaceOrder = async () => {
     const qty = Number(quantity);
     if (!qty || qty <= 0) return;
     setOrderLoading(true);
+    setOrderError(null);
     const orderPayload = { symbol: instrument.symbol, side: orderSide, order_type: orderType, quantity: qty };
     if (orderType === 'limit' && limitPrice) orderPayload.price = Number(limitPrice);
     const result = await placeOrder(orderPayload);
@@ -70,6 +73,8 @@ export default function Charts() {
     if (result?.success) {
       setShowSuccess(true);
       setTimeout(() => { setShowSuccess(false); setShowOrderForm(false); setQuantity(''); }, 2000);
+    } else {
+      setOrderError(result?.error || 'Failed to place order');
     }
   };
 
@@ -78,7 +83,7 @@ export default function Charts() {
   return (
     <div className="flex flex-col h-screen bg-surface relative">
       {/* ── Stock Selector Header ── */}
-      <header className="flex items-center gap-2 px-3 py-2 bg-surface-2 border-b border-border z-20">
+      <header className="flex items-center gap-2 px-3 py-2 bg-surface-2 border-b border-border z-20 flex-wrap">
         <button onClick={() => setShowPicker(!showPicker)} className="flex items-center gap-1 p-1 rounded hover:bg-surface-3 transition-colors">
           <h1 className="text-sm font-bold text-text-primary">{instrument.symbol}</h1>
           <ChevronDown size={14} className="text-text-muted" />
@@ -86,6 +91,12 @@ export default function Charts() {
         <span className={cn('text-xs font-semibold px-1.5 py-0.5 rounded',
           (instrument.change || 0) >= 0 ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10')}>
           {(instrument.change || 0) >= 0 ? '+' : ''}{(instrument.change || 0).toFixed(2)} ({(instrument.changePercent || 0).toFixed(2)}%)
+        </span>
+        <span className={cn(
+          'text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider select-none shrink-0',
+          marketStatus.color
+        )}>
+          {marketStatus.statusText}
         </span>
         <span className="text-xs text-text-muted truncate flex-1">{instrument.name}</span>
         <span className="text-sm font-bold text-text-primary tabular-nums">{currSymbol}{formatPrice(instrument.price)}</span>
@@ -237,6 +248,14 @@ export default function Charts() {
               <div className="flex items-center gap-1"><span className="text-sm text-text-secondary">Required:</span><span className="text-sm font-bold text-red-500">{currSymbol}{requiredMargin.toFixed(2)}</span></div>
               <div className="flex items-center gap-1.5"><span className="text-sm text-text-secondary">Available:</span><span className="text-sm font-bold text-red-500">{currSymbol}{bal.toFixed(2)}</span><RefreshCw size={12} className="text-text-muted" /></div>
             </div>
+
+            {/* Order Error */}
+            {orderError && (
+              <div className="mx-4 mt-4 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5 flex items-center gap-2">
+                <AlertCircle size={14} className="text-red-500 flex-shrink-0" />
+                <span className="text-sm font-semibold text-red-400">{orderError}</span>
+              </div>
+            )}
 
             {/* Place Order Button */}
             <div className="px-4 mt-5">

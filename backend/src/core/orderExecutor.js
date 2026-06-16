@@ -30,7 +30,8 @@ async function executeMarketOrderSync(data) {
   const restrictions = await getClientRestrictions(userId);
   const multiplier = (restrictions && restrictions.leverage_multiplier) ? parseFloat(restrictions.leverage_multiplier) : 1.0;
   const leverage = (100 / (instrument.margin_required || 10)) * multiplier;
-  const commission = spreadAmount * quantity * 0.01;
+  const commission = 0; // Brokerage set to 0
+
 
   let orderRecord = null;
   let positionRecord = null;

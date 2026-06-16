@@ -173,7 +173,7 @@ async function liquidateUserPositions(userId, userPositions, tickMap) {
         grossPnl = (dbPos.entry_price - exitPrice) * dbPos.quantity;
       }
       
-      const swapFees = parseFloat(dbPos.total_swap_fees) || 0;
+      const swapFees = 0; // Swap/overnight holding fees disabled
       const netPnl = Math.round((grossPnl - swapFees) * 100) / 100;
 
       const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc('close_position_atomic', {
@@ -184,7 +184,7 @@ async function liquidateUserPositions(userId, userPositions, tickMap) {
         p_net_pnl: parseFloat(netPnl),
         p_charges: 0,
         p_spread_revenue: 0,
-        p_swap_revenue: parseFloat(swapFees),
+        p_swap_revenue: 0,
         p_close_reason: 'stop_out'
       });
 
@@ -281,8 +281,8 @@ async function calculateMTM() {
         grossPnl = (pos.entry_price - currentPrice) * pos.quantity;
       }
 
-      // Net Unrealized PNL = Gross Profit - Accrued Swap Fees
-      const swapFees = parseFloat(pos.total_swap_fees) || 0;
+      // Net Unrealized PNL = Gross Profit - Accrued Swap Fees (disabled/set to 0)
+      const swapFees = 0; // Swap/overnight holding fees disabled
       const unrealizedPnl = Math.round((grossPnl - swapFees) * 100) / 100;
 
       // Aggregate per user

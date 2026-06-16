@@ -18,7 +18,9 @@ import {
   Map,
   Network as NetworkIcon,
   AlertCircle,
-  Clock
+  Clock,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
@@ -26,6 +28,7 @@ import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import { useTradeStore } from '../../store/useTradeStore';
 import { cn } from '../../utils/helpers';
+import { getPushSubscription, subscribeToPush, unsubscribeFromPush, isPushSupported } from '../../utils/pushSubscription';
 
 const MarketStatusIndicator = ({ exchange }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -76,10 +79,45 @@ export default function Profile() {
   const { user, logout, fetchProfile } = useTradeStore();
   const navigate = useNavigate();
   const [copiedField, setCopiedField] = useState(null);
+  const [pushActive, setPushActive] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
 
   useEffect(() => {
     fetchProfile();
+    
+    async function checkPush() {
+      if (isPushSupported()) {
+        try {
+          const sub = await getPushSubscription();
+          setPushActive(!!sub && Notification.permission === 'granted');
+        } catch (e) {
+          console.error('Failed checking push subscription state:', e);
+        }
+      }
+    }
+    checkPush();
   }, []);
+
+  const handlePushToggle = async () => {
+    if (!isPushSupported()) {
+      alert('Push notifications are not supported on this browser/device.');
+      return;
+    }
+    setPushLoading(true);
+    try {
+      if (pushActive) {
+        await unsubscribeFromPush();
+        setPushActive(false);
+      } else {
+        await subscribeToPush();
+        setPushActive(true);
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to toggle push notifications');
+    } finally {
+      setPushLoading(false);
+    }
+  };
 
   const userName = user?.name || user?.full_name || 'User';
   const userEmail = user?.email || '';
@@ -224,6 +262,32 @@ export default function Profile() {
             </div>
           </Card>
         </div>
+
+        {/* Push Notification Card */}
+        <Card padding="p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">
+                <Bell size={16} strokeWidth={1.8} />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-text-primary">Push Notifications</p>
+                <p className="text-xs text-text-muted mt-0.5 text-left">SL hit, order filled, margin calls (PWA)</p>
+              </div>
+            </div>
+            <button 
+              onClick={handlePushToggle} 
+              disabled={pushLoading}
+              className={cn("touch-active-subtle cursor-pointer", pushLoading && "opacity-50 cursor-not-allowed")}
+            >
+              {pushActive ? (
+                <ToggleRight size={28} className="text-emerald-500" />
+              ) : (
+                <ToggleLeft size={28} className="text-text-muted/40" />
+              )}
+            </button>
+          </div>
+        </Card>
 
         {/* Market Status */}
         <div>

@@ -17,7 +17,7 @@ import Input from '../../components/ui/Input';
 import Tabs from '../../components/ui/Tabs';
 import SlideToConfirm from '../../components/ui/SlideToConfirm';
 import { useTradeStore } from '../../store/useTradeStore';
-import { formatCurrency, formatPercent, cn , formatPrice} from '../../utils/helpers';
+import { formatCurrency, formatPercent, cn , formatPrice, getMarketStatus} from '../../utils/helpers';
 
 
 const orderTypes = [
@@ -40,6 +40,7 @@ export default function Trade() {
   const updateSubscriptions = useTradeStore(state => state.updateSubscriptions);
   const debugStats = useTradeStore(state => state.debugStats);
   const wallet = useTradeStore(state => state.wallet);
+  const setSystemBanner = useTradeStore(state => state.setSystemBanner);
   const navigate = useNavigate();
   const [limitPrice, setLimitPrice] = useState('');
   const [stopLoss, setStopLoss] = useState('');
@@ -53,6 +54,8 @@ export default function Trade() {
     if (inst) return inst;
     return state.selectedInstrument || state.instruments[0] || { symbol: 'LOADING', name: '', price: 0, change: 0, changePercent: 0, high: 0, low: 0, volume: 0 };
   });
+
+  const marketStatus = getMarketStatus(instrument?.segment);
 
   useEffect(() => {
     if (!instrument || !instrument.price) return;
@@ -165,8 +168,16 @@ export default function Trade() {
     setIsBracket(false);
     navigate('/positions');
 
-    // Fire the order in the background (result handled via websocket notification)
-    placeOrder(orderData).catch(() => {});
+    // Fire the order in the background (result handled via websocket notification or error banner)
+    placeOrder(orderData).then((res) => {
+      if (res && res.success === false) {
+        setSystemBanner({
+          type: 'alert',
+          title: 'Order Failed',
+          message: res.error || 'Failed to place order'
+        });
+      }
+    });
   };
 
   const adjustQuantity = (delta) => {
@@ -190,14 +201,20 @@ export default function Trade() {
             <ArrowLeft size={18} className="text-text-primary" />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <h1 className="text-base font-bold text-text-primary">{instrument.symbol}</h1>
               <span className={cn(
-                'flex items-center gap-0.5 text-sm font-bold px-1.5 py-0.5 rounded',
+                'flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded',
                 instrument.change >= 0 ? 'text-emerald-600 bg-emerald-500/8' : 'text-red-500 bg-red-500/8'
               )}>
                 {instrument.change >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
                 {formatPercent(instrument.changePercent)}
+              </span>
+              <span className={cn(
+                'text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider select-none shrink-0',
+                marketStatus.color
+              )}>
+                {marketStatus.statusText}
               </span>
             </div>
             <p className="text-sm text-text-muted truncate">{instrument.name}</p>

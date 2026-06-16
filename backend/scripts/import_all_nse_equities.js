@@ -109,8 +109,8 @@ async function run() {
       trading_enabled: true,
       buy_enabled: true,
       sell_enabled: true,
-      long_swap_rate: -0.045,
-      short_swap_rate: -0.035,
+      long_swap_rate: 0.0,
+      short_swap_rate: 0.0,
       exchange: 'NSE',
       currency: 'INR'
     }));

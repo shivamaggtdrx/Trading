@@ -12,7 +12,7 @@ import { api } from '../../services/api';
 
 export default function WalletPage() {
   const navigate = useNavigate();
-  const { wallet, walletTransactions, positions, submitDeposit, submitWithdrawal, depositLoading, withdrawLoading } = useTradeStore();
+  const { wallet, walletTransactions, positions, submitDeposit, submitWithdrawal, depositLoading, withdrawLoading, user } = useTradeStore();
   const [activeInfoTab, setActiveInfoTab] = useState('info');
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('deposit');
@@ -74,6 +74,21 @@ export default function WalletPage() {
   };
 
   const openModal = (type) => {
+    if (type === 'withdraw') {
+      const status = user?.kycStatus || user?.kyc_status;
+      if (status !== 'verified') {
+        if (status === 'pending') {
+          alert('Your KYC verification is currently pending review. Withdrawals will be enabled once your KYC is approved.');
+        } else if (status === 'rejected') {
+          alert('Your KYC verification was rejected. Please resubmit your KYC documents to enable withdrawals.');
+          navigate('/kyc/submit');
+        } else {
+          alert('KYC verification is required to initiate withdrawals. Please complete your KYC verification first.');
+          navigate('/kyc/submit');
+        }
+        return;
+      }
+    }
     setModalType(type);
     setAmount('');
     setUtrNumber('');
@@ -263,8 +278,10 @@ export default function WalletPage() {
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className={cn('text-[13px] font-bold tabular-nums', credit ? 'text-emerald-400' : 'text-text-primary')}>
-                              {credit ? '+' : ''}{formatCurrency(tx.amount)}
+                            <p className={cn('text-[13px] font-bold tabular-nums', 
+                              tx.amount > 0 ? 'text-emerald-400' : (tx.type === 'withdrawal' || tx.type === 'trade_pnl' ? 'text-red-400' : 'text-text-primary')
+                            )}>
+                              {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
                             </p>
                             <div className={cn('flex items-center gap-1 justify-end mt-0.5', config.color)}>
                               <StatusIcon size={10} />
