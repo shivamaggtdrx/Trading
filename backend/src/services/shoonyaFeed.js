@@ -102,8 +102,8 @@ class ShoonyaFeed extends EventEmitter {
       const pwdHash = this._sha256(password);
       const appkeyHash = this._sha256(`${userId}|${apiKey}`);
       
-      // Simple static IMEI/MAC placeholder
-      const imei = 'mac_address_placeholder';
+      // Simple static IMEI/MAC placeholder or dynamic env variable
+      const imei = process.env.SHOONYA_IMEI || 'mac_address_placeholder';
 
       const payload = {
         apkversion: '1.0.0',

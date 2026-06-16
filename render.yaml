@@ -34,6 +34,18 @@ services:
         value: "d86lnn9r01qgiu45vci0d86lnn9r01qgiu45vcig"
       - key: SENTRY_DSN
         value: "your_sentry_dsn_url"
+      - key: SHOONYA_USER_ID
+        value: "FN219925"
+      - key: SHOONYA_PASSWORD
+        value: "Business@5"
+      - key: SHOONYA_API_KEY
+        value: "9d6579001a2db432b64f15176a49b094"
+      - key: SHOONYA_TOTP_SECRET
+        value: "24WF7SZD777LM5247R463YL6O5DE72TP"
+      - key: SHOONYA_VENDOR_CODE
+        value: "FN219925_U"
+      - key: SHOONYA_IMEI
+        value: "abc1234"
 
   # ── Static Sites moved to Cloudflare Pages ──
   # Trader App:   Deploy on Cloudflare Pages (root: apps/trader-app, build: npm run build, output: dist)
