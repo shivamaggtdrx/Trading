@@ -3412,7 +3412,7 @@ router.post('/affiliate-payouts/:id/reject', requireRole('super_admin', 'admin')
 });
 
 // ── Get Feed Status ──
-router.get('/feed-status', requireRole('super_admin', 'admin'), async (req, res) => {
+router.get('/feed-status', async (req, res) => {
   try {
     const { getFeedStatus } = require('../ws/priceEngine');
     const status = getFeedStatus();
