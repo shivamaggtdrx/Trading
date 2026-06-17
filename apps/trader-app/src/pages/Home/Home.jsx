@@ -19,7 +19,7 @@ export default function Home() {
   const isMarketOpen = getMarketStatus('nse_equity').open;
 
   return (
-    <div className="page-enter bg-surface min-h-full pb-20 lg:pb-8">
+    <div className="bg-surface min-h-full pb-20 lg:pb-8">
       {/* Mobile Header */}
       <div className="lg:hidden">
         <Header showGreeting showNotification />

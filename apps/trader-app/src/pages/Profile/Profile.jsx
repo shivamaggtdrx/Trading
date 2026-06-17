@@ -158,7 +158,7 @@ export default function Profile() {
   ];
 
   return (
-    <div className="page-enter">
+    <div className="">
       <Header title="Profile" showNotification={false} compact />
 
       <div className="px-3 space-y-2.5 pb-3">

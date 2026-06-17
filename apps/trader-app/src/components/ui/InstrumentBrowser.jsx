@@ -174,7 +174,7 @@ function InstrumentRow({ inst, isAdded, onAdd }) {
   const isUp = change >= 0;
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 border-b border-border/20 hover:bg-surface-2/80 transition-colors">
+    <div className="flex items-center gap-3 px-4 py-3 border-b border-border/20 hover:bg-surface-2/80 transition-colors [contain:layout_style] [content-visibility:auto] contain-intrinsic-size-[60px]">
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-text-primary">{inst.symbol}</p>
         <p className="text-xs text-text-muted truncate">{inst.name || inst.symbol}</p>

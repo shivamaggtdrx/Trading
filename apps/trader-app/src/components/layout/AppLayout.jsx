@@ -4,7 +4,7 @@ import {
   Moon, Sun, Wallet, FileText, Headphones, Settings,
   CheckCircle, AlertCircle, AlertTriangle, Info, X, WifiOff,
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomNav from './BottomNav';
 import WatchlistSidebar from './WatchlistSidebar';
@@ -60,7 +60,7 @@ export default function AppLayout() {
   }, []);
 
   // Reset scroll position to top on every route change (prevents jitter from scroll carry-over)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (mainScrollRef.current) {
       mainScrollRef.current.scrollTop = 0;
     }

@@ -102,7 +102,7 @@ export default function KYCSubmit() {
   };
 
   return (
-    <div className="page-enter min-h-screen bg-surface pb-8">
+    <div className="min-h-screen bg-surface pb-8">
       <div className="px-4 py-2 border-b border-border/10 flex items-center gap-3 bg-surface-2">
         <button 
           onClick={() => navigate('/profile')} 

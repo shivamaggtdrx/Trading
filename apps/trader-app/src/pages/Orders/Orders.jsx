@@ -255,7 +255,7 @@ export default function Orders() {
   };
 
   return (
-    <div className="page-enter bg-surface min-h-screen" {...containerProps}>
+    <div className="bg-surface min-h-screen" {...containerProps}>
       <PullIndicator isRefreshing={isRefreshing} progress={pullProgress} />
       <div className="px-4 pt-4 pb-2">
         <h1 className="text-lg font-bold text-text-primary">Orders</h1>

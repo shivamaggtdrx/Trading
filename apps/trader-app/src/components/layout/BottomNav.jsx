@@ -26,19 +26,19 @@ export default function BottomNav() {
             <NavLink
               key={item.path}
               to={item.path}
-              className="flex flex-col items-center justify-center w-14 py-1 select-none touch-active-subtle"
+              className="flex flex-col items-center justify-center w-14 py-1 select-none"
             >
               <Icon
                 size={20}
                 className={cn(
-                  'transition-colors duration-200 mb-0.5',
+                  'mb-0.5',
                   isActive ? 'text-[#f06428]' : 'text-gray-500'
                 )}
                 strokeWidth={isActive ? 2.5 : 1.8}
               />
               <span
                 className={cn(
-                  'text-[10px] font-medium tracking-wide transition-colors duration-200',
+                  'text-[10px] font-medium tracking-wide',
                   isActive ? 'text-[#f06428]' : 'text-gray-500'
                 )}
               >

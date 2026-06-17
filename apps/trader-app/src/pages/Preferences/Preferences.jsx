@@ -119,7 +119,7 @@ export default function TradingPreferences() {
   };
 
   return (
-    <div className="page-enter">
+    <div className="">
       {/* Header */}
       <header className="sticky top-0 z-30 glass-heavy safe-top border-b border-border/30">
         <div className="max-w-lg mx-auto flex items-center gap-3 px-3 py-2.5">

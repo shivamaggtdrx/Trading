@@ -69,7 +69,7 @@ const InstrumentRow = memo(({ inst, onTap, onDelete, formatPrice, cn, fmtChange 
   return (
     <SwipeableRow onDelete={onDelete}>
       <div 
-        className="flex items-center justify-between px-4 py-3 border-b border-border/40 cursor-pointer active:bg-surface-2 contain-intrinsic-size-[50px] [contain:layout_style]"
+        className="flex items-center justify-between px-4 py-3 border-b border-border/40 cursor-pointer active:bg-surface-2 contain-intrinsic-size-[50px] [contain:layout_style] [content-visibility:auto]"
         onClick={() => onTap(inst)}
       >
         <div className="min-w-0 flex-1">
@@ -100,7 +100,7 @@ const InstrumentRowSearch = memo(({ inst, isInWatchlist, onTap, addToWatchlist, 
 
   return (
     <div 
-      className="flex items-center justify-between px-4 py-3 border-b border-border/40 hover:bg-surface-2 transition-colors cursor-pointer [contain:layout_style]"
+      className="flex items-center justify-between px-4 py-3 border-b border-border/40 hover:bg-surface-2 transition-colors cursor-pointer [contain:layout_style] [content-visibility:auto] contain-intrinsic-size-[50px]"
       onClick={() => isInWatchlist ? onTap(inst) : addToWatchlist(inst.symbol)}
     >
       <div className="min-w-0 flex-1">

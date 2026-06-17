@@ -61,7 +61,7 @@ export default function Referral() {
 
   if (!stats?.referral_program_active && !loading) {
     return (
-      <div className="page-enter flex flex-col items-center justify-center min-h-screen px-6 text-center">
+      <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
         <div className="w-16 h-16 bg-surface-2 rounded-2xl flex items-center justify-center mb-4">
           <Gift size={28} className="text-text-muted/40" />
         </div>
@@ -72,7 +72,7 @@ export default function Referral() {
   }
 
   return (
-    <div className="page-enter">
+    <div className="">
       {/* Header */}
       <header className="sticky top-0 z-30 glass-heavy safe-top border-b border-border/30">
         <div className="max-w-lg mx-auto flex items-center gap-3 px-3 py-2.5">

@@ -21,7 +21,7 @@ export default function History() {
   const avgPnl = history.length > 0 ? totalPnl / history.length : 0;
 
   return (
-    <div className="page-enter">
+    <div className="">
       <Header title="Trade History" compact />
 
       <div className="px-3 space-y-2.5 pb-3">

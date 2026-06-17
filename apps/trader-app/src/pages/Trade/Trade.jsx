@@ -190,7 +190,7 @@ export default function Trade() {
   const currSymbol = isIndianSegment ? '₹' : '$';
   
   return (
-    <div className="page-enter">
+    <div className="">
       {/* Compact Header */}
       <header className="sticky top-0 z-30 glass-heavy safe-top border-b border-border/30">
         <div className="max-w-lg mx-auto flex items-center gap-2 px-3 py-2">

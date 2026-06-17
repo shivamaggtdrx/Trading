@@ -28,6 +28,7 @@
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   box-sizing: border-box;
+  touch-action: manipulation;
 }
 
 html {
@@ -43,7 +44,12 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'tnum' on, 'lnum' on;
-  /* No transition on body — prevents background flash on tab switch */
+}
+
+main {
+  -webkit-overflow-scrolling: touch;
+  transform: translateZ(0);
+  will-change: scroll-position;
 }
 
 .dark {
