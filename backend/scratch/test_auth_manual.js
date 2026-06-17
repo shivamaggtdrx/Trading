@@ -80,9 +80,9 @@ async function run() {
 
   // Test 1: Axios application/x-www-form-urlencoded
   try {
-    console.log('\nSending via Axios POST urlencoded...');
+    console.log('Sending via Axios POST urlencoded...');
     const res = await axios.post(
-      'https://api.shoonya.com/NorenWClientTP/QuickAuth',
+      'https://api.shoonya.com/NorenWClientAPI/QuickAuth',
       `jData=${jsonPayload}`,
       {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -92,18 +92,18 @@ async function run() {
     console.log('Axios Response Status:', res.status);
     console.log('Axios Response Data:', res.data);
   } catch (err) {
-    console.error('Axios Failed:', err.message);
+    console.log('Axios Failed:', err.message);
     if (err.response) {
-      console.error('Axios Response Status:', err.response.status);
-      console.error('Axios Response Data:', err.response.data);
+      console.log('Axios Response Status:', err.response.status);
+      console.log('Axios Response Data:', err.response.data);
     }
   }
 
   // Test 2: Axios urlencoded with encodeURIComponent
   try {
-    console.log('\nSending via Axios POST encoded...');
+    console.log('Sending via Axios POST encoded...');
     const res = await axios.post(
-      'https://api.shoonya.com/NorenWClientTP/QuickAuth',
+      'https://api.shoonya.com/NorenWClientAPI/QuickAuth',
       `jData=${encodeURIComponent(jsonPayload)}`,
       {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

@@ -219,36 +219,18 @@ export default function AppLayout() {
         {/* Main Content Area — hidden on desktop when watchlist is expanded */}
         {!isWatchlistExpanded && (
           <main className="flex-1 overflow-y-auto w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={location.pathname}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="w-full h-full"
-              >
-                <Outlet />
-              </motion.div>
-            </AnimatePresence>
+            <div className="w-full h-full">
+              <Outlet />
+            </div>
           </main>
         )}
 
         {/* Mobile always gets Outlet even if expanded (sidebar hidden on mobile) */}
         {isWatchlistExpanded && (
           <main className="flex-1 overflow-y-auto w-full max-w-lg pb-16 bg-surface lg:hidden">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={location.pathname}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="w-full h-full"
-              >
-                <Outlet />
-              </motion.div>
-            </AnimatePresence>
+            <div className="w-full h-full">
+              <Outlet />
+            </div>
           </main>
         )}
       </div>

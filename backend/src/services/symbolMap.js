@@ -13,12 +13,12 @@ const { feedLogger } = require('../core/monitoring/logger');
 // ── Segment-to-provider routing ──
 // Determines which feed provider handles each instrument segment
 const SEGMENT_PROVIDER = {
-  'nse_equity': 'shoonya',
-  'bse_equity': 'shoonya',
-  'fo_futures': 'shoonya',
-  'fo_options': 'shoonya',
+  'nse_equity': 'fyers',
+  'bse_equity': 'fyers',
+  'fo_futures': 'fyers',
+  'fo_options': 'fyers',
   'forex': 'finnhub',
-  'mcx': 'finnhub', // Kept on finnhub (derived INR ticks from Spot)
+  'mcx': 'fyers',
   'crypto': 'binance',
   'us_equity': 'finnhub',
   'global_indices': 'finnhub',

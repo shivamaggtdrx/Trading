@@ -2,7 +2,8 @@
  * Price Engine
  * 
  * Central market data broker that connects to multiple FREE feed providers:
- * - NSE India Direct (Indian Stocks & Indices — FREE, no key needed)
+ * - Fyers (Indian Stocks & Indices — real-time live feed)
+ * - NSE India Direct (Fallback — Yahoo Finance 15-min delayed)
  * - Finnhub (US Stocks, Forex, Commodities — FREE with API key)
  * - Binance (Crypto — FREE, no key needed)
  * 
@@ -11,10 +12,11 @@
  */
 
 const { nseFeed } = require('../services/nseFeed');
-const { shoonyaFeed } = require('../services/shoonyaFeed');
+const { fyersFeed } = require('../services/fyersFeed');
+const { shoonyaFeed } = require('../services/shoonyaFeed'); // kept for legacy admin routes
 const { finnhubFeed } = require('../services/finnhubFeed');
 const { binanceFeed } = require('../services/binanceFeed');
-const { loadFromDatabase: loadSymbolMap, getInstrumentsBySegment, getInstrumentDetails } = require('../services/symbolMap');
+const { loadFromDatabase: loadSymbolMap, getInstrumentsBySegment, getInstrumentDetails, SEGMENT_PROVIDER } = require('../services/symbolMap');
 const candleAggregator = require('./candleAggregator');
 const executionEngine = require('./executionEngine');
 const { getIO } = require('./socketServer');
@@ -58,7 +60,7 @@ function handleTick(tick) {
   });
 
   // ── Indian MCX Live Conversions (derive INR prices from USD international ticks) ──
-  if (tick.symbol === 'XAUUSD' || tick.symbol === 'XAGUSD' || tick.symbol === 'CRUDEOIL_USD' || tick.symbol === 'NATURALGAS_USD' || tick.symbol === 'COPPER_USD') {
+  if (SEGMENT_PROVIDER['mcx'] !== 'fyers' && (tick.symbol === 'XAUUSD' || tick.symbol === 'XAGUSD' || tick.symbol === 'CRUDEOIL_USD' || tick.symbol === 'NATURALGAS_USD' || tick.symbol === 'COPPER_USD')) {
     setImmediate(() => {
       try {
         const usdinrData = lastKnownPrices.get('USDINR');
@@ -512,18 +514,18 @@ async function initPriceEngine() {
   const foOptions = segmented['fo_options'] || [];
   const mcxSymbols = segmented['mcx'] || [];
 
-  const shoonyaSymbols = [...new Set([...nseEquities, ...bseEquities, ...foFutures, ...foOptions])];
+  const indianSymbols = [...new Set([...nseEquities, ...bseEquities, ...foFutures, ...foOptions, ...mcxSymbols])];
   const indianIndices = ['NIFTY50', 'BANKNIFTY'];
 
-  // Start Shoonya Feed if credentials are provided in environment
-  let isShoonyaStarted = false;
-  if (process.env.SHOONYA_USER_ID && process.env.SHOONYA_TOTP_SECRET) {
-    feedLogger.info(`[PRICE ENGINE] 🇮🇳 Attempting to start Shoonya Real-Time Feed...`);
-    shoonyaFeed.on('tick', handleTick);
-    
+  // ── Start Fyers Real-Time Feed ──
+  let isFyersStarted = false;
+  if (process.env.FYERS_USER_ID && process.env.FYERS_TOTP_SECRET && process.env.FYERS_PIN) {
+    feedLogger.info(`[PRICE ENGINE] 🇮🇳 Attempting to start Fyers Real-Time Feed...`);
+    fyersFeed.on('tick', handleTick);
+
     // Broadcast status to Socket.IO clients on status change
-    shoonyaFeed.on('status', (newStatus) => {
-      feedLogger.info(`[PRICE ENGINE] Shoonya Feed status change: ${newStatus}`);
+    fyersFeed.on('status', (newStatus) => {
+      feedLogger.info(`[PRICE ENGINE] Fyers Feed status change: ${newStatus}`);
       try {
         const io = getIO();
         if (io) {
@@ -532,17 +534,17 @@ async function initPriceEngine() {
       } catch (err) {}
     });
 
-    isShoonyaStarted = await shoonyaFeed.start();
-    if (isShoonyaStarted) {
-      await shoonyaFeed.subscribe([...shoonyaSymbols, ...indianIndices]);
-      feedLogger.info(`[PRICE ENGINE]    Subscribed to ${shoonyaSymbols.length} instruments + ${indianIndices.length} indices on Shoonya.`);
+    isFyersStarted = await fyersFeed.start();
+    if (isFyersStarted) {
+      await fyersFeed.subscribe([...indianSymbols, ...indianIndices]);
+      feedLogger.info(`[PRICE ENGINE]    Subscribed to ${indianSymbols.length} instruments + ${indianIndices.length} indices on Fyers.`);
     }
   }
 
-  // Fallback to Yahoo (nseFeed) only if Shoonya is not configured or failed to start
-  if (!isShoonyaStarted && (shoonyaSymbols.length > 0 || indianIndices.length > 0)) {
-    feedLogger.warn(`[PRICE ENGINE] ⚠️ Shoonya credentials missing or login failed. Falling back to 15-min delayed Yahoo Feed.`);
-    const yahooStocks = [...new Set([...nseEquities, ...foFutures, ...mcxSymbols])];
+  // Fallback to Yahoo (nseFeed) only if Fyers is not configured or failed to start
+  if (!isFyersStarted && (indianSymbols.length > 0 || indianIndices.length > 0)) {
+    feedLogger.warn(`[PRICE ENGINE] ⚠️ Fyers credentials missing or login failed. Falling back to 15-min delayed Yahoo Feed.`);
+    const yahooStocks = [...new Set([...nseEquities, ...bseEquities, ...foFutures, ...foOptions])];
     
     feedLogger.info(`[PRICE ENGINE] 🇮🇳 Starting NSE India feed (FREE — Yahoo fallback)`);
     
@@ -558,7 +560,7 @@ async function initPriceEngine() {
     await nseFeed.start(initialStocks, indianIndices);
     
     // Begin dynamic polling of active symbols
-    startDynamicSymbolPolling();
+    startDynamicSymbolPolling(); // yahoo fallback only
   }
 
   // ── US Stocks, Forex, Commodities: Finnhub (FREE with API key) ──
@@ -601,50 +603,46 @@ async function initPriceEngine() {
       }
     }
 
-    // Shoonya specific watchdog
-    if (process.env.SHOONYA_USER_ID && process.env.SHOONYA_TOTP_SECRET) {
-      if (shoonyaFeed.status === 'CONNECTED') {
+    // Fyers watchdog
+    if (process.env.FYERS_USER_ID && process.env.FYERS_TOTP_SECRET && process.env.FYERS_PIN) {
+      if (fyersFeed.status === 'CONNECTED') {
         const now = Date.now();
-        const lastShoonyaTick = shoonyaFeed.stats.lastTickTime;
-        const shoonyaTickAge = lastShoonyaTick ? (now - lastShoonyaTick) : (now - lastLiveTickTime);
+        const lastFyersTick = fyersFeed.stats.lastTickTime;
+        const fyersTickAge  = lastFyersTick ? (now - lastFyersTick) : (now - lastLiveTickTime);
 
-        if (shoonyaTickAge > 60000) {
+        if (fyersTickAge > 60000) {
           const { checkMarketHours } = require('../core/risk/marketHours');
           checkMarketHours('nse_equity').then((hoursCheck) => {
             if (hoursCheck.open) {
-              feedLogger.warn(`[WATCHDOG] Shoonya Feed has not sent ticks in ${Math.round(shoonyaTickAge / 1000)}s during active market hours. Triggering reconnect...`);
-              if (shoonyaFeed.ws) {
-                shoonyaFeed.ws.close();
-              }
+              feedLogger.warn(`[WATCHDOG] Fyers Feed has not sent ticks in ${Math.round(fyersTickAge / 1000)}s during market hours. Triggering reconnect...`);
+              fyersFeed.resetCircuitBreaker();
             }
           }).catch((err) => {
-            feedLogger.error(`[WATCHDOG] Shoonya check market hours failed: ${err.message}`);
+            feedLogger.error(`[WATCHDOG] Fyers check market hours failed: ${err.message}`);
           });
         }
-      } else if (shoonyaFeed.status === 'ERROR' || shoonyaFeed.status === 'DISCONNECTED') {
+      } else if (fyersFeed.status === 'ERROR' || fyersFeed.status === 'DISCONNECTED') {
         // Auto-reconnect if offline during market hours
         const { checkMarketHours } = require('../core/risk/marketHours');
         checkMarketHours('nse_equity').then((hoursCheck) => {
           if (hoursCheck.open) {
-            feedLogger.info(`[WATCHDOG] Shoonya is offline (${shoonyaFeed.status}) during active market hours. Attempting daily auto-connect...`);
-            shoonyaFeed.status = 'CONNECTING';
-            shoonyaFeed.start().then((success) => {
+            feedLogger.info(`[WATCHDOG] Fyers is offline (${fyersFeed.status}) during market hours. Attempting restart...`);
+            fyersFeed.start().then((success) => {
               if (success) {
-                feedLogger.info('[WATCHDOG] Shoonya Feed successfully started and connected.');
+                feedLogger.info('[WATCHDOG] Fyers Feed restarted successfully.');
                 if (nseFeed && typeof nseFeed.stop === 'function') {
-                  feedLogger.info('[WATCHDOG] Stopping Yahoo Finance fallback feed since Shoonya is active.');
+                  feedLogger.info('[WATCHDOG] Stopping Yahoo Finance fallback feed since Fyers is active.');
                   nseFeed.stop();
                 }
               } else {
-                feedLogger.warn('[WATCHDOG] Shoonya Feed start attempt failed. Will retry in next watchdog cycle.');
+                feedLogger.warn('[WATCHDOG] Fyers restart attempt failed. Will retry next cycle.');
               }
             }).catch((err) => {
-              feedLogger.error(`[WATCHDOG] Shoonya Feed start failed: ${err.message}`);
-              shoonyaFeed.status = 'ERROR';
+              feedLogger.error(`[WATCHDOG] Fyers restart error: ${err.message}`);
             });
           }
         }).catch((err) => {
-          feedLogger.error(`[WATCHDOG] Shoonya market hours check failed: ${err.message}`);
+          feedLogger.error(`[WATCHDOG] Fyers market hours check failed: ${err.message}`);
         });
       }
     }
@@ -692,7 +690,8 @@ function stopPriceEngine() {
   // Final flush before shutdown
   flushPricesToDb();
   stopAnimator();
-  shoonyaFeed.stop();
+  fyersFeed.stop();
+  shoonyaFeed.stop(); // legacy stop
   nseFeed.stop();
   finnhubFeed.stop();
   binanceFeed.stop();
@@ -704,7 +703,8 @@ function stopPriceEngine() {
  */
 function getFeedStatus() {
   return {
-    shoonya: shoonyaFeed.getStatus(),
+    fyers:   fyersFeed.getStatus(),
+    shoonya: shoonyaFeed.getStatus(), // legacy
     nse: nseFeed.getStatus(),
     finnhub: finnhubFeed.getStatus(),
     binance: binanceFeed.getStatus(),

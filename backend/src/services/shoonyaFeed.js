@@ -14,8 +14,8 @@ const { feedLogger } = require('../core/monitoring/logger');
 const { redisClient } = require('../redis/client');
 
 // Endpoints
-const REST_URL = 'https://api.shoonya.com/NorenWClientTP';
-const WS_URL = 'wss://api.shoonya.com/NorenWSTP/';
+const REST_URL = 'https://api.shoonya.com/NorenWClientAPI';
+const WS_URL = 'wss://api.shoonya.com/NorenWSAPI/';
 
 class ShoonyaFeed extends EventEmitter {
   constructor() {
