@@ -1,5 +1,5 @@
 import { useLocation, useOutlet } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import { useEffect, useState, useRef } from 'react';
 
 const tabOrder = {
@@ -15,7 +15,7 @@ const tabOrder = {
 export default function PageTransition() {
   const location = useLocation();
   const outlet = useOutlet();
-  const [direction, setDirection] = useState(0); // 1 = right-to-left, -1 = left-to-right
+  const [direction, setDirection] = useState(0); 
   const prevIndexRef = useRef(tabOrder[location.pathname] ?? 0);
 
   useEffect(() => {
@@ -33,41 +33,39 @@ export default function PageTransition() {
   const variants = {
     initial: (dir) => ({
       x: dir === 1 ? '100%' : dir === -1 ? '-100%' : 0,
-      opacity: 0,
     }),
     animate: {
       x: 0,
-      opacity: 1,
       transition: {
-        x: { type: 'spring', stiffness: 400, damping: 40 },
-        opacity: { duration: 0.2 },
+        type: 'spring', stiffness: 400, damping: 40
       },
     },
     exit: (dir) => ({
       x: dir === 1 ? '-100%' : dir === -1 ? '100%' : 0,
-      opacity: 0,
       transition: {
-        x: { type: 'spring', stiffness: 400, damping: 40 },
-        opacity: { duration: 0.2 },
+        type: 'spring', stiffness: 400, damping: 40
       },
     }),
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden">
-      <AnimatePresence mode="popLayout" initial={false} custom={direction}>
-        <motion.div
-          key={location.pathname}
-          custom={direction}
-          variants={variants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          className="absolute inset-0 w-full h-full bg-surface"
-        >
-          {outlet}
-        </motion.div>
-      </AnimatePresence>
-    </div>
+    <MotionConfig reducedMotion="never">
+      <div className="relative w-full h-full overflow-hidden flex-1 flex flex-col">
+        <AnimatePresence initial={false} custom={direction}>
+          <motion.div
+            key={location.pathname}
+            custom={direction}
+            variants={variants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="absolute inset-0 w-full h-full bg-surface z-10"
+            style={{ touchAction: 'pan-y' }}
+          >
+            {outlet}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </MotionConfig>
   );
 }
