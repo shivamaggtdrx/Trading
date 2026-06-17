@@ -4,7 +4,7 @@ import {
   Moon, Sun, Wallet, FileText, Headphones, Settings,
   CheckCircle, AlertCircle, AlertTriangle, Info, X, WifiOff,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomNav from './BottomNav';
 import WatchlistSidebar from './WatchlistSidebar';
@@ -220,7 +220,9 @@ export default function AppLayout() {
         {!isWatchlistExpanded && (
           <main className="flex-1 overflow-y-auto w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface">
             <div className="w-full h-full">
-              <Outlet />
+              <Suspense fallback={<div className="w-full h-full bg-surface" />}>
+                <Outlet />
+              </Suspense>
             </div>
           </main>
         )}
@@ -229,7 +231,9 @@ export default function AppLayout() {
         {isWatchlistExpanded && (
           <main className="flex-1 overflow-y-auto w-full max-w-lg pb-16 bg-surface lg:hidden">
             <div className="w-full h-full">
-              <Outlet />
+              <Suspense fallback={<div className="w-full h-full bg-surface" />}>
+                <Outlet />
+              </Suspense>
             </div>
           </main>
         )}

@@ -7,28 +7,25 @@ import PWAInstallPrompt from './components/pwa/PWAInstallPrompt';
 import PWAUpdatePrompt from './components/pwa/PWAUpdatePrompt';
 import { useEffect, lazy, Suspense } from 'react';
 
-// ── Lazy-load ALL page components for aggressive code splitting ──
-// Only the Login page and Markets page (default route) load eagerly.
-// Everything else is loaded on-demand when the user navigates to it.
-const Home = lazy(() => import('./pages/Home/Home'));
-const Positions = lazy(() => import('./pages/Positions/Positions'));
-const Charts = lazy(() => import('./pages/Charts/Charts'));
-const Orders = lazy(() => import('./pages/Orders/Orders'));
-const Profile = lazy(() => import('./pages/Profile/Profile'));
-const Wallet = lazy(() => import('./pages/Wallet/Wallet'));
-const Notifications = lazy(() => import('./pages/Notifications/Notifications'));
-const Referral = lazy(() => import('./pages/Referral/Referral'));
-const Reports = lazy(() => import('./pages/Reports/Reports'));
-const Security = lazy(() => import('./pages/Security/Security'));
-const Help = lazy(() => import('./pages/Help/Help'));
-const Preferences = lazy(() => import('./pages/Preferences/Preferences'));
-const History = lazy(() => import('./pages/History/History'));
-const Markets = lazy(() => import('./pages/Markets/Markets'));
-const Trade = lazy(() => import('./pages/Trade/Trade'));
-const KYCSubmit = lazy(() => import('./pages/KYC/KYCSubmit'));
-const BankAccounts = lazy(() => import('./pages/BankAccounts/BankAccounts'));
+import Home from './pages/Home/Home';
+import Positions from './pages/Positions/Positions';
+import Charts from './pages/Charts/Charts';
+import Orders from './pages/Orders/Orders';
+import Profile from './pages/Profile/Profile';
+import Wallet from './pages/Wallet/Wallet';
+import Notifications from './pages/Notifications/Notifications';
+import Referral from './pages/Referral/Referral';
+import Reports from './pages/Reports/Reports';
+import Security from './pages/Security/Security';
+import Help from './pages/Help/Help';
+import Preferences from './pages/Preferences/Preferences';
+import History from './pages/History/History';
+import Markets from './pages/Markets/Markets';
+import Trade from './pages/Trade/Trade';
+import KYCSubmit from './pages/KYC/KYCSubmit';
+import BankAccounts from './pages/BankAccounts/BankAccounts';
 
-// ── Invisible Suspense fallback — prevents jitter/flash on lazy-loaded tab switches ──
+// ── Invisible Suspense fallback — prevents jitter/flash on lazy-loaded components ──
 function PageLoader() {
   return <div className="w-full h-full min-h-[200px] bg-surface" />;
 }
