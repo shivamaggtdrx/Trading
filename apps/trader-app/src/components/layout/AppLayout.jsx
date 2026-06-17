@@ -12,7 +12,6 @@ import SystemBanner from './SystemBanner';
 import MarginCallBanner from './MarginCallBanner';
 import ConnectionStatus from './ConnectionStatus';
 import LiveToasts from './LiveToasts';
-import PageTransition from './PageTransition';
 import { useTradeStore } from '../../store/useTradeStore';
 import { api } from '../../services/api';
 import { cn } from '../../utils/helpers';
@@ -187,9 +186,7 @@ export default function AppLayout() {
         {!isWatchlistExpanded && (
           <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface">
             <div className="w-full h-full relative">
-              <PageTransition>
-                <Outlet />
-              </PageTransition>
+              <Outlet />
             </div>
           </main>
         )}
@@ -198,7 +195,7 @@ export default function AppLayout() {
         {isWatchlistExpanded && (
           <main className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-lg pb-16 bg-surface lg:hidden">
             <div className="w-full h-full relative">
-              <PageTransition />
+              <Outlet />
             </div>
           </main>
         )}
