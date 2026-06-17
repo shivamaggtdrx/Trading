@@ -43,7 +43,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'tnum' on, 'lnum' on;
-  transition: background-color 0.3s, color 0.3s;
+  /* No transition on body — prevents background flash on tab switch */
 }
 
 .dark {
@@ -193,10 +193,8 @@ input[type="number"] {
    ANIMATIONS
    ======================================== */
 
-/* Page transition */
-.page-enter {
-  /* disabled transition animation to prevent tab-switching jitter/flashes */
-}
+/* Page transition — intentionally empty: all page animations removed to prevent tab-switch jitter */
+.page-enter {}
 
 @keyframes fadeInUp {
   from {
@@ -324,10 +322,8 @@ input[type="number"] {
   animation: scaleIn 0.2s ease-out;
 }
 
-/* Staggered list items */
-.stagger-item {
-  animation: fadeInUp 0.25s ease-out both;
-}
+/* Staggered list items — animation removed to prevent tab-switch jitter */
+.stagger-item {}
 
 /* ========================================
    SLIDE TO CONFIRM

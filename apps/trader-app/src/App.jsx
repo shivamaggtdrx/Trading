@@ -5,7 +5,7 @@ import Login from './pages/Login/Login';
 import OfflineBanner from './components/pwa/OfflineBanner';
 import PWAInstallPrompt from './components/pwa/PWAInstallPrompt';
 import PWAUpdatePrompt from './components/pwa/PWAUpdatePrompt';
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect } from 'react';
 
 import Home from './pages/Home/Home';
 import Positions from './pages/Positions/Positions';
@@ -25,10 +25,6 @@ import Trade from './pages/Trade/Trade';
 import KYCSubmit from './pages/KYC/KYCSubmit';
 import BankAccounts from './pages/BankAccounts/BankAccounts';
 
-// ── Invisible Suspense fallback — prevents jitter/flash on lazy-loaded components ──
-function PageLoader() {
-  return <div className="w-full h-full min-h-[200px] bg-surface" />;
-}
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = useTradeStore((s) => s.isAuthenticated);
@@ -56,37 +52,35 @@ export default function App() {
       <PWAInstallPrompt />
       <PWAUpdatePrompt />
       <AppInitializer>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            {/* Public */}
-            <Route path="/login" element={<Login />} />
+        <Routes>
+          {/* Public */}
+          <Route path="/login" element={<Login />} />
 
-            {/* All protected routes inside AppLayout */}
-            <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route path="/" element={<Markets />} />
-              <Route path="/dashboard" element={<Home />} />
-              <Route path="/positions" element={<Positions />} />
-              <Route path="/charts" element={<Charts />} />
-              <Route path="/trade" element={<Trade />} />
-              <Route path="/orders" element={<Orders />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/kyc/submit" element={<KYCSubmit />} />
-              <Route path="/history" element={<History />} />
-              <Route path="/wallet" element={<Wallet />} />
-              <Route path="/bank-accounts" element={<BankAccounts />} />
-              <Route path="/notifications" element={<Notifications />} />
-              <Route path="/referral" element={<Referral />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/security" element={<Security />} />
-              <Route path="/help" element={<Help />} />
-              <Route path="/preferences" element={<Preferences />} />
-              <Route path="/markets" element={<Markets />} />
-            </Route>
+          {/* All protected routes inside AppLayout */}
+          <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+            <Route path="/" element={<Markets />} />
+            <Route path="/dashboard" element={<Home />} />
+            <Route path="/positions" element={<Positions />} />
+            <Route path="/charts" element={<Charts />} />
+            <Route path="/trade" element={<Trade />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/kyc/submit" element={<KYCSubmit />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/wallet" element={<Wallet />} />
+            <Route path="/bank-accounts" element={<BankAccounts />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/referral" element={<Referral />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/security" element={<Security />} />
+            <Route path="/help" element={<Help />} />
+            <Route path="/preferences" element={<Preferences />} />
+            <Route path="/markets" element={<Markets />} />
+          </Route>
 
-            {/* Catch-all */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </AppInitializer>
     </BrowserRouter>
   );

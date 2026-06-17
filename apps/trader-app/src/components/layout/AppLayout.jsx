@@ -4,7 +4,7 @@ import {
   Moon, Sun, Wallet, FileText, Headphones, Settings,
   CheckCircle, AlertCircle, AlertTriangle, Info, X, WifiOff,
 } from 'lucide-react';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomNav from './BottomNav';
 import WatchlistSidebar from './WatchlistSidebar';
@@ -44,6 +44,7 @@ export default function AppLayout() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [isWatchlistExpanded, setIsWatchlistExpanded] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const mainScrollRef = useRef(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -57,6 +58,13 @@ export default function AppLayout() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Reset scroll position to top on every route change (prevents jitter from scroll carry-over)
+  useEffect(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTop = 0;
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -218,11 +226,9 @@ export default function AppLayout() {
 
         {/* Main Content Area — hidden on desktop when watchlist is expanded */}
         {!isWatchlistExpanded && (
-          <main className="flex-1 overflow-y-auto w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface">
+          <main ref={mainScrollRef} className="flex-1 overflow-y-auto w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface">
             <div className="w-full h-full">
-              <Suspense fallback={<div className="w-full h-full bg-surface" />}>
-                <Outlet />
-              </Suspense>
+              <Outlet />
             </div>
           </main>
         )}
@@ -231,9 +237,7 @@ export default function AppLayout() {
         {isWatchlistExpanded && (
           <main className="flex-1 overflow-y-auto w-full max-w-lg pb-16 bg-surface lg:hidden">
             <div className="w-full h-full">
-              <Suspense fallback={<div className="w-full h-full bg-surface" />}>
-                <Outlet />
-              </Suspense>
+              <Outlet />
             </div>
           </main>
         )}
