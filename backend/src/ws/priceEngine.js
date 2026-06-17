@@ -13,7 +13,6 @@
 
 const { nseFeed } = require('../services/nseFeed');
 const { fyersFeed } = require('../services/fyersFeed');
-const { shoonyaFeed } = require('../services/shoonyaFeed'); // kept for legacy admin routes
 const { finnhubFeed } = require('../services/finnhubFeed');
 const { binanceFeed } = require('../services/binanceFeed');
 const { loadFromDatabase: loadSymbolMap, getInstrumentsBySegment, getInstrumentDetails, SEGMENT_PROVIDER } = require('../services/symbolMap');
@@ -691,7 +690,6 @@ function stopPriceEngine() {
   flushPricesToDb();
   stopAnimator();
   fyersFeed.stop();
-  shoonyaFeed.stop(); // legacy stop
   nseFeed.stop();
   finnhubFeed.stop();
   binanceFeed.stop();
@@ -704,7 +702,6 @@ function stopPriceEngine() {
 function getFeedStatus() {
   return {
     fyers:   fyersFeed.getStatus(),
-    shoonya: shoonyaFeed.getStatus(), // legacy
     nse: nseFeed.getStatus(),
     finnhub: finnhubFeed.getStatus(),
     binance: binanceFeed.getStatus(),

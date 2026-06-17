@@ -188,5 +188,5 @@ export const adminApi = {
 
   // ── Live Feed Status & Control ──
   getFeedStatus: () => request('/admin/feed-status'),
-  resetShoonyaFeed: () => request('/admin/feed/shoonya/reset', { method: 'POST' }),
+  resetFyersFeed: () => request('/admin/feed/fyers/reset', { method: 'POST' }),
 };

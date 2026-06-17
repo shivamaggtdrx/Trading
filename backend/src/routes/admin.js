@@ -3422,26 +3422,26 @@ router.get('/feed-status', async (req, res) => {
   }
 });
 
-// ── Reset Shoonya Feed Circuit Breaker ──
-router.post('/feed/shoonya/reset', requireRole('super_admin', 'admin'), async (req, res) => {
+// ── Reset Fyers Feed Circuit Breaker ──
+router.post('/feed/fyers/reset', requireRole('super_admin', 'admin'), async (req, res) => {
   try {
-    const { shoonyaFeed } = require('../services/shoonyaFeed');
-    if (shoonyaFeed && typeof shoonyaFeed.resetCircuitBreaker === 'function') {
-      const success = shoonyaFeed.resetCircuitBreaker();
+    const { fyersFeed } = require('../services/fyersFeed');
+    if (fyersFeed && typeof fyersFeed.resetCircuitBreaker === 'function') {
+      const success = fyersFeed.resetCircuitBreaker();
       if (success) {
         await supabaseAdmin.from('audit_logs').insert({
           admin_id: req.admin.id,
-          action: 'reset_shoonya_feed',
+          action: 'reset_fyers_feed',
           target_type: 'system',
-          description: 'Manually reset Shoonya Feed circuit breaker and triggered reconnect.',
+          description: 'Manually reset Fyers Feed circuit breaker and triggered reconnect.',
           ip_address: req.ip
         });
-        return res.json({ success: true, message: 'Shoonya feed circuit breaker reset and reconnection triggered.' });
+        return res.json({ success: true, message: 'Fyers feed circuit breaker reset and reconnection triggered.' });
       }
     }
-    res.status(400).json({ error: 'Shoonya feed is not active or cannot be reset.' });
+    res.status(400).json({ error: 'Fyers feed is not active or cannot be reset.' });
   } catch (err) {
-    res.status(500).json({ error: `Failed to reset Shoonya feed: ${err.message}` });
+    res.status(500).json({ error: `Failed to reset Fyers feed: ${err.message}` });
   }
 });
 

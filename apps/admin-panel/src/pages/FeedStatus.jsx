@@ -34,23 +34,23 @@ export default function FeedStatus() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleResetShoonya = async () => {
+  const handleResetFyers = async () => {
     const confirmReset = window.confirm(
-      'Are you sure you want to reset the Shoonya connection circuit breaker?\nThis will clear the connection attempt limit and trigger an immediate reconnect.'
+      'Are you sure you want to reset the Fyers connection circuit breaker?\nThis will clear the connection attempt limit and trigger an immediate reconnect.'
     );
     if (!confirmReset) return;
 
     try {
       setResetting(true);
-      const res = await adminApi.resetShoonyaFeed();
+      const res = await adminApi.resetFyersFeed();
       if (res && res.success) {
-        alert('Shoonya feed reset successfully! Triggered WebSocket reconnection.');
+        alert('Fyers feed reset successfully! Triggered WebSocket reconnection.');
         fetchStatus();
       } else {
-        throw new Error(res.error || 'Failed to reset Shoonya feed');
+        throw new Error(res.error || 'Failed to reset Fyers feed');
       }
     } catch (err) {
-      alert(`Error resetting Shoonya feed: ${err.message}`);
+      alert(`Error resetting Fyers feed: ${err.message}`);
     } finally {
       setResetting(false);
     }
@@ -76,12 +76,12 @@ export default function FeedStatus() {
   }
 
   // Determine market-type active status and current providers
-  const isShoonyaActive = data?.shoonya?.status === 'CONNECTED';
+  const isFyersActive = data?.fyers?.status === 'CONNECTED';
   const isNseActive = data?.nse?.status === 'CONNECTED';
   
-  // 1. Indian Equities & Futures: Shoonya (Primary), Yahoo Finance (Fallback)
-  const indianFeedActive = isShoonyaActive ? 'Shoonya (Primary)' : (isNseActive ? 'Yahoo Finance (Fallback)' : 'None (No Feed)');
-  const indianFeedStatus = isShoonyaActive ? 'primary' : (isNseActive ? 'fallback' : 'offline');
+  // 1. Indian Equities & Futures: Fyers (Primary), Yahoo Finance (Fallback)
+  const indianFeedActive = isFyersActive ? 'Fyers (Primary)' : (isNseActive ? 'Yahoo Finance (Fallback)' : 'None (No Feed)');
+  const indianFeedStatus = isFyersActive ? 'primary' : (isNseActive ? 'fallback' : 'offline');
 
   // 2. US Stocks & Forex: Finnhub WS / Polling
   const usFeedActive = data?.finnhub?.wsStatus === 'CONNECTED' ? 'Finnhub WS (Primary)' : (data?.finnhub?.pollSymbolCount > 0 ? 'Finnhub REST (Fallback)' : 'None');
@@ -159,8 +159,8 @@ export default function FeedStatus() {
           <div>
             <div className="text-xs text-gray-500 uppercase font-semibold">Primary Feed Status</div>
             <div className="mt-1 flex items-center gap-1.5">
-              <span className={`w-2.5 h-2.5 rounded-full ${isShoonyaActive ? 'bg-green-500 animate-ping' : 'bg-red-500'}`} />
-              <span className="text-sm font-bold text-gray-900">{isShoonyaActive ? 'Shoonya Live' : 'Fallback Active'}</span>
+              <span className={`w-2.5 h-2.5 rounded-full ${isFyersActive ? 'bg-green-500 animate-ping' : 'bg-red-500'}`} />
+              <span className="text-sm font-bold text-gray-900">{isFyersActive ? 'Fyers Live' : 'Fallback Active'}</span>
             </div>
           </div>
         </div>
@@ -255,40 +255,40 @@ export default function FeedStatus() {
       {/* Provider Details Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Shoonya Panel */}
+        {/* Fyers Panel */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-6 flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h4 className="text-md font-bold text-gray-900">Shoonya (Primary Indian Feed)</h4>
+              <h4 className="text-md font-bold text-gray-900">Fyers (Primary Indian Feed)</h4>
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider ${
-                isShoonyaActive ? 'bg-green-100 text-green-800' : (data?.shoonya?.status === 'CONNECTING' ? 'bg-blue-100 text-blue-800 animate-pulse' : 'bg-red-100 text-red-800')
+                isFyersActive ? 'bg-green-100 text-green-800' : (data?.fyers?.status === 'CONNECTING' ? 'bg-blue-100 text-blue-800 animate-pulse' : 'bg-red-100 text-red-800')
               }`}>
-                {data?.shoonya?.status || 'UNKNOWN'}
+                {data?.fyers?.status || 'UNKNOWN'}
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-md">
               <div>
                 <span className="text-gray-500 block">Active Subscriptions</span>
-                <span className="font-bold text-gray-800 text-base">{data?.shoonya?.activeSymbolCount || 0} symbols</span>
+                <span className="font-bold text-gray-800 text-base">{data?.fyers?.activeSymbolCount || 0} symbols</span>
               </div>
               <div>
                 <span className="text-gray-500 block">Total Ticks Streamed</span>
-                <span className="font-bold text-gray-800 text-base">{(data?.shoonya?.stats?.ticksReceived || 0).toLocaleString()}</span>
+                <span className="font-bold text-gray-800 text-base">{(data?.fyers?.stats?.ticksReceived || 0).toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-gray-500 block">Connection Failures</span>
-                <span className="font-bold text-red-600 text-base">{data?.shoonya?.stats?.errorsEncountered || 0}</span>
+                <span className="font-bold text-red-600 text-base">{data?.fyers?.stats?.errorsEncountered || 0}</span>
               </div>
               <div>
                 <span className="text-gray-500 block">Last Feed Update</span>
-                <span className="font-bold text-gray-800 text-base">{formatAge(data?.shoonya?.stats?.lastTickTime ? Date.now() - data.shoonya.stats.lastTickTime : null)}</span>
+                <span className="font-bold text-gray-800 text-base">{formatAge(data?.fyers?.stats?.lastTickTime ? Date.now() - data.fyers.stats.lastTickTime : null)}</span>
               </div>
             </div>
 
-            {data?.shoonya?.stats?.lastError && (
+            {data?.fyers?.stats?.lastError && (
               <div className="text-xs bg-red-50 border border-red-100 text-red-700 p-2.5 rounded">
-                <strong>Last error:</strong> {data?.shoonya?.stats?.lastError}
+                <strong>Last error:</strong> {data?.fyers?.stats?.lastError}
               </div>
             )}
           </div>
@@ -298,7 +298,7 @@ export default function FeedStatus() {
               If the feed stops tick streams, the circuit breaker halts reconnections after 10 attempts to avoid flooding. Reset manually here to retry.
             </div>
             <button
-              onClick={handleResetShoonya}
+              onClick={handleResetFyers}
               disabled={resetting}
               className="w-full sm:w-auto inline-flex items-center justify-center rounded-md text-xs font-extrabold uppercase bg-red-600 text-white hover:bg-red-700 h-9 px-4 select-none shrink-0 transition-colors shadow-sm disabled:opacity-50"
             >

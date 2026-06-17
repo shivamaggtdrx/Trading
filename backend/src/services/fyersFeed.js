@@ -11,7 +11,7 @@
  *
  * The access_token is cached in Redis and refreshed automatically at 06:00 IST daily.
  *
- * Emits the same 'tick' events as the old shoonyaFeed so priceEngine.js needs
+ * Emits the same 'tick' events as the legacy feed so priceEngine.js needs
  * zero changes on the consumption side.
  *
  * Tick format emitted:
@@ -216,7 +216,7 @@ class FyersFeed extends EventEmitter {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  //  PUBLIC API  (same interface as shoonyaFeed)
+  //  PUBLIC API  (same interface as legacy feed)
   // ─────────────────────────────────────────────────────────────────
 
   async start() {
