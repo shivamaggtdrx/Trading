@@ -26,6 +26,7 @@ export default function BottomNav() {
             <NavLink
               key={item.path}
               to={item.path}
+              replace
               className="flex flex-col items-center justify-center w-14 py-1 select-none"
             >
               <Icon

@@ -23,6 +23,13 @@
   --color-text-muted: #94a3b8;
 }
 
+/* ═══ KILL ALL BROWSER VIEW TRANSITIONS ═══ */
+@view-transition { navigation: none; }
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation: none !important;
+}
+
 /* Global Resets */
 * {
   -webkit-tap-highlight-color: transparent;
@@ -47,6 +54,14 @@ body {
 
 main {
   -webkit-overflow-scrolling: touch;
+}
+
+/* ═══ ROUTE-CHANGE: Zero animation on page content swap ═══ 
+   This ensures that when React swaps pages via <Outlet/>, 
+   NOTHING animates, transitions, or fades. Content appears instantly. */
+main > div {
+  animation: none !important;
+  transition: none !important;
 }
 
 .dark {

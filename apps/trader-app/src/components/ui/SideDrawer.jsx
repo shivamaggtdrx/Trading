@@ -36,8 +36,8 @@ export default function SideDrawer({ isOpen, onClose }) {
   const userName = user?.name || user?.full_name || user?.email?.split('@')[0] || 'Trader';
   const userInitial = userName.charAt(0).toUpperCase();
 
-  const handleNav = (path) => { navigate(path); onClose(); };
-  const handleLogout = async () => { await logout(); navigate('/login'); onClose(); };
+  const handleNav = (path) => { navigate(path, { replace: true }); onClose(); };
+  const handleLogout = async () => { await logout(); navigate('/login', { replace: true }); onClose(); };
 
   return (
     <>
