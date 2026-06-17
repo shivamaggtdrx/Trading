@@ -58,10 +58,11 @@ main {
 
 /* ═══ ROUTE-CHANGE: Zero animation on page content swap ═══ 
    This ensures that when React swaps pages via <Outlet/>, 
-   NOTHING animates, transitions, or fades. Content appears instantly. */
-main > div {
-  animation: none !important;
+   NOTHING animates, transitions, or fades. Content appears instantly.
+   We preserve micro-animations like spinners, price flashes, slide-confirm, and swipeable rows. */
+main *:not([style*="transition"]):not(.animate-spin):not(.animate-pulse):not(.animate-pulse-dot):not([class*="animate-spin"]):not([class*="animate-pulse"]):not([class*="price-tick"]):not([class*="price-pulse"]):not(.slide-confirm-fill):not(.slide-confirm-thumb) {
   transition: none !important;
+  animation: none !important;
 }
 
 .dark {
