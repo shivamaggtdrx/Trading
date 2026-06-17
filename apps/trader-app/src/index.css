@@ -195,7 +195,7 @@ input[type="number"] {
 
 /* Page transition */
 .page-enter {
-  animation: fadeInUp 0.2s ease-out;
+  /* disabled transition animation to prevent tab-switching jitter/flashes */
 }
 
 @keyframes fadeInUp {
