@@ -13,6 +13,15 @@ import MarginCallBanner from './MarginCallBanner';
 import ConnectionStatus from './ConnectionStatus';
 import LiveToasts from './LiveToasts';
 import { useTradeStore } from '../../store/useTradeStore';
+
+// Import Main Tab Pages for IndexedStack (Keep-Alive)
+import Markets from '../../pages/Markets/Markets';
+import Home from '../../pages/Home/Home';
+import Positions from '../../pages/Positions/Positions';
+import Charts from '../../pages/Charts/Charts';
+import Orders from '../../pages/Orders/Orders';
+import Wallet from '../../pages/Wallet/Wallet';
+import Profile from '../../pages/Profile/Profile';
 import { api } from '../../services/api';
 import { cn } from '../../utils/helpers';
 
@@ -42,6 +51,15 @@ export default function AppLayout() {
   const [isWatchlistExpanded, setIsWatchlistExpanded] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const mainScrollRef = useRef(null);
+
+  // Determine which main tab is active for IndexedStack
+  const currentTab = location.pathname === '/' || location.pathname === '/markets' ? 'markets' :
+                     location.pathname === '/dashboard' ? 'dashboard' :
+                     location.pathname === '/positions' ? 'positions' :
+                     location.pathname === '/charts' ? 'charts' :
+                     location.pathname === '/orders' ? 'orders' :
+                     location.pathname === '/wallet' ? 'wallet' :
+                     location.pathname === '/profile' ? 'profile' : null;
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -186,7 +204,19 @@ export default function AppLayout() {
         {!isWatchlistExpanded && (
           <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface">
             <div className="w-full h-full relative">
-              <Outlet />
+              {/* INDEXED STACK: Keeps tabs permanently mounted to prevent black flash / remount jank */}
+              <div className={currentTab === 'markets' ? 'block h-full w-full' : 'hidden'}><Markets /></div>
+              <div className={currentTab === 'dashboard' ? 'block h-full w-full' : 'hidden'}><Home /></div>
+              <div className={currentTab === 'positions' ? 'block h-full w-full' : 'hidden'}><Positions /></div>
+              <div className={currentTab === 'charts' ? 'block h-full w-full' : 'hidden'}><Charts /></div>
+              <div className={currentTab === 'orders' ? 'block h-full w-full' : 'hidden'}><Orders /></div>
+              <div className={currentTab === 'wallet' ? 'block h-full w-full' : 'hidden'}><Wallet /></div>
+              <div className={currentTab === 'profile' ? 'block h-full w-full' : 'hidden'}><Profile /></div>
+
+              {/* NORMAL OUTLET: For sub-pages like /trade, /history, /kyc/submit */}
+              <div className={!currentTab ? 'block h-full w-full' : 'hidden'}>
+                <Outlet />
+              </div>
             </div>
           </main>
         )}
@@ -195,7 +225,19 @@ export default function AppLayout() {
         {isWatchlistExpanded && (
           <main className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-lg pb-16 bg-surface lg:hidden">
             <div className="w-full h-full relative">
-              <Outlet />
+              {/* INDEXED STACK: Keeps tabs permanently mounted to prevent black flash / remount jank */}
+              <div className={currentTab === 'markets' ? 'block h-full w-full' : 'hidden'}><Markets /></div>
+              <div className={currentTab === 'dashboard' ? 'block h-full w-full' : 'hidden'}><Home /></div>
+              <div className={currentTab === 'positions' ? 'block h-full w-full' : 'hidden'}><Positions /></div>
+              <div className={currentTab === 'charts' ? 'block h-full w-full' : 'hidden'}><Charts /></div>
+              <div className={currentTab === 'orders' ? 'block h-full w-full' : 'hidden'}><Orders /></div>
+              <div className={currentTab === 'wallet' ? 'block h-full w-full' : 'hidden'}><Wallet /></div>
+              <div className={currentTab === 'profile' ? 'block h-full w-full' : 'hidden'}><Profile /></div>
+
+              {/* NORMAL OUTLET: For sub-pages like /trade, /history, /kyc/submit */}
+              <div className={!currentTab ? 'block h-full w-full' : 'hidden'}>
+                <Outlet />
+              </div>
             </div>
           </main>
         )}

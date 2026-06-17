@@ -58,16 +58,20 @@ export default function App() {
 
           {/* All protected routes inside AppLayout */}
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-            <Route path="/" element={<Markets />} />
-            <Route path="/dashboard" element={<Home />} />
-            <Route path="/positions" element={<Positions />} />
-            <Route path="/charts" element={<Charts />} />
+            {/* Main Tabs (Rendered by IndexedStack in AppLayout, so Outlet gets empty fragment) */}
+            <Route path="/" element={<></>} />
+            <Route path="/markets" element={<></>} />
+            <Route path="/dashboard" element={<></>} />
+            <Route path="/positions" element={<></>} />
+            <Route path="/charts" element={<></>} />
+            <Route path="/orders" element={<></>} />
+            <Route path="/profile" element={<></>} />
+            <Route path="/wallet" element={<></>} />
+
+            {/* Sub-pages (Rendered normally via Outlet) */}
             <Route path="/trade" element={<Trade />} />
-            <Route path="/orders" element={<Orders />} />
-            <Route path="/profile" element={<Profile />} />
             <Route path="/kyc/submit" element={<KYCSubmit />} />
             <Route path="/history" element={<History />} />
-            <Route path="/wallet" element={<Wallet />} />
             <Route path="/bank-accounts" element={<BankAccounts />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/referral" element={<Referral />} />
@@ -75,7 +79,6 @@ export default function App() {
             <Route path="/security" element={<Security />} />
             <Route path="/help" element={<Help />} />
             <Route path="/preferences" element={<Preferences />} />
-            <Route path="/markets" element={<Markets />} />
           </Route>
 
           {/* Catch-all */}
