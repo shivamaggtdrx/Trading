@@ -28,13 +28,9 @@ const Trade = lazy(() => import('./pages/Trade/Trade'));
 const KYCSubmit = lazy(() => import('./pages/KYC/KYCSubmit'));
 const BankAccounts = lazy(() => import('./pages/BankAccounts/BankAccounts'));
 
-// ── Minimal loading spinner for Suspense fallback ──
+// ── Invisible Suspense fallback — prevents jitter/flash on lazy-loaded tab switches ──
 function PageLoader() {
-  return (
-    <div className="flex items-center justify-center h-full min-h-[200px]">
-      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  return <div className="w-full h-full min-h-[200px] bg-surface" />;
 }
 
 function ProtectedRoute({ children }) {

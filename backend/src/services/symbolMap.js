@@ -193,14 +193,35 @@ const FINNHUB_MAP = {
   'NATURALGAS_USD': 'OANDA:NATGAS_USD',
   'COPPER_USD': 'OANDA:XCU_USD',
 
-  // Global Indices (Finnhub quote endpoint)
-  'SPX500': '^GSPC',
-  'NASDAQ': '^IXIC',
-  'DJI': '^DJI',
-  'FTSE100': '^FTSE',
-  'DAX': '^GDAXI',
-  'NIKKEI': '^N225',
-  'HANGSENG': '^HSI',
+  // Global Indices (Finnhub quote endpoint) — all verified live
+  // USA
+  'SPX500':     '^GSPC',      // S&P 500
+  'NASDAQ':     '^IXIC',      // NASDAQ Composite
+  'NASDAQ100':  '^NDX',       // NASDAQ 100
+  'DJI':        '^DJI',       // Dow Jones Industrial Average
+  'RUSSELL2000': '^RUT',      // Russell 2000
+  'VIX':        '^VIX',       // CBOE Volatility Index
+  // Europe
+  'FTSE100':    '^FTSE',      // FTSE 100 (UK)
+  'DAX':        '^GDAXI',     // DAX (Germany)
+  'CAC40':      '^FCHI',      // CAC 40 (France)
+  'AEX':        '^AEX',       // AEX (Netherlands)
+  'SMI':        '^SSMI',      // SMI (Switzerland)
+  'OMXS30':     '^OMX',       // OMX Stockholm 30 (Sweden)
+  // Asia-Pacific
+  'NIKKEI':     '^N225',      // Nikkei 225 (Japan)
+  'HANGSENG':   '^HSI',       // Hang Seng (Hong Kong)
+  'ASX200':     '^AXJO',      // ASX 200 (Australia)
+  'KOSPI':      '^KS11',      // KOSPI (South Korea)
+  'SSE':        '000001.SS',  // Shanghai Composite (China)
+  'SZSE':       '399001.SZ',  // Shenzhen Composite (China)
+  'STRAITS':    '^STI',       // Straits Times Index (Singapore)
+  'TAIEX':      '^TWII',      // TAIEX (Taiwan)
+  // Americas
+  'IBOVESPA':   '^BVSP',      // Ibovespa (Brazil)
+  'TSX':        '^GSPTSE',    // TSX Composite (Canada)
+  // India
+  'SENSEX_IDX': 'BSE:SENSEX', // BSE Sensex (via Finnhub; Fyers covers SENSEX directly)
 };
 
 // ── Binance symbol mappings ──
