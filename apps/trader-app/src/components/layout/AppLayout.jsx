@@ -1,16 +1,17 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   Home, Layers, CandlestickChart, ClipboardList, User, LogOut,
-  Moon, Sun, Wallet, FileText, Headphones, Settings,
-  CheckCircle, AlertCircle, AlertTriangle, Info, X, WifiOff,
+  Moon, Sun, Wallet, FileText, Headphones, Settings, WifiOff,
 } from 'lucide-react';
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import BottomNav from './BottomNav';
 import WatchlistSidebar from './WatchlistSidebar';
 import MarketTickerBar from './MarketTickerBar';
 import AcknowledgmentModal from '../ui/AcknowledgmentModal';
 import SystemBanner from './SystemBanner';
+import MarginCallBanner from './MarginCallBanner';
+import ConnectionStatus from './ConnectionStatus';
+import LiveToasts from './LiveToasts';
 import { useTradeStore } from '../../store/useTradeStore';
 import { api } from '../../services/api';
 import { cn } from '../../utils/helpers';
@@ -28,10 +29,6 @@ const desktopNavItems = [
 export default function AppLayout() {
   const user = useTradeStore((s) => s.user);
   const logout = useTradeStore((s) => s.logout);
-  const marginCallWarning = useTradeStore((s) => s.marginCallWarning);
-  const socketConnected = useTradeStore((s) => s.socketConnected);
-  const toasts = useTradeStore((s) => s.toasts || []);
-  const removeToast = useTradeStore((s) => s.removeToast);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -87,25 +84,7 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      {marginCallWarning && (
-        <div className="bg-gradient-to-r from-red-500/90 via-amber-500/90 to-red-500/90 text-white text-xs font-semibold px-4 py-2 flex items-center justify-between gap-2 border-b border-red-500/30 backdrop-blur-sm animate-pulse w-full">
-          <div className="flex items-center gap-2 max-w-lg lg:max-w-none mx-auto w-full">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-            </span>
-            <span className="tracking-wide text-[11px] sm:text-xs">
-              <strong>Margin Call Warning!</strong> Margin Level: <span className="font-mono text-white underline decoration-wavy">{marginCallWarning.marginLevel.toFixed(1)}%</span>. Equity: ₹{marginCallWarning.equity.toLocaleString('en-IN', { maximumFractionDigits: 0 })}.
-            </span>
-            <button 
-              onClick={() => navigate('/wallet')} 
-              className="bg-white/20 hover:bg-white/30 text-white text-[10px] uppercase font-extrabold px-2.5 py-1 rounded transition-all tracking-wider flex-shrink-0 ml-auto"
-            >
-              Deposit
-            </button>
-          </div>
-        </div>
-      )}
+      <MarginCallBanner />
       {/* ═══ DESKTOP: Market Ticker Bar + Top Navbar ═══ */}
       <div className="hidden lg:block sticky top-0 z-50 bg-surface shadow-sm border-b border-border/60">
         <div className="flex items-center h-14 w-full">
@@ -136,21 +115,7 @@ export default function AppLayout() {
             {/* Right Side — User Controls */}
             <div className="flex items-center gap-4">
               {/* Connection Indicator */}
-              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface-2 border border-border/40 shadow-sm select-none">
-                <span className="relative flex h-2 w-2">
-                  <span className={cn(
-                    "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
-                    socketConnected ? "bg-emerald-500" : "bg-red-500"
-                  )}></span>
-                  <span className={cn(
-                    "relative inline-flex rounded-full h-2 w-2",
-                    socketConnected ? "bg-emerald-500" : "bg-red-500"
-                  )}></span>
-                </span>
-                <span className="text-[11px] font-extrabold tracking-wider uppercase text-text-secondary">
-                  {socketConnected ? 'Live' : 'Offline'}
-                </span>
-              </div>
+              <ConnectionStatus />
 
               {/* Theme Toggle */}
               <button
@@ -249,50 +214,7 @@ export default function AppLayout() {
       </div>
 
       {/* ═══ LIVE TOAST NOTIFICATIONS ═══ */}
-      <div className="fixed bottom-20 right-4 lg:bottom-4 lg:right-4 z-[999] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0">
-        <AnimatePresence>
-          {toasts.map((toast) => (
-            <motion.div
-              key={toast.id}
-              initial={{ opacity: 0, y: 50, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.15 } }}
-              className="pointer-events-auto w-full bg-surface-2 border border-border/80 rounded-xl p-4 shadow-xl flex gap-3 relative overflow-hidden backdrop-blur-md"
-            >
-              {toast.type === 'success' && (
-                <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
-                  <CheckCircle size={20} strokeWidth={2} />
-                </div>
-              )}
-              {toast.type === 'warning' && (
-                <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
-                  <AlertTriangle size={20} strokeWidth={2} />
-                </div>
-              )}
-              {toast.type === 'error' && (
-                <div className="w-10 h-10 rounded-full bg-danger/10 border border-danger/20 text-danger flex items-center justify-center shrink-0">
-                  <AlertCircle size={20} strokeWidth={2} />
-                </div>
-              )}
-              {toast.type === 'info' && (
-                <div className="w-10 h-10 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center shrink-0">
-                  <Info size={20} strokeWidth={2} />
-                </div>
-              )}
-              <div className="flex-1 min-w-0 pr-4">
-                <h4 className="text-sm font-bold text-text-primary">{toast.title}</h4>
-                <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{toast.message}</p>
-              </div>
-              <button
-                onClick={() => removeToast(toast.id)}
-                className="absolute top-2 right-2 text-text-muted hover:text-text-primary transition-colors p-1"
-              >
-                <X size={14} />
-              </button>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+      <LiveToasts />
 
       {/* ═══ OFFLINE SAFEGUARD OVERLAY ═══ */}
       {isOffline && (
