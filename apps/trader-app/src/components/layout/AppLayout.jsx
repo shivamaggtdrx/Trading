@@ -12,6 +12,7 @@ import SystemBanner from './SystemBanner';
 import MarginCallBanner from './MarginCallBanner';
 import ConnectionStatus from './ConnectionStatus';
 import LiveToasts from './LiveToasts';
+import PageTransition from './PageTransition';
 import { useTradeStore } from '../../store/useTradeStore';
 import { api } from '../../services/api';
 import { cn } from '../../utils/helpers';
@@ -55,13 +56,6 @@ export default function AppLayout() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
-
-  // Reset scroll position to top on every route change (prevents jitter from scroll carry-over)
-  useLayoutEffect(() => {
-    if (mainScrollRef.current) {
-      mainScrollRef.current.scrollTop = 0;
-    }
-  }, [location.pathname]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -191,18 +185,22 @@ export default function AppLayout() {
 
         {/* Main Content Area — hidden on desktop when watchlist is expanded */}
         {!isWatchlistExpanded && (
-          <main ref={mainScrollRef} className="flex-1 overflow-y-auto w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface">
-            <div className="w-full h-full">
-              <Outlet />
+          <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface">
+            <div className="w-full h-full relative">
+              <PageTransition>
+                <Outlet />
+              </PageTransition>
             </div>
           </main>
         )}
 
         {/* Mobile always gets Outlet even if expanded (sidebar hidden on mobile) */}
         {isWatchlistExpanded && (
-          <main className="flex-1 overflow-y-auto w-full max-w-lg pb-16 bg-surface lg:hidden">
-            <div className="w-full h-full">
-              <Outlet />
+          <main className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-lg pb-16 bg-surface lg:hidden">
+            <div className="w-full h-full relative">
+              <PageTransition>
+                <Outlet />
+              </PageTransition>
             </div>
           </main>
         )}
