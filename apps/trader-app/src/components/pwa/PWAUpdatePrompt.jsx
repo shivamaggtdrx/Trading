@@ -23,6 +23,13 @@ export default function PWAUpdatePrompt() {
 
   const dismiss = () => setNeedRefresh(false);
 
+  useEffect(() => {
+    if (needRefresh) {
+      console.log('🔄 New version detected! Auto-reloading to apply update...');
+      updateServiceWorker(true);
+    }
+  }, [needRefresh, updateServiceWorker]);
+
   if (!needRefresh) return null;
 
   return (
