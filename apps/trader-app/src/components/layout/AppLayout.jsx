@@ -198,9 +198,7 @@ export default function AppLayout() {
         {isWatchlistExpanded && (
           <main className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-lg pb-16 bg-surface lg:hidden">
             <div className="w-full h-full relative">
-              <PageTransition>
-                <Outlet />
-              </PageTransition>
+              <PageTransition />
             </div>
           </main>
         )}
