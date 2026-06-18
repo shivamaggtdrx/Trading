@@ -57,25 +57,46 @@ function DebugMountLogger({ name }) {
 }
 
 function MainTabStack({ currentTab }) {
-  const activePage = mainTabPages.find(({ id }) => currentTab === id);
-  if (!activePage) return null;
+  const [visitedTabs, setVisitedTabs] = useState(() => {
+    return currentTab ? new Set([currentTab]) : new Set();
+  });
 
-  const { Component, id } = activePage;
+  useEffect(() => {
+    if (currentTab) {
+      setVisitedTabs((prev) => {
+        if (prev.has(currentTab)) return prev;
+        const next = new Set(prev);
+        next.add(currentTab);
+        return next;
+      });
+    }
+  }, [currentTab]);
 
   return (
-    <section
-      key={id}
-      aria-hidden={false}
-      className="absolute inset-0 w-full min-h-full bg-surface overflow-y-auto overflow-x-hidden"
-      style={{
-        visibility: 'visible',
-        zIndex: 10,
-        pointerEvents: 'auto',
-      }}
-    >
-      <DebugMountLogger name={id} />
-      <Component />
-    </section>
+    <>
+      {mainTabPages.map(({ id, Component }) => {
+        const isVisited = visitedTabs.has(id);
+        if (!isVisited) return null;
+
+        const isActive = currentTab === id;
+
+        return (
+          <section
+            key={id}
+            aria-hidden={!isActive}
+            className="absolute inset-0 w-full min-h-full bg-surface overflow-y-auto overflow-x-hidden"
+            style={{
+              visibility: isActive ? 'visible' : 'hidden',
+              pointerEvents: isActive ? 'auto' : 'none',
+              zIndex: isActive ? 10 : 0,
+            }}
+          >
+            <DebugMountLogger name={id} />
+            <Component isActive={isActive} />
+          </section>
+        );
+      })}
+    </>
   );
 }
 
