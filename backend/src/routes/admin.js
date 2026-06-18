@@ -3445,4 +3445,45 @@ router.post('/feed/fyers/reset', requireRole('super_admin', 'admin'), async (req
   }
 });
 
+// ── Get Animator Settings & Stats ──
+router.get('/animator-settings', async (req, res) => {
+  try {
+    const { getSegmentSettings, getAnimatorStats } = require('../ws/priceAnimator');
+    res.json({
+      success: true,
+      settings: getSegmentSettings(),
+      stats: getAnimatorStats()
+    });
+  } catch (err) {
+    res.status(500).json({ error: `Failed to retrieve animator settings: ${err.message}` });
+  }
+});
+
+// ── Update Animator Settings ──
+router.post('/animator-settings', requireRole('super_admin', 'admin'), async (req, res) => {
+  try {
+    const { segment, enabled } = req.body;
+    if (!segment) {
+      return res.status(400).json({ error: 'Segment name is required.' });
+    }
+    
+    const { updateSegmentSetting, getSegmentSettings } = require('../ws/priceAnimator');
+    const success = await updateSegmentSetting(segment, enabled);
+    if (success) {
+      await supabaseAdmin.from('audit_logs').insert({
+        admin_id: req.admin.id,
+        action: 'update_animator_settings',
+        target_type: 'system',
+        description: `Set animator for segment '${segment}' to ${enabled ? 'ON' : 'OFF'}`,
+        ip_address: req.ip
+      });
+      return res.json({ success: true, settings: getSegmentSettings(), message: `Animator segment '${segment}' updated.` });
+    } else {
+      return res.status(400).json({ error: `Invalid segment: ${segment}.` });
+    }
+  } catch (err) {
+    res.status(500).json({ error: `Failed to update animator settings: ${err.message}` });
+  }
+});
+
 module.exports = router;

@@ -262,6 +262,42 @@ class FyersFeed extends EventEmitter {
     }
   }
 
+  _sendSubscribe(symbols) {
+    if (!this.socket || !symbols || symbols.length === 0) return;
+
+    const indices = [];
+    const equities = [];
+    for (const sym of symbols) {
+      if (sym.endsWith('-INDEX')) {
+        indices.push(sym);
+      } else {
+        equities.push(sym);
+      }
+    }
+
+    const CHUNK_SIZE = 100;
+
+    // Subscribe equities in chunks as 'symbolUpdate' (false = Full mode)
+    for (let i = 0; i < equities.length; i += CHUNK_SIZE) {
+      const chunk = equities.slice(i, i + CHUNK_SIZE);
+      try {
+        this.socket.subscribe(chunk, false);
+      } catch (err) {
+        feedLogger.error(`[FYERS] Error subscribing equity chunk: ${err.message}`);
+      }
+    }
+
+    // Subscribe indices in chunks as 'lite' (true = Lite mode, no depth)
+    for (let i = 0; i < indices.length; i += CHUNK_SIZE) {
+      const chunk = indices.slice(i, i + CHUNK_SIZE);
+      try {
+        this.socket.subscribe(chunk, true);
+      } catch (err) {
+        feedLogger.error(`[FYERS] Error subscribing index chunk: ${err.message}`);
+      }
+    }
+  }
+
   async subscribe(symbols = []) {
     if (!symbols.length) return;
 
@@ -281,8 +317,8 @@ class FyersFeed extends EventEmitter {
 
     if (toSubscribe.length > 0 && this.socket) {
       try {
-        this.socket.subscribe(Array.from(this.fyersSymbols), 'symbolUpdate');
-        feedLogger.info(`[FYERS] Subscribed to ${Array.from(this.fyersSymbols).length} symbols total.`);
+        this._sendSubscribe(toSubscribe);
+        feedLogger.info(`[FYERS] Subscribed to ${toSubscribe.length} new symbols. Total: ${this.fyersSymbols.size}`);
       } catch (err) {
         feedLogger.warn(`[FYERS] subscribe() error: ${err.message}`);
       }
@@ -558,7 +594,7 @@ class FyersFeed extends EventEmitter {
 
         // Subscribe to all pending symbols
         if (this.fyersSymbols.size > 0) {
-          this.socket.subscribe(Array.from(this.fyersSymbols), 'symbolUpdate');
+          this._sendSubscribe(Array.from(this.fyersSymbols));
           feedLogger.info(`[FYERS] Re-subscribed to ${this.fyersSymbols.size} symbols.`);
         }
       });

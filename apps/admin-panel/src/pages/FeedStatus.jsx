@@ -9,15 +9,31 @@ export default function FeedStatus() {
   const [resetting, setResetting] = useState(false);
   const [error, setError] = useState(null);
 
+  const [animatorSettings, setAnimatorSettings] = useState({});
+  const [animatorStats, setAnimatorStats] = useState(null);
+  const [updatingSegment, setUpdatingSegment] = useState(null);
+
   const fetchStatus = async (isManual = false) => {
     try {
       if (isManual) setRefreshing(true);
       setError(null);
-      const res = await adminApi.getFeedStatus();
-      if (res && res.success) {
-        setData(res.status);
-      } else {
-        throw new Error('Invalid response structure');
+
+      const [feedRes, animatorRes] = await Promise.allSettled([
+        adminApi.getFeedStatus(),
+        adminApi.getAnimatorSettings()
+      ]);
+
+      if (feedRes.status === 'fulfilled' && feedRes.value?.success) {
+        setData(feedRes.value.status);
+      } else if (feedRes.status === 'rejected') {
+        throw new Error(feedRes.reason?.message || 'Failed to load live feed status');
+      } else if (feedRes.value && !feedRes.value.success) {
+        throw new Error(feedRes.value.error || 'Failed to load live feed status');
+      }
+
+      if (animatorRes.status === 'fulfilled' && animatorRes.value?.success) {
+        setAnimatorSettings(animatorRes.value.settings || {});
+        setAnimatorStats(animatorRes.value.stats || null);
       }
     } catch (err) {
       setError(err.message || 'Failed to load live feed status');
@@ -33,6 +49,28 @@ export default function FeedStatus() {
     const interval = setInterval(() => fetchStatus(), 3000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleToggleAnimator = async (segment, enabled) => {
+    try {
+      setUpdatingSegment(segment);
+      const res = await adminApi.updateAnimatorSetting(segment, enabled);
+      if (res && res.success) {
+        setAnimatorSettings(res.settings || {});
+        // Refresh details
+        const fresh = await adminApi.getAnimatorSettings();
+        if (fresh && fresh.success) {
+          setAnimatorSettings(fresh.settings || {});
+          setAnimatorStats(fresh.stats || null);
+        }
+      } else {
+        throw new Error(res.error || 'Failed to update animator settings');
+      }
+    } catch (err) {
+      alert(`Error updating animator: ${err.message}`);
+    } finally {
+      setUpdatingSegment(null);
+    }
+  };
 
   const handleResetFyers = async () => {
     const confirmReset = window.confirm(
@@ -164,6 +202,97 @@ export default function FeedStatus() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* High-Frequency Price Animator Control Card */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-6">
+        <div>
+          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <Cpu className="h-5 w-5 text-blue-600" />
+            High-Frequency Price Animator Control
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Toggle the artificial price animator for each market segment. Turning a segment <strong>OFF</strong> bypasses random-walk price animations, broadcasting exact, flat exchange ticks directly to clients.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[
+            { id: 'nse_stocks', label: 'NSE Stocks', desc: 'Indian Equities (NSE/BSE)' },
+            { id: 'mcx', label: 'MCX Commodities', desc: 'Metal, Energy & Agriculture Futures' },
+            { id: 'forex', label: 'Forex Currencies', desc: 'USD, EUR, GBP & INR Pairs' },
+            { id: 'crypto', label: 'Cryptocurrencies', desc: 'BTC, ETH, SOL & Altcoins' },
+            { id: 'us_stocks', label: 'US Stocks', desc: 'NASDAQ & NYSE Equities' },
+            { id: 'global_indices', label: 'Global Indices', desc: 'NIFTY, BANKNIFTY & DJI Benchmarks' },
+          ].map((seg) => {
+            const isEnabled = !!animatorSettings[seg.id];
+            const isUpdating = updatingSegment === seg.id;
+            
+            return (
+              <div key={seg.id} className="border border-gray-150 rounded-lg p-4 bg-gray-50/50 flex flex-col justify-between space-y-4 hover:shadow-sm transition-all dark:border-gray-800">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-gray-900 text-sm">{seg.label}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide ${
+                      isEnabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {isEnabled ? 'flicker active' : 'flat feed'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 leading-normal">{seg.desc}</p>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleToggleAnimator(seg.id, true)}
+                    disabled={isUpdating}
+                    className={`flex-1 inline-flex items-center justify-center rounded-md text-xs font-bold h-8 transition-colors select-none cursor-pointer ${
+                      isEnabled 
+                        ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700' 
+                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    ON
+                  </button>
+                  <button
+                    onClick={() => handleToggleAnimator(seg.id, false)}
+                    disabled={isUpdating}
+                    className={`flex-1 inline-flex items-center justify-center rounded-md text-xs font-bold h-8 transition-colors select-none cursor-pointer ${
+                      !isEnabled 
+                        ? 'bg-gray-800 text-white shadow-sm hover:bg-gray-900' 
+                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    OFF
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {animatorStats && (
+          <div className="bg-blue-50/40 border border-blue-100/50 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs text-blue-800">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              <div>
+                <span className="text-blue-600 font-semibold uppercase tracking-wider block text-[10px]">Animator Status</span>
+                <span className="font-bold text-sm text-blue-900">{animatorStats.running ? 'Running' : 'Stopped'}</span>
+              </div>
+              <div>
+                <span className="text-blue-600 font-semibold uppercase tracking-wider block text-[10px]">Active Watchlist Keys</span>
+                <span className="font-bold text-sm text-blue-900">{animatorStats.anchorSymbols} symbols</span>
+              </div>
+              <div>
+                <span className="text-blue-600 font-semibold uppercase tracking-wider block text-[10px]">Broadcast Frequency</span>
+                <span className="font-bold text-sm text-blue-900">~{animatorStats.ticksPerSecond} ticks/sec</span>
+              </div>
+              <div>
+                <span className="text-blue-600 font-semibold uppercase tracking-wider block text-[10px]">Total Ticks Dispatched</span>
+                <span className="font-bold text-sm text-blue-900">{animatorStats.totalMicroTicks?.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Market Segments Status Board */}

@@ -189,4 +189,9 @@ export const adminApi = {
   // ── Live Feed Status & Control ──
   getFeedStatus: () => request('/admin/feed-status'),
   resetFyersFeed: () => request('/admin/feed/fyers/reset', { method: 'POST' }),
+  getAnimatorSettings: () => request('/admin/animator-settings'),
+  updateAnimatorSetting: (segment, enabled) => request('/admin/animator-settings', {
+    method: 'POST',
+    body: JSON.stringify({ segment, enabled })
+  }),
 };

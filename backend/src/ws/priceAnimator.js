@@ -20,6 +20,7 @@
  */
 
 const { feedLogger } = require('../core/monitoring/logger');
+const { redisClient } = require('../redis/client');
 // NOTE: socketServer is required lazily inside the interval to avoid circular dependency:
 // nativeWsServer → priceAnimator → socketServer → (various)
 
@@ -30,6 +31,62 @@ const SPREAD_VARIATION_PCT = 0.00004;  // Bid/ask spread micro-variation
 
 // Only animate these exchanges — Finnhub (US/Forex/Indices) included to ensure smooth price movement
 const ANIMATABLE_EXCHANGES = new Set(['NSE', 'NSE_INDEX', 'CRYPTO', 'BINANCE', 'MCX', 'US', 'FOREX', 'INDEX']);
+
+// ── Segment Configuration ──
+const segmentSettings = {
+  nse_stocks: true,
+  mcx: true,
+  forex: true,
+  crypto: true,
+  us_stocks: true,
+  global_indices: true
+};
+
+function getSegmentForExchange(exchange) {
+  if (!exchange) return 'nse_stocks';
+  const ex = exchange.toUpperCase();
+  if (ex === 'MCX') return 'mcx';
+  if (ex === 'FOREX') return 'forex';
+  if (ex === 'CRYPTO' || ex === 'BINANCE') return 'crypto';
+  if (ex === 'US') return 'us_stocks';
+  if (ex === 'INDEX' || ex === 'NSE_INDEX') return 'global_indices';
+  return 'nse_stocks'; // Default to nse_stocks (e.g. NSE, BSE)
+}
+
+function getSegmentSettings() {
+  return { ...segmentSettings };
+}
+
+async function updateSegmentSetting(segment, enabled) {
+  if (segmentSettings[segment] !== undefined) {
+    segmentSettings[segment] = !!enabled;
+    feedLogger.info(`[ANIMATOR] Segment '${segment}' animator set to: ${enabled ? 'ON' : 'OFF'}`);
+    try {
+      if (redisClient) {
+        await redisClient.set('animator:segment_settings', JSON.stringify(segmentSettings));
+      }
+    } catch (err) {
+      feedLogger.warn(`[ANIMATOR] Failed to save settings to Redis: ${err.message}`);
+    }
+    return true;
+  }
+  return false;
+}
+
+async function initSettings() {
+  try {
+    if (redisClient) {
+      const cached = await redisClient.get('animator:segment_settings');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        Object.assign(segmentSettings, parsed);
+        feedLogger.info(`[ANIMATOR] Loaded segment settings from Redis: ${JSON.stringify(segmentSettings)}`);
+      }
+    }
+  } catch (err) {
+    feedLogger.warn(`[ANIMATOR] Failed to load settings from Redis: ${err.message}`);
+  }
+}
 
 // ── State ──
 const anchorPrices = new Map();   // symbol → { price, bid, ask, high, low, open, prev_close, change, changePct, volume, exchange, timestamp }
@@ -111,6 +168,9 @@ function isMarketOpen(exchange) {
  */
 async function startAnimator() {
   if (animatorInterval) return;
+
+  // Load animator segment settings from Redis
+  await initSettings();
 
   // Preload initial anchor prices from DB to ensure every active instrument
   // can start animating immediately on startup without waiting for a live tick.
@@ -214,6 +274,35 @@ function generateMicroTick(symbol, anchor) {
   const basePrice = anchor.currentAnimatedPrice || anchor.price;
   if (!basePrice || basePrice <= 0) return null;
 
+  const segment = getSegmentForExchange(anchor.exchange);
+  if (!segmentSettings[segment]) {
+    // Animator is OFF for this segment.
+    // Return a flat tick with the exact live anchor price directly.
+    anchor.currentAnimatedPrice = anchor.price;
+    const change = anchor.prev_close > 0 ? +(anchor.price - anchor.prev_close).toFixed(getDecimalPlaces(anchor.price)) : anchor.change;
+    const changePct = anchor.prev_close > 0 ? +((anchor.price - anchor.prev_close) / anchor.prev_close * 100).toFixed(2) : anchor.changePct;
+
+    return {
+      symbol,
+      exchange: anchor.exchange,
+      price: anchor.price,
+      ltp: anchor.price,
+      bid: anchor.bid || anchor.price,
+      ask: anchor.ask || anchor.price,
+      spread: anchor.ask && anchor.bid ? +(anchor.ask - anchor.bid).toFixed(getDecimalPlaces(anchor.price)) : 0,
+      high: anchor.high || anchor.price,
+      low: anchor.low || anchor.price,
+      open: anchor.open,
+      prev_close: anchor.prev_close,
+      change,
+      change_percent: changePct,
+      changePercent: changePct,
+      volume: anchor.volume,
+      timestamp: Date.now(),
+      _debug: { source: 'animator_bypass', anchorPrice: anchor.price },
+    };
+  }
+
   // Generate random micro-movement
   // Use a slight mean-reversion toward anchor price to prevent drift
   const driftFromAnchor = (basePrice - anchor.price) / anchor.price;
@@ -305,4 +394,6 @@ module.exports = {
   startAnimator,
   stopAnimator,
   getAnimatorStats,
+  getSegmentSettings,
+  updateSegmentSetting,
 };

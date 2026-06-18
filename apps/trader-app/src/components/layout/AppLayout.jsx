@@ -57,10 +57,31 @@ function DebugMountLogger({ name }) {
 }
 
 function MainTabStack({ currentTab }) {
+  // Keep track of which tabs should be rendered/visible
+  const [visibleTabs, setVisibleTabs] = useState(currentTab ? [currentTab] : []);
+
+  useEffect(() => {
+    if (!currentTab) return;
+
+    // Immediately make the new tab visible alongside the old tab
+    setVisibleTabs((prev) => {
+      if (prev.includes(currentTab)) return prev;
+      return [...prev, currentTab];
+    });
+
+    // After 400ms, hide any inactive tabs to reclaim resources
+    const timer = setTimeout(() => {
+      setVisibleTabs([currentTab]);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [currentTab]);
+
   return (
     <>
       {mainTabPages.map(({ id, Component }) => {
         const isActive = currentTab === id;
+        const isVisible = visibleTabs.includes(id);
 
         return (
           <section
@@ -68,7 +89,7 @@ function MainTabStack({ currentTab }) {
             aria-hidden={!isActive}
             className="absolute inset-0 w-full min-h-full bg-surface overflow-y-auto overflow-x-hidden"
             style={{
-              visibility: isActive ? 'visible' : 'hidden',
+              visibility: isVisible ? 'visible' : 'hidden',
               zIndex: isActive ? 10 : 0,
               pointerEvents: isActive ? 'auto' : 'none',
               // GPU-promote only the active tab to avoid compositor layer thrash
@@ -143,7 +164,7 @@ export default function AppLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col">
+    <div className="h-dvh lg:h-auto lg:min-h-screen bg-surface flex flex-col overflow-hidden lg:overflow-visible">
       <MarginCallBanner />
       {/* ═══ DESKTOP: Market Ticker Bar + Top Navbar ═══ */}
       <div className="hidden lg:block sticky top-0 z-50 bg-surface shadow-sm border-b border-border/60">
@@ -252,7 +273,7 @@ export default function AppLayout() {
         {/* Main Content Area — hidden on desktop when watchlist is expanded */}
         {!isWatchlistExpanded && (
           <main ref={mainScrollRef} className={`flex-1 overflow-x-hidden w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface ${currentTab ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-            <div className="w-full h-full relative" style={{ minHeight: '100dvh' }}>
+            <div className="w-full h-full relative">
               {/* INDEXED STACK: keeps tab pages mounted and avoids display:none paint gaps on mobile. */}
               <MainTabStack currentTab={currentTab} />
 
@@ -267,7 +288,7 @@ export default function AppLayout() {
         {/* Mobile always gets Outlet even if expanded (sidebar hidden on mobile) */}
         {isWatchlistExpanded && (
           <main className={`flex-1 overflow-x-hidden w-full max-w-lg pb-16 bg-surface lg:hidden ${currentTab ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-            <div className="w-full h-full relative" style={{ minHeight: '100dvh' }}>
+            <div className="w-full h-full relative">
               {/* INDEXED STACK: keeps tab pages mounted and avoids display:none paint gaps on mobile. */}
               <MainTabStack currentTab={currentTab} />
 
