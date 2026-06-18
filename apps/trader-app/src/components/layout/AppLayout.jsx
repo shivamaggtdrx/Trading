@@ -6,7 +6,7 @@ import {
 import { useState, useEffect, useRef } from 'react';
 import BottomNav from './BottomNav';
 import WatchlistSidebar from './WatchlistSidebar';
-import MarketTickerBar from './MarketTickerBar';
+// MarketTickerBar import removed — rendered inside WatchlistSidebar
 import AcknowledgmentModal from '../ui/AcknowledgmentModal';
 import SystemBanner from './SystemBanner';
 import MarginCallBanner from './MarginCallBanner';
@@ -22,8 +22,8 @@ import Charts from '../../pages/Charts/Charts';
 import Orders from '../../pages/Orders/Orders';
 import Wallet from '../../pages/Wallet/Wallet';
 import Profile from '../../pages/Profile/Profile';
-import { api } from '../../services/api';
 import { cn } from '../../utils/helpers';
+
 
 const desktopNavItems = [
   { path: '/dashboard', icon: HomeIcon, label: 'Dashboard' },
@@ -66,12 +66,14 @@ function MainTabStack({ currentTab }) {
           <section
             key={id}
             aria-hidden={!isActive}
-            className={cn(
-              'w-full min-h-full bg-surface [backface-visibility:hidden] [transform:translateZ(0)]',
-              isActive
-                ? 'relative z-10 opacity-100 pointer-events-auto'
-                : 'absolute inset-0 z-0 opacity-0 pointer-events-none overflow-hidden'
-            )}
+            className="absolute inset-0 w-full min-h-full bg-surface overflow-y-auto overflow-x-hidden"
+            style={{
+              visibility: isActive ? 'visible' : 'hidden',
+              zIndex: isActive ? 10 : 0,
+              pointerEvents: isActive ? 'auto' : 'none',
+              // GPU-promote only the active tab to avoid compositor layer thrash
+              ...(isActive ? { transform: 'translateZ(0)', backfaceVisibility: 'hidden' } : {}),
+            }}
           >
             <DebugMountLogger name={id} />
             <Component />
@@ -249,8 +251,8 @@ export default function AppLayout() {
 
         {/* Main Content Area — hidden on desktop when watchlist is expanded */}
         {!isWatchlistExpanded && (
-          <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface">
-            <div className="w-full h-full relative">
+          <main ref={mainScrollRef} className={`flex-1 overflow-x-hidden w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface ${currentTab ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+            <div className="w-full h-full relative" style={{ minHeight: '100dvh' }}>
               {/* INDEXED STACK: keeps tab pages mounted and avoids display:none paint gaps on mobile. */}
               <MainTabStack currentTab={currentTab} />
 
@@ -264,8 +266,8 @@ export default function AppLayout() {
 
         {/* Mobile always gets Outlet even if expanded (sidebar hidden on mobile) */}
         {isWatchlistExpanded && (
-          <main className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-lg pb-16 bg-surface lg:hidden">
-            <div className="w-full h-full relative">
+          <main className={`flex-1 overflow-x-hidden w-full max-w-lg pb-16 bg-surface lg:hidden ${currentTab ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+            <div className="w-full h-full relative" style={{ minHeight: '100dvh' }}>
               {/* INDEXED STACK: keeps tab pages mounted and avoids display:none paint gaps on mobile. */}
               <MainTabStack currentTab={currentTab} />
 

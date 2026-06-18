@@ -81,7 +81,7 @@ export default function Charts() {
   const adjustQuantity = (delta) => { setQuantity(String(Math.max(1, (Number(quantity) || 0) + delta))); };
 
   return (
-    <div className="flex flex-col h-screen bg-surface relative">
+    <div className="flex flex-col h-full bg-surface relative">
       {/* ── Stock Selector Header ── */}
       <header className="flex items-center gap-2 px-3 py-2 bg-surface-2 border-b border-border z-20 flex-wrap">
         <button onClick={() => setShowPicker(!showPicker)} className="flex items-center gap-1 p-1 rounded hover:bg-surface-3 transition-colors">

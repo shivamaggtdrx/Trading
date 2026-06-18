@@ -207,7 +207,7 @@ export default function Markets() {
   const bnUp = (bankNifty?.change || 0) >= 0;
 
   return (
-    <div className="flex flex-col h-full bg-surface min-h-screen" {...containerProps}>
+    <div className="flex flex-col h-full bg-surface min-h-full" {...containerProps}>
       <PullIndicator isRefreshing={isRefreshing} progress={pullProgress} />
       {/* ── Top Ticker Bar ── */}
       <div className="flex items-center justify-between px-3 py-2 bg-surface-2 border-b border-border lg:hidden">

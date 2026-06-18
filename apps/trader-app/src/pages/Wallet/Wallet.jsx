@@ -189,7 +189,7 @@ export default function WalletPage() {
   ];
 
   return (
-    <div className="bg-surface min-h-screen">
+    <div className="bg-surface min-h-full">
       {/* Header */}
       <div className="px-4 pt-6 pb-4">
         <h1 className="text-2xl font-bold text-text-primary">Funds</h1>
