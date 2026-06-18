@@ -1,9 +1,9 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Home, Layers, CandlestickChart, ClipboardList, User, LogOut,
-  Moon, Sun, Wallet, FileText, Headphones, Settings, WifiOff,
+  Home as HomeIcon, Layers, CandlestickChart, ClipboardList, User, LogOut,
+  Moon, Sun, Wallet as WalletIcon, FileText, Headphones, Settings, WifiOff,
 } from 'lucide-react';
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import BottomNav from './BottomNav';
 import WatchlistSidebar from './WatchlistSidebar';
 import MarketTickerBar from './MarketTickerBar';
@@ -26,14 +26,61 @@ import { api } from '../../services/api';
 import { cn } from '../../utils/helpers';
 
 const desktopNavItems = [
-  { path: '/dashboard', icon: Home, label: 'Dashboard' },
+  { path: '/dashboard', icon: HomeIcon, label: 'Dashboard' },
   { path: '/orders', icon: ClipboardList, label: 'Orders' },
   { path: '/positions', icon: Layers, label: 'Portfolio' },
   { path: '/charts', icon: CandlestickChart, label: 'Charts' },
-  { path: '/wallet', icon: Wallet, label: 'Funds' },
+  { path: '/wallet', icon: WalletIcon, label: 'Funds' },
   { path: '/reports', icon: FileText, label: 'Reports' },
   { path: '/help', icon: Headphones, label: 'Support' },
 ];
+
+const mainTabPages = [
+  { id: 'markets', Component: Markets },
+  { id: 'dashboard', Component: Home },
+  { id: 'positions', Component: Positions },
+  { id: 'charts', Component: Charts },
+  { id: 'orders', Component: Orders },
+  { id: 'wallet', Component: Wallet },
+  { id: 'profile', Component: Profile },
+];
+
+function DebugMountLogger({ name }) {
+  useEffect(() => {
+    if (!import.meta.env.DEV) return undefined;
+
+    console.log('MOUNT', name);
+    return () => console.log('UNMOUNT', name);
+  }, [name]);
+
+  return null;
+}
+
+function MainTabStack({ currentTab }) {
+  return (
+    <>
+      {mainTabPages.map(({ id, Component }) => {
+        const isActive = currentTab === id;
+
+        return (
+          <section
+            key={id}
+            aria-hidden={!isActive}
+            className={cn(
+              'w-full min-h-full bg-surface [backface-visibility:hidden] [transform:translateZ(0)]',
+              isActive
+                ? 'relative z-10 opacity-100 pointer-events-auto'
+                : 'absolute inset-0 z-0 opacity-0 pointer-events-none overflow-hidden'
+            )}
+          >
+            <DebugMountLogger name={id} />
+            <Component />
+          </section>
+        );
+      })}
+    </>
+  );
+}
 
 export default function AppLayout() {
   const user = useTradeStore((s) => s.user);
@@ -204,14 +251,8 @@ export default function AppLayout() {
         {!isWatchlistExpanded && (
           <main ref={mainScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface">
             <div className="w-full h-full relative">
-              {/* INDEXED STACK: Keeps tabs permanently mounted to prevent black flash / remount jank */}
-              <div className={currentTab === 'markets' ? 'block h-full w-full' : 'hidden'}><Markets /></div>
-              <div className={currentTab === 'dashboard' ? 'block h-full w-full' : 'hidden'}><Home /></div>
-              <div className={currentTab === 'positions' ? 'block h-full w-full' : 'hidden'}><Positions /></div>
-              <div className={currentTab === 'charts' ? 'block h-full w-full' : 'hidden'}><Charts /></div>
-              <div className={currentTab === 'orders' ? 'block h-full w-full' : 'hidden'}><Orders /></div>
-              <div className={currentTab === 'wallet' ? 'block h-full w-full' : 'hidden'}><Wallet /></div>
-              <div className={currentTab === 'profile' ? 'block h-full w-full' : 'hidden'}><Profile /></div>
+              {/* INDEXED STACK: keeps tab pages mounted and avoids display:none paint gaps on mobile. */}
+              <MainTabStack currentTab={currentTab} />
 
               {/* NORMAL OUTLET: For sub-pages like /trade, /history, /kyc/submit */}
               <div className={!currentTab ? 'block h-full w-full' : 'hidden'}>
@@ -225,14 +266,8 @@ export default function AppLayout() {
         {isWatchlistExpanded && (
           <main className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-lg pb-16 bg-surface lg:hidden">
             <div className="w-full h-full relative">
-              {/* INDEXED STACK: Keeps tabs permanently mounted to prevent black flash / remount jank */}
-              <div className={currentTab === 'markets' ? 'block h-full w-full' : 'hidden'}><Markets /></div>
-              <div className={currentTab === 'dashboard' ? 'block h-full w-full' : 'hidden'}><Home /></div>
-              <div className={currentTab === 'positions' ? 'block h-full w-full' : 'hidden'}><Positions /></div>
-              <div className={currentTab === 'charts' ? 'block h-full w-full' : 'hidden'}><Charts /></div>
-              <div className={currentTab === 'orders' ? 'block h-full w-full' : 'hidden'}><Orders /></div>
-              <div className={currentTab === 'wallet' ? 'block h-full w-full' : 'hidden'}><Wallet /></div>
-              <div className={currentTab === 'profile' ? 'block h-full w-full' : 'hidden'}><Profile /></div>
+              {/* INDEXED STACK: keeps tab pages mounted and avoids display:none paint gaps on mobile. */}
+              <MainTabStack currentTab={currentTab} />
 
               {/* NORMAL OUTLET: For sub-pages like /trade, /history, /kyc/submit */}
               <div className={!currentTab ? 'block h-full w-full' : 'hidden'}>
