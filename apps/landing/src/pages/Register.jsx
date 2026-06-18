@@ -147,7 +147,7 @@ export default function Register() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-7/12 flex items-center justify-center p-6 sm:p-12 lg:p-20 relative overflow-y-auto max-h-screen">
+      <div className="w-full lg:w-7/12 flex flex-col justify-start lg:justify-center items-center p-6 pt-24 pb-12 sm:p-12 sm:pt-28 lg:p-20 relative min-h-screen lg:max-h-screen lg:overflow-y-auto">
         <Link to="/" className="absolute top-6 left-6 lg:hidden flex items-center space-x-2 text-slate-600 hover:text-primary transition-colors font-medium">
           <ArrowLeft size={18} />
           <span>Back</span>
@@ -164,7 +164,7 @@ export default function Register() {
           transition={{ duration: 0.5 }}
           className="w-full max-w-lg"
         >
-          <div className="mb-10 text-center lg:text-left mt-10 lg:mt-0">
+          <div className="mb-10 text-center lg:text-left mt-6 lg:mt-0">
             <h2 className="text-3xl font-bold text-slate-900 mb-2">Create Account</h2>
             <p className="text-slate-500 font-medium">Please fill in your details to get started.</p>
           </div>
