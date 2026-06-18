@@ -57,31 +57,10 @@ function DebugMountLogger({ name }) {
 }
 
 function MainTabStack({ currentTab }) {
-  // Keep track of which tabs should be rendered/visible
-  const [visibleTabs, setVisibleTabs] = useState(currentTab ? [currentTab] : []);
-
-  useEffect(() => {
-    if (!currentTab) return;
-
-    // Immediately make the new tab visible alongside the old tab
-    setVisibleTabs((prev) => {
-      if (prev.includes(currentTab)) return prev;
-      return [...prev, currentTab];
-    });
-
-    // After 400ms, hide any inactive tabs to reclaim resources
-    const timer = setTimeout(() => {
-      setVisibleTabs([currentTab]);
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [currentTab]);
-
   return (
     <>
       {mainTabPages.map(({ id, Component }) => {
         const isActive = currentTab === id;
-        const isVisible = visibleTabs.includes(id);
 
         return (
           <section
@@ -89,11 +68,9 @@ function MainTabStack({ currentTab }) {
             aria-hidden={!isActive}
             className="absolute inset-0 w-full min-h-full bg-surface overflow-y-auto overflow-x-hidden"
             style={{
-              visibility: isVisible ? 'visible' : 'hidden',
+              visibility: isActive ? 'visible' : 'hidden',
               zIndex: isActive ? 10 : 0,
               pointerEvents: isActive ? 'auto' : 'none',
-              // GPU-promote only the active tab to avoid compositor layer thrash
-              ...(isActive ? { transform: 'translateZ(0)', backfaceVisibility: 'hidden' } : {}),
             }}
           >
             <DebugMountLogger name={id} />
@@ -270,35 +247,25 @@ export default function AppLayout() {
           onToggleExpand={() => setIsWatchlistExpanded(!isWatchlistExpanded)}
         />
 
-        {/* Main Content Area — hidden on desktop when watchlist is expanded */}
-        {!isWatchlistExpanded && (
-          <main ref={mainScrollRef} className={`flex-1 overflow-x-hidden w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface ${currentTab ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-            <div className="w-full h-full relative">
-              {/* INDEXED STACK: keeps tab pages mounted and avoids display:none paint gaps on mobile. */}
-              <MainTabStack currentTab={currentTab} />
+        {/* Main Content Area */}
+        <main
+          ref={mainScrollRef}
+          className={cn(
+            "flex-1 overflow-x-hidden w-full pb-16 bg-surface max-w-lg",
+            isWatchlistExpanded ? "lg:hidden" : "lg:max-w-none lg:pb-0",
+            currentTab ? "overflow-hidden" : "overflow-y-auto"
+          )}
+        >
+          <div className="w-full h-full relative">
+            {/* INDEXED STACK: keeps tab pages mounted and avoids display:none paint gaps on mobile. */}
+            <MainTabStack currentTab={currentTab} />
 
-              {/* NORMAL OUTLET: For sub-pages like /trade, /history, /kyc/submit */}
-              <div className={!currentTab ? 'block h-full w-full' : 'hidden'}>
-                <Outlet />
-              </div>
+            {/* NORMAL OUTLET: For sub-pages like /trade, /history, /kyc/submit */}
+            <div className={!currentTab ? 'block h-full w-full' : 'hidden'}>
+              <Outlet />
             </div>
-          </main>
-        )}
-
-        {/* Mobile always gets Outlet even if expanded (sidebar hidden on mobile) */}
-        {isWatchlistExpanded && (
-          <main className={`flex-1 overflow-x-hidden w-full max-w-lg pb-16 bg-surface lg:hidden ${currentTab ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-            <div className="w-full h-full relative">
-              {/* INDEXED STACK: keeps tab pages mounted and avoids display:none paint gaps on mobile. */}
-              <MainTabStack currentTab={currentTab} />
-
-              {/* NORMAL OUTLET: For sub-pages like /trade, /history, /kyc/submit */}
-              <div className={!currentTab ? 'block h-full w-full' : 'hidden'}>
-                <Outlet />
-              </div>
-            </div>
-          </main>
-        )}
+          </div>
+        </main>
       </div>
 
       {/* ═══ MOBILE: Bottom Navigation ═══ */}
