@@ -57,28 +57,25 @@ function DebugMountLogger({ name }) {
 }
 
 function MainTabStack({ currentTab }) {
-  return (
-    <>
-      {mainTabPages.map(({ id, Component }) => {
-        const isActive = currentTab === id;
+  const activePage = mainTabPages.find(({ id }) => currentTab === id);
+  if (!activePage) return null;
 
-        return (
-          <section
-            key={id}
-            aria-hidden={!isActive}
-            className="absolute inset-0 w-full min-h-full bg-surface overflow-y-auto overflow-x-hidden"
-            style={{
-              visibility: isActive ? 'visible' : 'hidden',
-              zIndex: isActive ? 10 : 0,
-              pointerEvents: isActive ? 'auto' : 'none',
-            }}
-          >
-            <DebugMountLogger name={id} />
-            <Component />
-          </section>
-        );
-      })}
-    </>
+  const { Component, id } = activePage;
+
+  return (
+    <section
+      key={id}
+      aria-hidden={false}
+      className="absolute inset-0 w-full min-h-full bg-surface overflow-y-auto overflow-x-hidden"
+      style={{
+        visibility: 'visible',
+        zIndex: 10,
+        pointerEvents: 'auto',
+      }}
+    >
+      <DebugMountLogger name={id} />
+      <Component />
+    </section>
   );
 }
 
