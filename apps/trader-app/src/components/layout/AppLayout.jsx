@@ -1,110 +1,38 @@
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  Home as HomeIcon, Layers, CandlestickChart, ClipboardList, User, LogOut,
-  Moon, Sun, Wallet as WalletIcon, FileText, Headphones, Settings, WifiOff,
+  Home, Layers, CandlestickChart, ClipboardList, User, LogOut,
+  Moon, Sun, Wallet, FileText, Headphones, Settings,
+  CheckCircle, AlertCircle, AlertTriangle, Info, X, WifiOff,
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import BottomNav from './BottomNav';
 import WatchlistSidebar from './WatchlistSidebar';
-// MarketTickerBar import removed — rendered inside WatchlistSidebar
+import MarketTickerBar from './MarketTickerBar';
 import AcknowledgmentModal from '../ui/AcknowledgmentModal';
 import SystemBanner from './SystemBanner';
-import MarginCallBanner from './MarginCallBanner';
-import ConnectionStatus from './ConnectionStatus';
-import LiveToasts from './LiveToasts';
 import { useTradeStore } from '../../store/useTradeStore';
-
-// Import Main Tab Pages for IndexedStack (Keep-Alive)
-import Markets from '../../pages/Markets/Markets';
-import Home from '../../pages/Home/Home';
-import Positions from '../../pages/Positions/Positions';
-import Charts from '../../pages/Charts/Charts';
-import Orders from '../../pages/Orders/Orders';
-import Wallet from '../../pages/Wallet/Wallet';
-import Profile from '../../pages/Profile/Profile';
+import { api } from '../../services/api';
 import { cn } from '../../utils/helpers';
 
-
 const desktopNavItems = [
-  { path: '/dashboard', icon: HomeIcon, label: 'Dashboard' },
+  { path: '/dashboard', icon: Home, label: 'Dashboard' },
   { path: '/orders', icon: ClipboardList, label: 'Orders' },
   { path: '/positions', icon: Layers, label: 'Portfolio' },
   { path: '/charts', icon: CandlestickChart, label: 'Charts' },
-  { path: '/wallet', icon: WalletIcon, label: 'Funds' },
+  { path: '/wallet', icon: Wallet, label: 'Funds' },
   { path: '/reports', icon: FileText, label: 'Reports' },
   { path: '/help', icon: Headphones, label: 'Support' },
 ];
 
-const mainTabPages = [
-  { id: 'markets', Component: Markets },
-  { id: 'dashboard', Component: Home },
-  { id: 'positions', Component: Positions },
-  { id: 'charts', Component: Charts },
-  { id: 'orders', Component: Orders },
-  { id: 'wallet', Component: Wallet },
-  { id: 'profile', Component: Profile },
-];
-
-function DebugMountLogger({ name }) {
-  useEffect(() => {
-    if (!import.meta.env.DEV) return undefined;
-
-    console.log('MOUNT', name);
-    return () => console.log('UNMOUNT', name);
-  }, [name]);
-
-  return null;
-}
-
-function MainTabStack({ currentTab }) {
-  const [visitedTabs, setVisitedTabs] = useState(() => {
-    return currentTab ? new Set([currentTab]) : new Set();
-  });
-
-  useEffect(() => {
-    if (currentTab) {
-      setVisitedTabs((prev) => {
-        if (prev.has(currentTab)) return prev;
-        const next = new Set(prev);
-        next.add(currentTab);
-        return next;
-      });
-    }
-  }, [currentTab]);
-
-  return (
-    <>
-      {mainTabPages.map(({ id, Component }) => {
-        const isVisited = visitedTabs.has(id);
-        if (!isVisited) return null;
-
-        const isActive = currentTab === id;
-
-        return (
-          <section
-            key={id}
-            aria-hidden={!isActive}
-            className="absolute inset-0 w-full min-h-full bg-surface overflow-y-auto overflow-x-hidden"
-            style={{
-              visibility: isActive ? 'visible' : 'hidden',
-              pointerEvents: isActive ? 'auto' : 'none',
-              zIndex: isActive ? 10 : 0,
-            }}
-          >
-            <DebugMountLogger name={id} />
-            <Component isActive={isActive} />
-          </section>
-        );
-      })}
-    </>
-  );
-}
-
 export default function AppLayout() {
   const user = useTradeStore((s) => s.user);
   const logout = useTradeStore((s) => s.logout);
+  const marginCallWarning = useTradeStore((s) => s.marginCallWarning);
+  const socketConnected = useTradeStore((s) => s.socketConnected);
+  const toasts = useTradeStore((s) => s.toasts || []);
+  const removeToast = useTradeStore((s) => s.removeToast);
   const navigate = useNavigate();
-  const location = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -115,16 +43,6 @@ export default function AppLayout() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [isWatchlistExpanded, setIsWatchlistExpanded] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const mainScrollRef = useRef(null);
-
-  // Determine which main tab is active for IndexedStack
-  const currentTab = location.pathname === '/' || location.pathname === '/markets' ? 'markets' :
-                     location.pathname === '/dashboard' ? 'dashboard' :
-                     location.pathname === '/positions' ? 'positions' :
-                     location.pathname === '/charts' ? 'charts' :
-                     location.pathname === '/orders' ? 'orders' :
-                     location.pathname === '/wallet' ? 'wallet' :
-                     location.pathname === '/profile' ? 'profile' : null;
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -159,8 +77,26 @@ export default function AppLayout() {
   };
 
   return (
-    <div className="h-dvh lg:h-auto lg:min-h-screen bg-surface flex flex-col overflow-hidden lg:overflow-visible">
-      <MarginCallBanner />
+    <div className="min-h-screen bg-surface flex flex-col">
+      {marginCallWarning && (
+        <div className="bg-gradient-to-r from-red-500/90 via-amber-500/90 to-red-500/90 text-white text-xs font-semibold px-4 py-2 flex items-center justify-between gap-2 border-b border-red-500/30 backdrop-blur-sm animate-pulse w-full">
+          <div className="flex items-center gap-2 max-w-lg lg:max-w-none mx-auto w-full">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+            </span>
+            <span className="tracking-wide text-[11px] sm:text-xs">
+              <strong>Margin Call Warning!</strong> Margin Level: <span className="font-mono text-white underline decoration-wavy">{marginCallWarning.marginLevel.toFixed(1)}%</span>. Equity: ₹{marginCallWarning.equity.toLocaleString('en-IN', { maximumFractionDigits: 0 })}.
+            </span>
+            <button 
+              onClick={() => navigate('/wallet')} 
+              className="bg-white/20 hover:bg-white/30 text-white text-[10px] uppercase font-extrabold px-2.5 py-1 rounded transition-all tracking-wider flex-shrink-0 ml-auto"
+            >
+              Deposit
+            </button>
+          </div>
+        </div>
+      )}
       {/* ═══ DESKTOP: Market Ticker Bar + Top Navbar ═══ */}
       <div className="hidden lg:block sticky top-0 z-50 bg-surface shadow-sm border-b border-border/60">
         <div className="flex items-center h-14 w-full">
@@ -191,7 +127,21 @@ export default function AppLayout() {
             {/* Right Side — User Controls */}
             <div className="flex items-center gap-4">
               {/* Connection Indicator */}
-              <ConnectionStatus />
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface-2 border border-border/40 shadow-sm select-none">
+                <span className="relative flex h-2 w-2">
+                  <span className={cn(
+                    "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                    socketConnected ? "bg-emerald-500" : "bg-red-500"
+                  )}></span>
+                  <span className={cn(
+                    "relative inline-flex rounded-full h-2 w-2",
+                    socketConnected ? "bg-emerald-500" : "bg-red-500"
+                  )}></span>
+                </span>
+                <span className="text-[11px] font-extrabold tracking-wider uppercase text-text-secondary">
+                  {socketConnected ? 'Live' : 'Offline'}
+                </span>
+              </div>
 
               {/* Theme Toggle */}
               <button
@@ -265,25 +215,19 @@ export default function AppLayout() {
           onToggleExpand={() => setIsWatchlistExpanded(!isWatchlistExpanded)}
         />
 
-        {/* Main Content Area */}
-        <main
-          ref={mainScrollRef}
-          className={cn(
-            "flex-1 overflow-x-hidden w-full pb-16 bg-surface max-w-lg",
-            isWatchlistExpanded ? "lg:hidden" : "lg:max-w-none lg:pb-0",
-            currentTab ? "overflow-hidden" : "overflow-y-auto"
-          )}
-        >
-          <div className="w-full h-full relative">
-            {/* INDEXED STACK: keeps tab pages mounted and avoids display:none paint gaps on mobile. */}
-            <MainTabStack currentTab={currentTab} />
+        {/* Main Content Area — hidden on desktop when watchlist is expanded */}
+        {!isWatchlistExpanded && (
+          <main className="flex-1 overflow-y-auto w-full max-w-lg lg:max-w-none pb-16 lg:pb-0 bg-surface">
+            <Outlet />
+          </main>
+        )}
 
-            {/* NORMAL OUTLET: For sub-pages like /trade, /history, /kyc/submit */}
-            <div className={!currentTab ? 'block h-full w-full' : 'hidden'}>
-              <Outlet />
-            </div>
-          </div>
-        </main>
+        {/* Mobile always gets Outlet even if expanded (sidebar hidden on mobile) */}
+        {isWatchlistExpanded && (
+          <main className="flex-1 overflow-y-auto w-full max-w-lg pb-16 bg-surface lg:hidden">
+            <Outlet />
+          </main>
+        )}
       </div>
 
       {/* ═══ MOBILE: Bottom Navigation ═══ */}
@@ -292,7 +236,50 @@ export default function AppLayout() {
       </div>
 
       {/* ═══ LIVE TOAST NOTIFICATIONS ═══ */}
-      <LiveToasts />
+      <div className="fixed bottom-20 right-4 lg:bottom-4 lg:right-4 z-[999] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0">
+        <AnimatePresence>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: 50, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.15 } }}
+              className="pointer-events-auto w-full bg-surface-2 border border-border/80 rounded-xl p-4 shadow-xl flex gap-3 relative overflow-hidden backdrop-blur-md"
+            >
+              {toast.type === 'success' && (
+                <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
+                  <CheckCircle size={20} strokeWidth={2} />
+                </div>
+              )}
+              {toast.type === 'warning' && (
+                <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                  <AlertTriangle size={20} strokeWidth={2} />
+                </div>
+              )}
+              {toast.type === 'error' && (
+                <div className="w-10 h-10 rounded-full bg-danger/10 border border-danger/20 text-danger flex items-center justify-center shrink-0">
+                  <AlertCircle size={20} strokeWidth={2} />
+                </div>
+              )}
+              {toast.type === 'info' && (
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center shrink-0">
+                  <Info size={20} strokeWidth={2} />
+                </div>
+              )}
+              <div className="flex-1 min-w-0 pr-4">
+                <h4 className="text-sm font-bold text-text-primary">{toast.title}</h4>
+                <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{toast.message}</p>
+              </div>
+              <button
+                onClick={() => removeToast(toast.id)}
+                className="absolute top-2 right-2 text-text-muted hover:text-text-primary transition-colors p-1"
+              >
+                <X size={14} />
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
 
       {/* ═══ OFFLINE SAFEGUARD OVERLAY ═══ */}
       {isOffline && (
